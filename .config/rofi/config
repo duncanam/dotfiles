@@ -1,0 +1,30 @@
+!            __ _                    __ _       
+! _ __ ___  / _(_)   ___ ___  _ __  / _(_) __ _ 
+!| '__/ _ \| |_| |  / __/ _ \| '_ \| |_| |/ _` |
+!| | | (_) |  _| | | (_| (_) | | | |  _| | (_| |
+!|_|  \___/|_| |_|  \___\___/|_| |_|_| |_|\__, |
+!                                         |___/ 
+
+! State:           'bg',     'fg',     'bgalt',  'hlbg',   'hlfg'
+rofi.color-normal: #2E3440,  #cccccc,  #2E3440,  #4c566a,  #8fbcbb
+!rofi.color-urgent: #2E3440,  #8fbcbb,  #2E3440,  #2E3440,  #8fbcbb
+!rofi.color-active: #2E3440,  #8fbcbb,  #2E3440,  #268bd2,  #8fbcbb
+
+!                  'background', 'border', 'separator'
+rofi.color-window: #2E3440,      #002b36,  #8fbcbb
+
+! Set the separator bar to solid
+rofi.separator-style: solid
+
+! Hide the scrollbar 
+rofi.hide-scrollbar: true
+
+! Set the size
+rofi.fullscreen: true
+
+! Add padding
+rofi.padding: 400
+
+! Define font
+rofi.font: SFNS Display 22
+

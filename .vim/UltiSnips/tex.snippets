@@ -1,0 +1,98 @@
+snippet test "test"
+this is a test
+endsnippet
+
+snippet beg "begin{} / end{}" bA
+\begin{$1}
+	$0
+\end{$1}
+endsnippet
+
+snippet bf "begin{figure} / end{figure}" bA
+\begin{figure}[H]
+	\centering
+	\includegraphics[ $1]{$2}
+	\caption{$3}
+	\label{fig:$4}
+\end{figure}
+endsnippet
+
+snippet bt "begin{table} / end{table}" bA
+\begin{table}[H]
+\centering
+\begin{tabular}{${1:columns}}
+${2:data} 
+\end{tabular}
+\caption{$3}
+\label{$4}
+\end{table}
+endsnippet
+
+snippet // "Fraction" iA
+\\frac{$1}{$2}$3
+endsnippet
+
+snippet bm "Bold Math" iA
+\bm{$1}$2
+endsnippet
+
+snippet dm "Math" wA
+\[
+$1
+\]
+$2
+endsnippet
+
+snippet km "Inline Math" iA
+$$1$$2
+endsnippet
+
+snippet ( "Parentheses" i
+\\left( $1 \\right)$2
+endsnippet
+
+snippet [ "Brackets" i
+\\left[ $1 \\right]$2
+endsnippet
+
+snippet bar "Overline" i 
+\overline{$1}$2
+endsnippet
+
+snippet text "Text Mode" i
+\text{$1}$2
+endsnippet
+
+snippet matb "Bracket Matrix" i
+\begin{bmatrix}
+$1
+\end{bmatrix}$2
+endsnippet
+
+snippet mat "Matrix" i
+\begin{matrix}
+$1
+\end{matrix}$2
+endsnippet
+
+snippet array "Arrays" i
+\begin{array}{$1}
+$2
+\end{array} $3
+endsnippet
+
+snippet box "Boxed" i
+\boxed{$1}$2
+endsnippet
+
+snippet ink "Inkscape Figure" i
+\begin{figure}[H]
+\centering
+\def\svgwidth{$1}
+\input{$2.pdf_tex}
+\caption{$3}
+\label{fig:$4}
+\end{figure}
+$5
+endsnippet
+

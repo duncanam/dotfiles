@@ -1,0 +1,7 @@
+In order to list all explicitly installed files:
+	pacman -Qe
+In order to list all installed without version:
+	pacman -Qqe
+In order to list aur installed: (first was from archwiki)
+	pacman -Qqem 
+	pacman -Qqm
