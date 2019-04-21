@@ -4,6 +4,7 @@
 !| | | (_) |  _| | | (_| (_) | | | |  _| | (_| |
 !|_|  \___/|_| |_|  \___\___/|_| |_|_| |_|\__, |
 !                                         |___/ 
+! By Duncan McGough
 
 ! State:           'bg',     'fg',     'bgalt',  'hlbg',   'hlfg'
 rofi.color-normal: #2E3440,  #cccccc,  #2E3440,  #4c566a,  #8fbcbb
