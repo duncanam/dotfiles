@@ -34,7 +34,7 @@ alias mat='matlab -nosplash -nodesktop'
 alias lock='betterlockscreen -l'
 
 # TeX cleaner command
-alias texclean='rm *.aux *.log'
+alias texclean='rm *.aux *.log *.out'
 
 # Grow bonsai trees
 alias bonsai='~/Sync/github/bonsai.sh/bonsai.sh'
