@@ -1,7 +1,6 @@
 ## Duncan McGough's Dotfiles 
 
-![setup image][setup1]
-[setup1]: https://github.com/duncanam/dotfiles/blob/master/images/config.png "Config 1"
+<p align="center"><img src="https://github.com/duncanam/dotfiles/blob/master/images/config.png"/></p>
 
 #### Description
 These are my dotfiles containing my current configuration for my Arch+i3-gaps install. Here are the applications I use and some setup: 
