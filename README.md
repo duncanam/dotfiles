@@ -29,4 +29,5 @@ These are my dotfiles containing my current configuration for my Arch+i3-gaps in
 
 **Browser**: Firefox
 
+<p align="center"><img src="https://github.com/duncanam/dotfiles/blob/master/images/config2.png"/></p>
 
