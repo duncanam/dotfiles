@@ -2,7 +2,7 @@
 
 <p align="center"><img src="https://github.com/duncanam/dotfiles/blob/master/images/config.png"/></p>
 
-#### Description
+### Description
 These are my dotfiles containing my current configuration for my Arch+i3-gaps install. Here are the applications I use and some setup: 
 
 **OS**: Arch Linux
