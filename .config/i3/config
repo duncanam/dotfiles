@@ -232,6 +232,10 @@ bindsym $mod+Shift+m exec --no-startup-id  xinput enable 12
 exec --no-startup-id syncthing 
 
 ######################################################################
+# Screenshot bindings
+bindsym Print exec flameshot gui
+
+######################################################################
 # Enable and disable gaps
 set $mode_gaps Gaps: (o)uter, (i)nner, (h)orizontal, (v)ertical, (t)op, (r)ight, (b)ottom, (l)eft
 set $mode_gaps_outer Outer Gaps: +|-|0 (local), Shift + +|-|0 (global)

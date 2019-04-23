@@ -26,6 +26,7 @@ alias pipes='~/.local/bin/pipes.sh'
 #export FOAM_INST_DIR='$HOME/.OpenFOAM'
 #alias of20x='source $FOAM_INST_DIR/OpenFOAM-2.0.x/etc/bashrc'
 alias ofoam='source /opt/OpenFOAM/OpenFOAM-6/etc/bashrc'
+alias paraFoam='paraFoam -builtin'
 
 # MATLAB alias (nojvm disables java features, vastly increases speed)
 alias mat='matlab -nosplash -nodesktop'
@@ -37,7 +38,7 @@ alias lock='betterlockscreen -l'
 alias texclean='rm *.aux *.log *.out'
 
 # Grow bonsai trees
-alias bonsai='~/Sync/github/bonsai.sh/bonsai.sh'
+alias bonsai='~/github/external/bonsai.sh/bonsai.sh'
 
 # Jupyter lab install directory
 export JUPYTERLAB_DIR=$HOME/.local/share/jupyter/lab
