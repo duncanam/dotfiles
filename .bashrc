@@ -42,6 +42,8 @@ alias bonsai='~/github/external/bonsai.sh/bonsai.sh'
 
 # Jupyter lab install directory
 export JUPYTERLAB_DIR=$HOME/.local/share/jupyter/lab
+alias jn='jupyter notebook --ip=0.0.0.0 --port=8080'
+alias jl='jupyter lab --ip=0.0.0.0 --port=8080'
 
 # Alias the moving back of directories
 alias ...='../..'
