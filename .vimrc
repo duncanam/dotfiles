@@ -35,8 +35,11 @@ let g:tex_conceal='abdmgs'
 " NERDTREE FILE MANAGER
 Plugin 'scrooloose/nerdtree'
 
-" LIGHTLINE STATUS BAR
+" AIRLINE STATUS BAR
 Plugin 'vim-airline/vim-airline'
+
+" GIT BRANCH STUFF
+Plugin 'tpope/vim-fugitive'
 
 " NORD SYNTAX COLORSCHEME
 Plugin 'arcticicestudio/nord-vim'
@@ -94,6 +97,8 @@ let g:nord_underline = 1
 
 " Add Airline Settings
 let g:airline_powerline_fonts = 1
+" Not sure what this section is so I am disabling it for now:
+let g:airline_section_warning = ""
 
 "-----------------------------------------
 " Set the cursor in the center of the window when scrolling
