@@ -50,7 +50,8 @@ alias ...='../..'
 alias ....='../../../'
 
 # Alias for starting ranger in Sync
-alias sranger='cd ~/Sync && ranger'
+alias sranger='cd ~/sync && ranger'
 
+# Get me some 256s colors
 export TERM=rxvt-256color
 

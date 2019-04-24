@@ -206,7 +206,7 @@ bindsym XF86AudioPrev exec playerctl previous
 ######################################################################
 # Set wallpaper
 #exec_always --no-startup-id feh --bg-fill ~/Sync/personal/media/wallpaper/arch/arch3.png
-exec_always --no-startup-id feh --bg-fill ~/Sync/personal/media/NordArch.png
+exec_always --no-startup-id feh --bg-fill ~/sync/personal/media/NordArch.png
 
 ######################################################################
 # Set matlab/python plot windows to float by default 

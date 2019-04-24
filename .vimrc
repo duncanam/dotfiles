@@ -29,11 +29,14 @@ let g:vimtex_fold_enabled=1
 let g:vimtex_fold_manual=1
 let g:vimtex_view_method='zathura'
 let g:vimtex_quickfix_mode=0
-set conceallevel=2
+set conceallevel=1
 let g:tex_conceal='abdmgs'
 
-" PLUGIN FOR SOME SYNTAX COLORSCHEMES
-"Plugin 'flazz/vim-colorschemes'
+" NERDTREE FILE MANAGER
+Plugin 'scrooloose/nerdtree'
+
+" LIGHTLINE STATUS BAR
+Plugin 'vim-airline/vim-airline'
 
 " NORD SYNTAX COLORSCHEME
 Plugin 'arcticicestudio/nord-vim'
@@ -49,10 +52,6 @@ let g:UltiSnipsExpandTrigger = '<tab>'
 let g:UltiSnipsListSnippets = '<c-l>'
 let g:UltiSnipsJumpForwardTrigger='<tab>'
 let g:UltiSnipsJumpBackwardTrigger='<s-tab>'
-"let g:UltiSnipsExpandTrigger = '<c-j>'
-"let g:UltiSnipsListSnippets = '<c-l>'
-"let g:UltiSnipsJumpForwardTrigger='<c-j>'
-"let g:UltiSnipsJumpBackwardTrigger='<c-k>'
 
 " All of your Plugins must be added before the following line
 call vundle#end()            " required
@@ -93,9 +92,8 @@ let g:nord_underline = 1
 "let g:nord_comment_brightness = 12
 "----------------------------------------
 
-" Add Powerline Settings
-let g:powerline_pycmd="py3"
-set laststatus=2
+" Add Airline Settings
+let g:airline_powerline_fonts = 1
 
 "-----------------------------------------
 " Set the cursor in the center of the window when scrolling
@@ -125,3 +123,6 @@ colorscheme nord
 " Turn off audoindent for LaTeX
 au BufEnter *.tex setlocal indentexpr=
 
+"----------------------------------------
+" NERDTree Toggle
+map <C-a> :NERDTreeToggle<CR>
