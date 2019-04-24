@@ -29,7 +29,7 @@ let g:vimtex_fold_enabled=1
 let g:vimtex_fold_manual=1
 let g:vimtex_view_method='zathura'
 let g:vimtex_quickfix_mode=0
-set conceallevel=1
+set conceallevel=2
 let g:tex_conceal='abdmgs'
 
 " NERDTREE FILE MANAGER
@@ -131,3 +131,8 @@ au BufEnter *.tex setlocal indentexpr=
 "----------------------------------------
 " NERDTree Toggle
 map <C-a> :NERDTreeToggle<CR>
+
+"----------------------------------------
+" Conceal the background of the conceals
+hi Conceal ctermbg=none
+
