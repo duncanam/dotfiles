@@ -16,3 +16,5 @@ set recolor-lightcolor '#2E3440'
 map <=> zoom in 
 map <-> zoom out
 
+# Set to auto take selections to clipboard
+set selection-clipboard clipboard
