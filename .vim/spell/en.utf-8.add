@@ -29,3 +29,4 @@ config
 dotfiles
 Anisotropic
 isotropy
+Vorticity
