@@ -35,6 +35,9 @@ let g:tex_conceal='abdmgs'
 " NERDTREE FILE MANAGER
 Plugin 'scrooloose/nerdtree'
 
+" VIMWIKI 
+Plugin 'vimwiki/vimwiki'
+
 " AIRLINE STATUS BAR
 Plugin 'vim-airline/vim-airline'
 
@@ -106,12 +109,14 @@ set so=999
 "-----------------------------------------
 " Set local leader
 let maplocalleader = '-'
+let mapleader = '-'
 "-----------------------------------------
 " TURN ON SPELL CHECK
 setlocal spell spelllang=en_us
 set nospell
 au BufEnter *.txt setlocal spell spelllang=en_us
 au BufEnter *.tex setlocal spell spelllang=en_us
+au BufEnter *.md setlocal spell spelllang=en_us
 hi clear SpellBad
 hi SpellBad cterm=underline
 
@@ -135,4 +140,12 @@ map <C-a> :NERDTreeToggle<CR>
 "----------------------------------------
 " Conceal the background of the conceals
 hi Conceal ctermbg=none
+
+"----------------------------------------
+" Remap jk to escape fro quick editing
+inoremap jk <esc>
+
+"----------------------------------------
+" Remap F9 to Python run:
+nnoremap <F9> <Esc>:w<CR>:!clear;python  %<CR>
 

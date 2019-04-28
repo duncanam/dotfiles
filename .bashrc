@@ -38,7 +38,7 @@ alias lock='betterlockscreen -l'
 alias texclean='rm *.aux *.log *.out'
 
 # Grow bonsai trees
-alias bonsai='~/github/external/bonsai.sh/bonsai.sh'
+alias bonsai='~/sync/github/bonsai.sh/bonsai.sh'
 
 # Jupyter lab install directory
 export JUPYTERLAB_DIR=$HOME/.local/share/jupyter/lab
