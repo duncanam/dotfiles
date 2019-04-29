@@ -27,6 +27,7 @@ Plugin 'lervag/vimtex'
 let g:tex_flavor='latex'
 let g:vimtex_fold_enabled=1
 let g:vimtex_fold_manual=1
+let g:latex_view_general_viewer = 'zathura'
 let g:vimtex_view_method='zathura'
 let g:vimtex_quickfix_mode=0
 set conceallevel=2
@@ -85,7 +86,7 @@ augroup numbertoggle
 augroup END
 "----------------------------------------
 " Remap enter for new line without enter mode
-nmap <CR> o<Esc>k
+nmap <CR> o<C-c>
 
 "----------------------------------------
 " Turn on syntax highlighting
@@ -108,8 +109,8 @@ let g:airline_section_warning = ""
 set so=999
 "-----------------------------------------
 " Set local leader
-let maplocalleader = '-'
-let mapleader = '-'
+let maplocalleader = "\<Space>"
+
 "-----------------------------------------
 " TURN ON SPELL CHECK
 setlocal spell spelllang=en_us
@@ -148,4 +149,3 @@ inoremap jk <esc>
 "----------------------------------------
 " Remap F9 to Python run:
 nnoremap <F9> <Esc>:w<CR>:!clear;python  %<CR>
-
