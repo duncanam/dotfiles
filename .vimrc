@@ -51,6 +51,9 @@ Plugin 'arcticicestudio/nord-vim'
 " PLUGIN FOR MATLAB SYNTAXING
 Plugin 'MatlabFilesEdition'
 
+" Plugin for OpenFOAM:
+"Plugin 'vimextensionopenfoam'
+
 " POWERFUL PLUGIN FOR SNIPPETS
 Plugin 'SirVer/ultisnips'
 let g:UltiSnipsEditSplit='tabdo'
@@ -86,7 +89,7 @@ augroup numbertoggle
 augroup END
 "----------------------------------------
 " Remap enter for new line without enter mode
-nmap <CR> o<C-c>
+nmap <CR> o<esc>
 
 "----------------------------------------
 " Turn on syntax highlighting
@@ -110,6 +113,7 @@ set so=999
 "-----------------------------------------
 " Set local leader
 let maplocalleader = "\<Space>"
+let mapleader = "\<Space>" 
 
 "-----------------------------------------
 " TURN ON SPELL CHECK

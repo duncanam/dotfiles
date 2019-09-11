@@ -19,13 +19,10 @@ POWERLINE_BASH_CONTINUATION=1
 POWERLINE_BASH_SELECT=1
 . /usr/share/powerline/bindings/bash/powerline.sh 
 
-# Command for pipes.sh
-alias pipes='~/.local/bin/pipes.sh'
-
 # OpenFOAM Install
 #export FOAM_INST_DIR='$HOME/.OpenFOAM'
 #alias of20x='source $FOAM_INST_DIR/OpenFOAM-2.0.x/etc/bashrc'
-alias ofoam='source /opt/OpenFOAM/OpenFOAM-6/etc/bashrc'
+alias ofoam='source /opt/OpenFOAM/OpenFOAM-7/etc/bashrc'
 alias paraFoam='paraFoam -builtin'
 
 # MATLAB alias (nojvm disables java features, vastly increases speed)
@@ -38,7 +35,7 @@ alias lock='betterlockscreen -l'
 alias texclean='rm *.aux *.log *.out'
 
 # Grow bonsai trees
-alias bonsai='~/sync/github/bonsai.sh/bonsai.sh'
+alias bonsai='~/github/external/bonsai.sh/bonsai.sh'
 
 # Jupyter lab install directory
 export JUPYTERLAB_DIR=$HOME/.local/share/jupyter/lab
@@ -51,6 +48,7 @@ alias ....='../../../'
 
 # Alias for starting ranger in Sync
 alias sranger='cd ~/sync && ranger'
+alias ssranger='cd /home/duncan/sync/school/fall2019 && ranger'
 
 # Get me some 256s colors
 export TERM=rxvt-256color
