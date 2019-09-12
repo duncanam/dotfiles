@@ -157,3 +157,8 @@ nnoremap <F9> <Esc>:w<CR>:!clear;python  %<CR>
 "----------------------------------------
 " Code Folding, generic:
 "set foldmethod=indent
+
+"----------------------------------------
+" MOUSE STUFF...?
+set mouse=a "enable mouse 
+set whichwrap=b,s,<,>,[,] " set arrow key like wrapping 
