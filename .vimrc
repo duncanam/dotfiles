@@ -19,6 +19,9 @@ call vundle#begin()
 " let Vundle manage Vundle, required
 Plugin 'VundleVim/Vundle.vim'
 
+" Julia Vim Syntax
+Plugin 'JuliaEditorSupport/julia-vim'
+
 " GIVES CONCEAL OF TEXT AND OTHER TEX COMMANDS
 Plugin 'KeitaNakamura/tex-conceal.vim'
 

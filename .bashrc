@@ -5,8 +5,14 @@
 # If not running interactively, don't do anything
 [[ $- != *i* ]] && return
 
+# Add color to LS
 alias ls='ls --color=auto'
-PS1='[\u@\h \W]\$ '
+
+
+# Customize prompt
+#PS1='[\u@\h \W]\$ '
+#PS1='[\[\e[36m\]\u\[\e[m\]@\[\e[35m\]\h \[\e[m\]\W]\$ '
+PS1=' \[\e[32m\]\W\[\e[m\] \[\e[36m\]>\[\e[m\] '
 
 # Start xinit (i3 start is in .xinitrc) 
 if [[ "$(tty)" = "/dev/tty1" ]]; then
@@ -14,10 +20,10 @@ if [[ "$(tty)" = "/dev/tty1" ]]; then
 fi 
 
 # Powerline enable 
-powerline-daemon -q
-POWERLINE_BASH_CONTINUATION=1
-POWERLINE_BASH_SELECT=1
-. /usr/share/powerline/bindings/bash/powerline.sh 
+#powerline-daemon -q
+#POWERLINE_BASH_CONTINUATION=1
+#POWERLINE_BASH_SELECT=1
+#. /usr/share/powerline/bindings/bash/powerline.sh 
 
 # OpenFOAM Install
 #export FOAM_INST_DIR='$HOME/.OpenFOAM'
