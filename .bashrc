@@ -8,7 +8,6 @@
 # Add color to LS
 alias ls='ls --color=auto'
 
-
 # Customize prompt
 #PS1='[\u@\h \W]\$ '
 #PS1='[\[\e[36m\]\u\[\e[m\]@\[\e[35m\]\h \[\e[m\]\W]\$ '
@@ -18,12 +17,6 @@ PS1=' \[\e[32m\]\W\[\e[m\] \[\e[36m\]>\[\e[m\] '
 if [[ "$(tty)" = "/dev/tty1" ]]; then
 	startx
 fi 
-
-# Powerline enable 
-#powerline-daemon -q
-#POWERLINE_BASH_CONTINUATION=1
-#POWERLINE_BASH_SELECT=1
-#. /usr/share/powerline/bindings/bash/powerline.sh 
 
 # OpenFOAM Install
 #export FOAM_INST_DIR='$HOME/.OpenFOAM'
@@ -48,14 +41,23 @@ export JUPYTERLAB_DIR=$HOME/.local/share/jupyter/lab
 alias jn='jupyter notebook --ip=0.0.0.0 --port=8080'
 alias jl='jupyter lab --ip=0.0.0.0 --port=8080'
 
-# Alias the moving back of directories
-alias ...='../..'
-alias ....='../../../'
-
-# Alias for starting ranger in Sync
-alias sranger='cd ~/sync && ranger'
-alias ssranger='cd /home/duncan/sync/school/fall2019 && ranger'
-
 # Get me some 256s colors
 export TERM=rxvt-256color
 
+# Synchronize ranger and the shell directory with new function:
+function ranger-cd {
+    tempfile="$(mktemp -t tmp.XXXXXX)"
+    ranger --choosedir="$tempfile" "${@:-$(pwd)}"
+    test -f "$tempfile" &&
+    if [ "$(cat -- "$tempfile")" != "$(echo -n `pwd`)" ]; then
+        cd -- "$(cat "$tempfile")"
+    fi
+    rm -f -- "$tempfile"
+}
+
+# Alias for starting ranger in Sync
+alias r='ranger-cd'
+alias sr='cd ~/sync && ranger-cd'
+alias ssr='cd /home/duncan/sync/school/fall2019 && ranger-cd'
+alias dr='cd ~/Downloads && ranger-cd'
+alias gr='cd ~/github && ranger-cd'

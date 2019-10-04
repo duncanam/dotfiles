@@ -364,6 +364,7 @@ set $background #2E3440
 set $base0 #4c566a
 set $base2 #8fbcbb
 
+# class                 border  backgr. text    indicator child_border
 client.focused          $background     $background     $base2          $background
 client.unfocused        $background     $background     $base0          $background
 client.focused_inactive $base0          $background     $base2          $background
