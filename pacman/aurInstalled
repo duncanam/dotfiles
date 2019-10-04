@@ -1,6 +1,10 @@
 betterlockscreen
+cava
 cli-visualizer
+debtap
 gotop-bin
+mathematica
+minecraft-launcher
 nordic-theme-git
 nordvpn-bin
 openfoam
@@ -13,8 +17,15 @@ s-tui
 signal-desktop-bin
 siji-git
 slack-desktop
+spicetify-cli
+spicetify-themes-git
 spotify
 termsyn-font
+texlive-local-framed
+texlive-local-ifmtarg
+texlive-local-import
+texlive-local-xifthen
+texlive-localmanager-git
 ttf-ms-fonts
 ttf-symbola
 ttf-ubraille

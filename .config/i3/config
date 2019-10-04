@@ -359,5 +359,14 @@ mode "$mode_gaps_left" {
 }
 
 ######################################################################
+# Change title bar colors, match Nord theme
+set $background #2E3440
+set $base0 #4c566a
+set $base2 #8fbcbb
 
+client.focused          $background     $background     $base2          $background
+client.unfocused        $background     $background     $base0          $background
+client.focused_inactive $base0          $background     $base2          $background
+client.urgent           $background     #282d37         $background     $background
+client.placeholder      $background     #282D37         $background     $background
 
