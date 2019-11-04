@@ -11,7 +11,7 @@ alias ls='ls --color=auto'
 # Customize prompt
 #PS1='[\u@\h \W]\$ '
 #PS1='[\[\e[36m\]\u\[\e[m\]@\[\e[35m\]\h \[\e[m\]\W]\$ '
-PS1=' \[\e[32m\]\W\[\e[m\] \[\e[36m\]>\[\e[m\] '
+PS1=' \[\e[32m\]\W\[\e[m\] \[\e[36m\]❯\[\e[m\] '
 
 # Start xinit (i3 start is in .xinitrc) 
 if [[ "$(tty)" = "/dev/tty1" ]]; then
@@ -61,3 +61,10 @@ alias sr='cd ~/sync && ranger-cd'
 alias ssr='cd /home/duncan/sync/school/fall2019 && ranger-cd'
 alias dr='cd ~/Downloads && ranger-cd'
 alias gr='cd ~/github && ranger-cd'
+
+# Add /opt paraview to path
+export PATH=$PATH:/opt/paraview/bin
+
+# Test out this thing
+eval "$(thefuck --alias)"
+

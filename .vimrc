@@ -162,6 +162,13 @@ nnoremap <F9> <Esc>:w<CR>:!clear;python  %<CR>
 "set foldmethod=indent
 
 "----------------------------------------
-" MOUSE STUFF...?
+" MOUSE STUFF
 set mouse=a "enable mouse 
 set whichwrap=b,s,<,>,[,] " set arrow key like wrapping 
+
+"----------------------------------------
+" Fix Extreme Tab Length
+set tabstop=4 " width of hard tabstop measured in spaces
+set shiftwidth=4 " size of indent, in spaces
+set softtabstop=4 " set # of columns for tab
+

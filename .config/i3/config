@@ -12,7 +12,7 @@ set $mod Mod4
 
 # Font for window titles. Will also be used by the bar unless a different font
 # is used in the bar {} block below.
-font pango:monospace 8
+font pango:monospace 10
 
 # use these keys for focus, movement, and resize directions when reaching for
 # the arrows is not convenient
@@ -205,7 +205,6 @@ bindsym XF86AudioPrev exec playerctl previous
 
 ######################################################################
 # Set wallpaper
-#exec_always --no-startup-id feh --bg-fill ~/Sync/personal/media/wallpaper/arch/arch3.png
 exec_always --no-startup-id feh --bg-fill ~/sync/personal/media/NordArch.png
 
 ######################################################################
@@ -214,7 +213,7 @@ for_window [title="Figure*"] floating enable
 
 ######################################################################
 # Remove i3 borders
-default_border none
+#default_border none
 
 ######################################################################
 # Rebuild Xresources on every restart of i3	
@@ -361,13 +360,14 @@ mode "$mode_gaps_left" {
 ######################################################################
 # Change title bar colors, match Nord theme
 set $background #2E3440
+set $nord1 #3b4252
 set $base0 #4c566a
 set $base2 #8fbcbb
 
-# class                 border  backgr. text    indicator child_border
+# class                 border  	backgr. text    indicator 	child_border
 client.focused          $background     $background     $base2          $background
-client.unfocused        $background     $background     $base0          $background
-client.focused_inactive $base0          $background     $base2          $background
+client.unfocused        $background     $background     $nord1          $background
+client.focused_inactive $background     $background     $nord1     	$background
 client.urgent           $background     #282d37         $background     $background
 client.placeholder      $background     #282D37         $background     $background
 
