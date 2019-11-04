@@ -65,6 +65,3 @@ alias gr='cd ~/github && ranger-cd'
 # Add /opt paraview to path
 export PATH=$PATH:/opt/paraview/bin
 
-# Test out this thing
-eval "$(thefuck --alias)"
-
