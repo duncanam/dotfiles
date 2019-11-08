@@ -70,7 +70,7 @@ font-4 = Font Awesome 5 Brands Regular:pixelside=10
 font-5 = Font Awesome 5 Free Solid:pixelsize=10
 
 
-modules-left = powermenu date backlight-acpi pulseaudio
+modules-left = powermenu date backlight-acpi pulseaudio spotify
 modules-center = i3
 modules-right = filesystem memory cpu temperature battery wlan eth 
 ; powermenu 
@@ -375,7 +375,6 @@ format-charging-underline = #ffb52a
 
 format-discharging = <animation-discharging> <label-discharging>
 format-discharging-underline = ${self.format-charging-underline}
-
 format-full-prefix = " "
 format-full-prefix-foreground = ${colors.foreground-alt}
 format-full-underline = ${self.format-charging-underline}
@@ -463,6 +462,23 @@ screenchange-reload = true
 [global/wm]
 margin-top = 5
 margin-bottom = 5
+
+[module/spotify]
+type = custom/script
+interval = 1
+format-prefix = " "
+format-prefix-foreground = ${colors.foreground-alt}
+format = <label>
+exec = python ~/.config/polybar/scripts/spotify_status.py -f '{artist}: {song}'
+format-underline = #1db954
+click-left = i3-msg '[class="Spotify"] focus'
+
+
+
+
+
+
+
 
 
 ; vim:ft=dosini
