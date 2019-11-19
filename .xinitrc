@@ -16,6 +16,9 @@ fi
 # DISABLED SINCE i3 DOES THIS
 #exec xrdb .Xresources 
 
+# Set up QT and GTK sync
+export QT_STYLE_OVERRIDE=gtk2
+
 # Start i3-gaps:
 exec i3
 
