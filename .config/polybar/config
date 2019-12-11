@@ -70,7 +70,7 @@ font-4 = Font Awesome 5 Brands Regular:pixelside=10
 font-5 = Font Awesome 5 Free Solid:pixelsize=10
 
 
-modules-left = powermenu date backlight-acpi pulseaudio spotify 
+modules-left = powermenu date backlight-acpi pulseaudio updates-arch-combined spotify 
 modules-center = i3
 modules-right = vpn filesystem memory cpu temperature battery wlan eth
 ; powermenu 
@@ -482,6 +482,12 @@ format-prefix = "  "
 format-prefix-foreground = ${colors.foreground-alt}
 format = <label>
 
+[module/updates-arch-combined]
+type = custom/script
+exec = ~/.config/polybar/scripts/updates-arch-combined.sh
+interval = 600
+format-prefix = "  "
+format-prefix-foreground = ${colors.foreground-alt}
 
 
 
