@@ -70,9 +70,9 @@ font-4 = Font Awesome 5 Brands Regular:pixelside=10
 font-5 = Font Awesome 5 Free Solid:pixelsize=10
 
 
-modules-left = powermenu date backlight-acpi pulseaudio spotify
+modules-left = powermenu date backlight-acpi pulseaudio spotify 
 modules-center = i3
-modules-right = filesystem memory cpu temperature battery wlan eth 
+modules-right = vpn filesystem memory cpu temperature battery wlan eth
 ; powermenu 
 
 tray-position = right
@@ -466,14 +466,21 @@ margin-bottom = 5
 [module/spotify]
 type = custom/script
 interval = 1
-format-prefix = " "
+format-prefix = "  "
 format-prefix-foreground = ${colors.foreground-alt}
 format = <label>
-exec = python ~/.config/polybar/scripts/spotify_status.py -f '{artist}: {song}'
+exec = python ~/.config/polybar/scripts/spotify_status.py -f '{play_pause} {artist}: {song}' -t 60
 format-underline = #1db954
 click-left = i3-msg '[class="Spotify"] focus'
 
-
+[module/vpn]
+type = custom/script
+exec = expressvpn status | head -n 1 | sed 's/\x1B\[[0-9;]\+[A-Za-z]//g'
+interval = 3
+format-underline = #268bd2
+format-prefix = "  "
+format-prefix-foreground = ${colors.foreground-alt}
+format = <label>
 
 
 
