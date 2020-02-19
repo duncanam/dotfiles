@@ -58,10 +58,15 @@ function ranger-cd {
 # Alias for starting ranger in Sync
 alias r='ranger-cd'
 alias sr='cd ~/sync && ranger-cd'
-alias ssr='cd /home/duncan/sync/school/fall2019 && ranger-cd'
+alias ssr='cd /home/duncan/sync/school/spring2020 && ranger-cd'
 alias dr='cd ~/Downloads && ranger-cd'
 alias gr='cd ~/github && ranger-cd'
 
 # Add /opt paraview to path
 export PATH=$PATH:/opt/paraview/bin
 
+# Add tar alias
+alias detar='tar -xzvf'
+
+# VisIt alias
+alias visit='/opt/visit/bin/visit'
