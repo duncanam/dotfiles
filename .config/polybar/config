@@ -469,13 +469,14 @@ interval = 1
 format-prefix = "  "
 format-prefix-foreground = ${colors.foreground-alt}
 format = <label>
-exec = python ~/.config/polybar/scripts/spotify_status.py -f '{play_pause} {artist}: {song}' -t 60
+exec = python ~/.config/polybar/scripts/spotify_status.py -f '{play_pause} {artist}: {song}' -t 35
 format-underline = #1db954
 click-left = i3-msg '[class="Spotify"] focus'
 
 [module/vpn]
 type = custom/script
-exec = expressvpn status | head -n 1 | sed 's/\x1B\[[0-9;]\+[A-Za-z]//g'
+exec = expressvpn status | grep Connect | sed 's/\x1B\[[0-9;]\+[A-Za-z]//g' || expressvpn status | grep Disconnected | sed 's/\x1B\[[0-9;]\+[A-Za-z]//g'
+#exec = expressvpn status | grep -v new | sed 's/\x1B\[[0-9;]\+[A-Za-z]//g' | head -n 2 | tail -n 1
 interval = 3
 format-underline = #268bd2
 format-prefix = "  "
