@@ -22,7 +22,7 @@ fi
 #export FOAM_INST_DIR='$HOME/.OpenFOAM'
 #alias of20x='source $FOAM_INST_DIR/OpenFOAM-2.0.x/etc/bashrc'
 alias ofoam='source /opt/OpenFOAM/OpenFOAM-7/etc/bashrc'
-alias paraFoam='paraFoam -builtin'
+#alias paraFoam='paraFoam -builtin'
 
 # MATLAB alias (nojvm disables java features, vastly increases speed)
 alias mat='matlab -nosplash -nodesktop'

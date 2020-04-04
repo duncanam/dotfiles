@@ -12,9 +12,11 @@ set recolor true
 #set recolor-lightcolor '#16171e'
 set recolor-lightcolor '#2E3440'
 # Set our highlight color to be Nord:
-set highlight-color '#8fbcbb'
+#set highlight-color '#8fbcbb'
+set highlight-color '#a3be8c'
+#set highlight-active-color '#8fbcbb'
 set highlight-active-color '#8fbcbb'
-set highlight-transparency 0.2
+#set highlight-transparency 0.2
 
 # Set the zoom in and out mappings 
 map <=> zoom in 
