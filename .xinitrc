@@ -15,11 +15,22 @@ fi
 # Reload .Xresources to be safe 
 # DISABLED SINCE i3 DOES THIS
 #exec xrdb .Xresources 
+#
+
+# Source some stuff for secret storage
+. /etc/X11/xinit/xinitrc.d/50-systemd-user.sh
 
 # Set up QT and GTK sync
 export QT_STYLE_OVERRIDE=gtk2
 
 # Start i3-gaps:
 exec i3
+
+# Start dbus
+exec dbus-launch 
+
+# Keyring stuff
+eval $(/usr/bin/gnome-keyring-daemon --start --components=pkcs11,secrets,ssh)
+export SSH_AUTH_SOCK
 
 

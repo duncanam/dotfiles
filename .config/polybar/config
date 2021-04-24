@@ -473,11 +473,20 @@ exec = python ~/.config/polybar/scripts/spotify_status.py -f '{play_pause} {arti
 format-underline = #1db954
 click-left = i3-msg '[class="Spotify"] focus'
 
-[module/vpn]
+[module/expressvpn]
 type = custom/script
 exec = expressvpn status | grep Connect | sed 's/\x1B\[[0-9;]\+[A-Za-z]//g' ; expressvpn status | grep Not | sed 's/\x1B\[[0-9;]\+[A-Za-z]//g' ; expressvpn status | grep Reconnecting | sed 's/\x1B\[[0-9;]\+[A-Za-z]//g'
-
 #exec = expressvpn status | grep -v new | sed 's/\x1B\[[0-9;]\+[A-Za-z]//g' | head -n 2 | tail -n 1
+
+interval = 3
+format-underline = #268bd2
+format-prefix = "  "
+format-prefix-foreground = ${colors.foreground-alt}
+format = <label>
+
+[module/vpn]
+type = custom/script
+exec = ivpn status | head -n 1
 interval = 3
 format-underline = #268bd2
 format-prefix = "  "

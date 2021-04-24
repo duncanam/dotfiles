@@ -266,6 +266,10 @@ bindsym $mod+Shift+m exec --no-startup-id  xinput enable 12
 exec --no-startup-id syncthing 
 
 ######################################################################
+# Start iVPN
+exec --no-startup-id ivpn connect us-ca.gw.ivpn.net
+
+######################################################################
 # Screenshot bindings
 bindsym Print exec flameshot gui
 

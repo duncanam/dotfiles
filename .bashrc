@@ -70,3 +70,9 @@ alias detar='tar -xzvf'
 
 # VisIt alias
 alias visit='/opt/visit/bin/visit'
+
+# Conda
+[ -f /opt/miniconda3/etc/profile.d/conda.sh ] && source /opt/miniconda3/etc/profile.d/conda.sh
+
+# Trezor
+export PATH=$PATH:/home/duncan/.local/bin
