@@ -1,0 +1,32 @@
+//configuration {
+//	font: "SFNS Display 22";
+//	padding: 400;
+//	separator-style: "solid";
+//	hide-scrollbar: true;
+//	fullscreen: true;
+//	color-normal: "#2E3440,  #cccccc,  #2E3440,  #4c566a,  #8fbcbb";
+//	color-window: "#2E3440,      #002b36,  #8fbcbb";
+//
+//	background: #2E3440;
+//	background-color: @background;
+//	normal-background: @background;
+//	foreground: @background;
+//	
+//
+//}
+
+configuration {
+	font: "SFNS Display 22";
+    width: 30;
+    line-margin: 10;
+    lines: 6;
+    columns: 2;
+    display-ssh:    "";
+    display-run:    "";
+    display-drun:   "";
+    display-window: "";
+    display-combi:  "";
+    show-icons:     true;
+}
+
+@theme "~/.config/rofi/nord.rasi"
