@@ -19,6 +19,9 @@ call vundle#begin()
 " let Vundle manage Vundle, required
 Plugin 'VundleVim/Vundle.vim'
 
+" YouCompleteMe Autocomplete
+Plugin 'ycm-core/YouCompleteMe'
+
 " Julia Vim Syntax
 Plugin 'JuliaEditorSupport/julia-vim'
 
@@ -56,6 +59,9 @@ Plugin 'MatlabFilesEdition'
 
 " Plugin for OpenFOAM:
 "Plugin 'vimextensionopenfoam'
+
+" Debugger
+Plugin 'puremourning/vimspector'
 
 " POWERFUL PLUGIN FOR SNIPPETS
 Plugin 'SirVer/ultisnips'
@@ -104,7 +110,10 @@ let g:nord_underline = 1
 "let g:nord_italic_comments = 1
 "let g:nord_comment_brightness = 12
 "----------------------------------------
+"Debugger settings
+let g:vimspector_enable_mappings = 'HUMAN'
 
+"----------------------------------------
 " Add Airline Settings
 let g:airline_powerline_fonts = 1
 " Not sure what this section is so I am disabling it for now:
@@ -159,7 +168,9 @@ nnoremap <F9> <Esc>:w<CR>:!clear;python  %<CR>
 
 "----------------------------------------
 " Code Folding, generic:
-"set foldmethod=indent
+set foldenable
+set foldmethod=indent
+set foldlevel=99
 
 "----------------------------------------
 " MOUSE STUFF
