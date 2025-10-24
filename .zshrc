@@ -98,9 +98,6 @@ fi
 # Compilation flags
 # export ARCHFLAGS="-arch $(uname -m)"
 
-# Set personal aliases
-alias n="nvim"
-
 # Get the powerline theme info
 source ~/.powerlevel10k/powerlevel10k.zsh-theme
 
@@ -114,7 +111,7 @@ export SYSTEMD_EDITOR=$EDITOR;
 export SUDO_EDITOR=$EDITOR;
 
 # Yazi
-alias yazi="/Users/duncan/bin/yazi/yazi"
+alias yazi="~/bin/yazi/yazi"
 function t() {
 	local tmp="$(mktemp -t "yazi-cwd.XXXXXX")" cwd
 	yazi "$@" --cwd-file="$tmp"
@@ -124,5 +121,14 @@ function t() {
 }
 
 # Lazygit
-alias lazygit="/Users/duncan/bin/lazygit/lazygit"
+alias lazygit="~/bin/lazygit/lazygit"
 alias lg="lazygit"
+
+# Neovim
+alias nvim="~/bin/nvim/bin/nvim"
+alias n="nvim"
+
+# Paths
+export PATH=~/bin/lazygit:$PATH
+export PATH=~/bin/nvim/bin:$PATH
+export PATH=~/bin/yazi:$PATH
