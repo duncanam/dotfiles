@@ -57,6 +57,7 @@ map("n", "<leader>dt", function()
 end, { desc = "Diffview Open Commit Range" })
 
 -- AI Slop
+-- Use Ctrl + , (control+comma) to toggle once active
 vim.keymap.set("n", "<leader>cc", "<cmd>ClaudeCode<CR>", { desc = "Toggle Claude Code" })
 
 -- Window Resizing
