@@ -10,7 +10,7 @@ map("n", ";", ":", { desc = "CMD enter command mode" })
 map("n", "<leader>w", "<cmd>w<CR>", { desc = "general save file" })
 
 -- Quit
-map("n", "<leader>q", "<cmd>q<CR>", { desc = "quit"})
+map("n", "<leader>q", "<cmd>q<CR>", { desc = "quit" })
 
 -- Explorer
 map("n", "<leader>e", "<cmd>NvimTreeToggle<cr>", { desc = "toggle nvimtree" })
@@ -28,7 +28,7 @@ map("n", "<F4>", "<cmd>lua require'dap'.terminate()<CR>")
 map("n", "<F10>", "<cmd>lua require'dap'.step_over()<CR>")
 map("n", "<F11>", "<cmd>lua require'dap'.step_into()<CR>")
 map("n", "<F12>", "<cmd>lua require'dap'.step_out()<CR>")
-map("n", "<leader>du", "<cmd>lua require'dapui'.toggle()<CR>", { desc = "Toggle DAP UI"})
+map("n", "<leader>du", "<cmd>lua require'dapui'.toggle()<CR>", { desc = "Toggle DAP UI" })
 
 -- LSP
 map("n", "<leader>ld", "<cmd>lua require'telescope.builtin'.diagnostics()<CR>", { desc = "LSP Buffer Diagnostics" })
@@ -37,20 +37,24 @@ map("n", "gd", "<cmd> lua require'telescope.builtin'.lsp_definitions()<CR>", { d
 -- Find/Replace with Spectre
 map("n", "<leader>ss", "<cmd>lua require('spectre').toggle()<CR>", { desc = "Open Spectre Find/Replace" })
 map("n", "<leader>sr", "<cmd>lua require('spectre.actions').run_replace()<CR>", { desc = "Specter Replace All" })
-map("n", "<leader>sc", "<cmd>lua require('spectre.actions').run_current_replace()<CR>", { desc = "Specter Replace Current" })
+map(
+  "n",
+  "<leader>sc",
+  "<cmd>lua require('spectre.actions').run_current_replace()<CR>",
+  { desc = "Specter Replace Current" }
+)
 
 -- Diffview
 map("n", "<leader>dc", "<cmd>DiffviewClose<CR>", { desc = "Diffview Close" })
 map("n", "<leader>do", function()
   vim.cmd("DiffviewOpen " .. vim.fn.input "Commit range: ")
-end, { desc = "Diffview Open" }
-)
+end, { desc = "Diffview Open" })
 map("n", "<leader>dh", function()
   vim.cmd("DiffviewOpen HEAD~" .. vim.fn.input "From HEAD~: " .. "..HEAD~" .. vim.fn.input "To HEAD~: ")
-end, { desc = "Diffview Open HEAD Range" }
-)
+end, { desc = "Diffview Open HEAD Range" })
 map("n", "<leader>dt", function()
   vim.cmd("DiffviewOpen " .. vim.fn.input "From commit: " .. ".." .. vim.fn.input "To commit: ")
-end, { desc = "Diffview Open Commit Range" }
-)
+end, { desc = "Diffview Open Commit Range" })
 
+-- AI Slop
+vim.keymap.set("n", "<leader>cc", "<cmd>ClaudeCode<CR>", { desc = "Toggle Claude Code" })
