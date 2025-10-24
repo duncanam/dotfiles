@@ -58,3 +58,9 @@ end, { desc = "Diffview Open Commit Range" })
 
 -- AI Slop
 vim.keymap.set("n", "<leader>cc", "<cmd>ClaudeCode<CR>", { desc = "Toggle Claude Code" })
+
+-- Window Resizing
+map("n", "<C-Up>", "<cmd>resize +2<CR>", { desc = "Increase window height" })
+map("n", "<C-Down>", "<cmd>resize -2<CR>", { desc = "Decrease window height" })
+map("n", "<C-Right>", "<cmd>vertical resize -2<CR>", { desc = "Increase window width" })
+map("n", "<C-Left>", "<cmd>vertical resize +2<CR>", { desc = "Decrease window width" })
