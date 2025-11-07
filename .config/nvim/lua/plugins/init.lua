@@ -1,7 +1,7 @@
 return {
   {
     "stevearc/conform.nvim",
-    event = 'BufWritePre', -- format on save
+    event = "BufWritePre", -- format on save
     opts = require "configs.conform",
   },
 
@@ -17,8 +17,14 @@ return {
     lazy = false,
   },
 
+  {
+    "nvim-pack/nvim-spectre",
+    dependencies = {
+      "nvim-lua/plenary.nvim",
+    },
+  },
+
   -- TODO: test new blink
   -- This is an experimental replacement for nvim-cmp
   -- { import = "nvchad.blink.lazyspec" },
-
 }
