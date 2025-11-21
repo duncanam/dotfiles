@@ -124,6 +124,9 @@ function t() {
 alias lazygit="~/bin/lazygit/lazygit"
 alias lg="lazygit"
 
+# Git reset to branch point
+alias gr='git reset --soft $(git merge-base HEAD origin/main)'
+
 # Neovim
 alias nvim="~/bin/nvim/bin/nvim"
 alias n="nvim"
