@@ -7,7 +7,7 @@ return {
     { "<leader>ca", "<cmd>Gemini ask<cr>", desc = "Ask Gemini", mode = { "n", "v" } },
     { "<leader>cf", "<cmd>Gemini add_file<cr>", desc = "Add File" },
     -- Global keybinding to toggle Gemini with Ctrl+.
-    { "<C-.>", "<cmd>Gemini toggle<cr>", desc = "Toggle Gemini CLI", mode = { "n", "v", "i", "t" } },
+    -- { "<C-.>", "<cmd>Gemini toggle<cr>", desc = "Toggle Gemini CLI", mode = { "n", "v", "i", "t" } },
   },
   dependencies = {
     "folke/snacks.nvim",
@@ -54,11 +54,11 @@ return {
           -- Close with q in normal mode
           q = "hide",
           -- Ctrl+. to toggle (hide) from within the terminal
-          ["<C-.>"] = {
-            "hide",
-            mode = { "n", "t" },
-            desc = "Hide Gemini terminal",
-          },
+          -- ["<C-.>"] = {
+          --   "hide",
+          --   mode = { "n", "t" },
+          --   desc = "Hide Gemini terminal",
+          -- },
           -- Standard Neovim way to exit terminal mode
           ["<C-\\><C-n>"] = {
             function(self)
