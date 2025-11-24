@@ -24,11 +24,16 @@ return {
   "coder/claudecode.nvim",
   dependencies = { "folke/snacks.nvim" },
   config = function()
-    require("claudecode").setup({
+    require("claudecode").setup {
       terminal = {
         split_width_percentage = 0.40, -- 40% width (default is 30%)
       },
-    })
+      diff_opts = {
+        open_in_new_tab = true, -- Open diff in a new tab for better visibility (use gt and gT for nav)
+        hide_terminal_in_new_tab = true, -- Hide Claude terminal in the diff tab
+        layout = "vertical", -- Side-by-side diff
+      },
+    }
 
     -- Add keybindings for Claude window navigation
     vim.api.nvim_create_autocmd("TermOpen", {
@@ -36,15 +41,21 @@ return {
       callback = function()
         -- Check if this is a Claude Code terminal
         local bufname = vim.api.nvim_buf_get_name(0)
-        if bufname:match("claudecode") or bufname:match("claude") then
+        if bufname:match "claudecode" or bufname:match "claude" then
           -- Ctrl+. to jump back to previous window
-          vim.keymap.set("t", "<C-.>", "<C-\\><C-n><cmd>wincmd p<cr>", { buffer = true, desc = "Jump to previous window" })
+          vim.keymap.set(
+            "t",
+            "<C-.>",
+            "<C-\\><C-n><cmd>wincmd p<cr>",
+            { buffer = true, desc = "Jump to previous window" }
+          )
           -- Ctrl+, to hide Claude window
           vim.keymap.set("t", "<C-,>", "<C-\\><C-n><cmd>ClaudeCode<cr>", { buffer = true, desc = "Hide Claude window" })
         end
       end,
     })
   end,
+
   keys = {
     { "<leader>a", nil, desc = "AI/Claude Code" },
     { "<leader>ac", "<cmd>ClaudeCode<cr>", desc = "Toggle Claude" },
