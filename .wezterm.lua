@@ -18,4 +18,8 @@ config.font = wezterm.font 'JetBrains Mono'
 config.font_size = 16.0
 
 -- and finally, return the configuration to wezterm
+config.keys = {
+  {key="Enter", mods="SHIFT", action=wezterm.action{SendString="\x1b\r"}},
+}
+
 return config
