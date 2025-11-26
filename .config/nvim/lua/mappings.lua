@@ -32,6 +32,16 @@ map("n", "<leader>du", "<cmd>lua require'dapui'.toggle()<CR>", { desc = "Toggle 
 
 -- LSP
 map("n", "<leader>ld", "<cmd>lua require'telescope.builtin'.diagnostics()<CR>", { desc = "LSP Buffer Diagnostics" })
+map("n", "<leader>lr", function()
+  if vim.bo.filetype == "rust" then
+    vim.cmd("RustAnalyzer restart")
+  else
+    vim.cmd("LspRestart")
+  end
+end, { desc = "LSP Restart" })
+map("n", "<leader>lR", function()
+  vim.lsp.buf.execute_command({ command = "rust-analyzer/reloadWorkspace" })
+end, { desc = "Rust LSP Reload Workspace" })
 map("n", "gd", "<cmd> lua require'telescope.builtin'.lsp_definitions()<CR>", { desc = "LSP Definition" })
 
 -- Find/Replace with Spectre
