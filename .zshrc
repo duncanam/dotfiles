@@ -127,12 +127,17 @@ function t() {
 alias lazygit="~/bin/lazygit/lazygit"
 alias lg="lazygit"
 
+# Claude Code with personal config (separate from work account)
+alias claude-personal='CLAUDE_CONFIG_DIR="$HOME/.claude-personal" claude'
+
 # Git reset to branch point
 alias gr='git reset --soft $(git merge-base HEAD origin/main)'
 
 # Neovim
 alias nvim="~/bin/nvim/bin/nvim"
 alias n="nvim"
+alias nvim-personal='CLAUDE_CONFIG_DIR="$HOME/.claude-personal" nvim'
+alias np="nvim-personal"
 
 # Paths
 export PATH=~/bin/lazygit:$PATH
