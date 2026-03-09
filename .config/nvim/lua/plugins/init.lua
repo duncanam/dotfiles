@@ -24,6 +24,15 @@ return {
     },
   },
 
+  {
+    "nvim-tree/nvim-tree.lua",
+    opts = {
+      filters = {
+        git_ignored = false,
+      },
+    },
+  },
+
   -- TODO: test new blink
   -- This is an experimental replacement for nvim-cmp
   -- { import = "nvchad.blink.lazyspec" },
