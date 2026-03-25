@@ -156,3 +156,10 @@ path=('/Users/duncan/.juliaup/bin' $path)
 export PATH
 
 # <<< juliaup initialize <<<
+
+# bun completions
+[ -s "/Users/duncan/.bun/_bun" ] && source "/Users/duncan/.bun/_bun"
+
+# bun
+export BUN_INSTALL="$HOME/.bun"
+export PATH="$BUN_INSTALL/bin:$PATH"
