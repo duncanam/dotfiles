@@ -2,11 +2,32 @@
 -- https://github.com/NvChad/ui/blob/v3.0/lua/nvconfig.lua
 -- Please read that file to know all available options :(
 
+-- Detect system appearance before base46 compiles (terminal query hasn't happened yet)
+-- Light: flexoki-light / Dark: catppuccin
+local function system_is_dark()
+  local sysname = vim.uv.os_uname().sysname
+  local cmd
+  if sysname == "Darwin" then
+    cmd = "defaults read -g AppleInterfaceStyle 2>/dev/null"
+  elseif sysname == "Linux" then
+    cmd = "lookandfeeltool -a 2>/dev/null"
+  end
+  if cmd then
+    local handle = io.popen(cmd)
+    if handle then
+      local result = handle:read("*a")
+      handle:close()
+      return result:lower():find("dark") ~= nil
+    end
+  end
+  return false
+end
+
 ---@type ChadrcConfig
 local M = {}
 
 M.base46 = {
-  theme = "flexoki-light",
+  theme = system_is_dark() and "catppuccin" or "flexoki-light",
   theme_toggle = { "catppuccin", "flexoki-light" },
 
   -- Dark (Mocha) diff overrides live here since catppuccin is a built-in theme.
