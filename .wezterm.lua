@@ -44,6 +44,7 @@ config.window_close_confirmation = "NeverPrompt"
 config.font = wezterm.font("JetBrains Mono")
 local is_linux = wezterm.target_triple:find("linux") ~= nil
 config.font_size = is_linux and 11.0 or 16.0
+config.default_prog = { "zsh" }
 
 -- and finally, return the configuration to wezterm
 config.keys = {
