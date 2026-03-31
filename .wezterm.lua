@@ -42,7 +42,8 @@ end)
 config.hide_tab_bar_if_only_one_tab = true
 config.window_close_confirmation = "NeverPrompt"
 config.font = wezterm.font("JetBrains Mono")
-config.font_size = 16.0
+local is_linux = wezterm.target_triple:find("linux") ~= nil
+config.font_size = is_linux and 11.0 or 16.0
 
 -- and finally, return the configuration to wezterm
 config.keys = {
