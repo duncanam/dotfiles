@@ -114,7 +114,6 @@ export SYSTEMD_EDITOR=$EDITOR;
 export SUDO_EDITOR=$EDITOR;
 
 # Yazi
-alias yazi="~/bin/yazi/yazi"
 function t() {
 	local tmp="$(mktemp -t "yazi-cwd.XXXXXX")" cwd
 	yazi "$@" --cwd-file="$tmp"
@@ -124,7 +123,6 @@ function t() {
 }
 
 # Lazygit
-alias lazygit="~/bin/lazygit/lazygit"
 alias lg="lazygit"
 
 # Claude Code with personal config (separate from work account)
@@ -134,15 +132,14 @@ alias claude-personal='CLAUDE_CONFIG_DIR="$HOME/.claude-personal" claude'
 alias gr='git reset --soft $(git merge-base HEAD origin/main)'
 
 # Neovim
-alias nvim="~/bin/nvim/bin/nvim"
 alias n="nvim"
 alias nvim-personal='CLAUDE_CONFIG_DIR="$HOME/.claude-personal" nvim'
 alias np="nvim-personal"
 
-# Paths
-export PATH=~/bin/lazygit:$PATH
-export PATH=~/bin/nvim/bin:$PATH
-export PATH=~/bin/yazi:$PATH
+# Paths (~/bin/ overrides for systems without package-managed versions)
+[ -d ~/bin/lazygit ] && export PATH=~/bin/lazygit:$PATH
+[ -d ~/bin/nvim/bin ] && export PATH=~/bin/nvim/bin:$PATH
+[ -d ~/bin/yazi ] && export PATH=~/bin/yazi:$PATH
 
 export NVM_DIR="$HOME/.nvm"
 [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm
@@ -152,13 +149,13 @@ export NVM_DIR="$HOME/.nvm"
 
 # !! Contents within this block are managed by juliaup !!
 
-path=('/Users/duncan/.juliaup/bin' $path)
+path=("$HOME/.juliaup/bin" $path)
 export PATH
 
 # <<< juliaup initialize <<<
 
 # bun completions
-[ -s "/Users/duncan/.bun/_bun" ] && source "/Users/duncan/.bun/_bun"
+[ -s "$HOME/.bun/_bun" ] && source "$HOME/.bun/_bun"
 
 # bun
 export BUN_INSTALL="$HOME/.bun"
