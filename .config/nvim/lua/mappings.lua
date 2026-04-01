@@ -70,6 +70,15 @@ end, { desc = "Diffview Open Commit Range" })
 -- Use Ctrl + , (control+comma) to toggle once active
 vim.keymap.set("n", "<leader>cc", "<cmd>ClaudeCode<CR>", { desc = "Toggle Claude Code" })
 
+-- Refresh theme cache (fixes stale dark/light highlights)
+map("n", "<leader>tr", function()
+  require("base46").load_all_highlights()
+  dofile(vim.g.base46_cache .. "defaults")
+  dofile(vim.g.base46_cache .. "statusline")
+  dofile(vim.g.base46_cache .. "term")
+  vim.notify("Theme cache refreshed", vim.log.levels.INFO)
+end, { desc = "Refresh theme cache" })
+
 -- Window Resizing
 map("n", "<C-Up>", "<cmd>resize +2<CR>", { desc = "Increase window height" })
 map("n", "<C-Down>", "<cmd>resize -2<CR>", { desc = "Decrease window height" })
