@@ -21,11 +21,18 @@ vim.api.nvim_create_autocmd({ "BufLeave", "FocusLost", "InsertEnter", "WinLeave"
   end,
 })
 
--- Disable line numbers in terminal buffers
+-- Disable line numbers in terminal buffers and fix float background
 vim.api.nvim_create_autocmd("TermOpen", {
   pattern = "*",
   callback = function()
     vim.opt_local.number = false
     vim.opt_local.relativenumber = false
+    -- Use Normal bg instead of NormalFloat in floating terminal windows
+    -- so the terminal background matches the editor regardless of theme
+    local win = vim.api.nvim_get_current_win()
+    local win_config = vim.api.nvim_win_get_config(win)
+    if win_config.relative ~= "" then
+      vim.wo[win].winhighlight = "NormalFloat:Normal"
+    end
   end,
 })
