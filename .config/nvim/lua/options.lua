@@ -8,3 +8,6 @@ o.cursorlineopt = "both"
 vim.o.number = true -- Enable absolute line numbers
 vim.o.relativenumber = true -- Enable relative line numbers
 vim.o.scrolloff = 999 -- Keep centered
+
+-- Use zsh for integrated terminal
+vim.o.shell = "/bin/zsh"
