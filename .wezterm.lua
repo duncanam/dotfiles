@@ -46,6 +46,9 @@ local is_linux = wezterm.target_triple:find("linux") ~= nil
 config.font_size = is_linux and 11.0 or 16.0
 config.default_prog = { "zsh", "-l" }
 
+-- Encode modifier+punctuation keys (e.g. Ctrl+,) via CSI-u so tmux/nvim see them.
+config.enable_csi_u_key_encoding = true
+
 -- and finally, return the configuration to wezterm
 config.keys = {
 	{ key = "Enter", mods = "SHIFT", action = wezterm.action({ SendString = "\x1b\r" }) },
