@@ -67,8 +67,17 @@ map("n", "<leader>dt", function()
 end, { desc = "Diffview Open Commit Range" })
 
 -- AI Slop
--- Use Ctrl + , (control+comma) to toggle once active
+-- Ctrl+, toggles pi, Ctrl+. toggles Claude Code
 vim.keymap.set("n", "<leader>cc", "<cmd>ClaudeCode<CR>", { desc = "Toggle Claude Code" })
+vim.keymap.set("n", "<leader>cp", function()
+  require("configs.pi").toggle()
+end, { desc = "Toggle pi" })
+vim.keymap.set("n", "<C-,>", function()
+  require("configs.pi").toggle()
+end, { desc = "Toggle pi" })
+vim.keymap.set("t", "<C-,>", function()
+  require("configs.pi").toggle()
+end, { desc = "Toggle pi" })
 
 -- Refresh theme cache (fixes stale dark/light highlights)
 map("n", "<leader>tr", function()

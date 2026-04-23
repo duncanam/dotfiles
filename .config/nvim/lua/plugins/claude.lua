@@ -17,6 +17,12 @@ return {
           border = "double", -- Use double border style
         },
       },
+      keymaps = {
+        toggle = {
+          normal = "<C-.>",
+          terminal = "<C-.>",
+        },
+      },
     }
   end,
 }
