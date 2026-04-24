@@ -1,5 +1,6 @@
 -- Pull in the wezterm API
 local wezterm = require("wezterm")
+local act = wezterm.action
 
 -- This table will hold the configuration
 local config = {}
@@ -46,12 +47,9 @@ local is_linux = wezterm.target_triple:find("linux") ~= nil
 config.font_size = is_linux and 11.0 or 16.0
 config.default_prog = { "zsh", "-l" }
 
--- Encode modifier+punctuation keys (e.g. Ctrl+,) via CSI-u so tmux/nvim see them.
-config.enable_csi_u_key_encoding = true
-
--- and finally, return the configuration to wezterm
+-- This helps us get newlines in Agent terminals in Wezterm, both inside and outside of tmux
 config.keys = {
-	{ key = "Enter", mods = "SHIFT", action = wezterm.action({ SendString = "\x1b\r" }) },
+	{ mods = "SHIFT", key = "Enter", action = act.SendString("\x1b[13;2u") },
 }
 
 -- Remove padding to have better use of screen real estate
@@ -62,4 +60,5 @@ config.window_padding = {
 	bottom = 0,
 }
 
+-- and finally, return the configuration to wezterm
 return config
