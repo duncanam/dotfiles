@@ -206,6 +206,11 @@ export default function workPlanExtension(pi: ExtensionAPI): void {
 							? `User's seed input (treat as raw context, NOT as a finished title): ${seed}\n\n` +
 							  `Please write a complete first draft directly with \`edit\`/\`write\`:\n` +
 							  `  • Replace the placeholder \`title:\` in frontmatter with a short imperative title you craft from the seed (e.g. 'Cache quote endpoint responses', not the user's raw phrasing).\n` +
+							  `  • Fill in ALL frontmatter fields with judgment — do not leave placeholders or defaults:\n` +
+							  `      - priority: default 3 (medium) unless urgency is clear from context\n` +
+							  `      - labels: choose from the allowed list based on the nature of the work (do not leave <label>)\n` +
+							  `      - state: Todo if immediately actionable, Backlog otherwise\n` +
+							  `      - team, project, assignee: leave as-is unless the user specifies otherwise\n` +
 							  `  • Fill in Context / Requirements / Acceptance Criteria / Notes.\n` +
 							  `  • Ask any clarifying questions you need.`
 							: "Please ask me what we're working on so we can start drafting."),
@@ -555,6 +560,13 @@ When the user is satisfied they will run \`/wp-upload\` to submit. They
 may also \`/wp-cancel\` to bail. Don't try to upload for them.`;
 
 function planningSystemMessageWithBody(planFile: string, hash: string, contents: string): string {
+	const { meta, body } = parsePlan(contents);
+	const validation = validatePlan(meta, body);
+	const validationBlock =
+		validation.errors.length > 0
+			? `\n⚠️  VALIDATION ERRORS — fix these before /wp-upload will succeed:\n${validation.errors.map((e) => `  • ${e}`).join("\n")}\n`
+			: "";
+
 	return `[WORK-PLAN MODE ACTIVE]
 You are co-authoring a Linear issue with the user. The plan lives at:
   ${planFile}
@@ -566,7 +578,7 @@ block disappears or the hash changes on a future turn.
 
 \`\`\`markdown
 ${contents}\`\`\`
-
+${validationBlock}
 ${RULES_BLOCK}`;
 }
 

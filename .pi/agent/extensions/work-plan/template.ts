@@ -49,10 +49,10 @@ title: <short imperative title>
 team: ${DEFAULT_TEAM}    # Platform (PLAT)
 project: ${DEFAULT_PROJECT}    # Savage
 assignee: me           # "me", email, name, or null for unassigned
-priority: 4            # 0 none, 1 urgent, 2 high, 3 normal, 4 low
-labels:                # one or more from: Feature, Bug, Improvement, Refactor, Tech Debt, Infrastructure, Operations UI, Discussion
-  - Feature
-state: Backlog         # Backlog, Todo, In Progress, ...
+priority: 3            # 0 none, 1 urgent, 2 high, 3 normal, 4 low — set with judgment
+labels:                # pick one or more from: Feature, Bug, Improvement, Refactor, Tech Debt, Infrastructure, Operations UI, Discussion
+  - <label>
+state: Backlog         # Backlog or Todo — Todo if immediately actionable, Backlog otherwise
 ---
 
 ## Context
