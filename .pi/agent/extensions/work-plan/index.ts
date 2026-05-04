@@ -309,12 +309,26 @@ export default function workPlanExtension(pi: ExtensionAPI): void {
 					(ticket.projectName ? `  ·  Project: ${ticket.projectName}` : "") +
 					(ticket.labelNames.length ? `  ·  Labels: ${ticket.labelNames.join(", ")}` : "") +
 					`  ·  State: ${ticket.stateName}`;
+				// Inline the full description in the kickoff so the implementer LLM
+				// reads it as the first user-visible message in the conversation.
+				// Pointing at it as "hidden context" is not enough — models reliably
+				// skim past long system prompts and ask the user to restate things
+				// that were already written into the plan.
+				const description = (ticket.description ?? "").trim();
+				const descriptionBlock = description
+					? `---\n\n${description}\n\n---\n`
+					: `*(This ticket has no description body. Ask the user for the requirements before implementing.)*\n`;
 				const kickoff =
 					`**Implementing ${ticket.identifier}: ${ticket.title}**\n` +
 					`${ticket.url}\n\n` +
 					`${meta}\n\n` +
-					`Take it from here. The full description is in your hidden context. ` +
-					`Implement per the acceptance criteria; do not touch git. ` +
+					`${descriptionBlock}\n` +
+					`The description above IS your plan. Read each Acceptance Criterion ` +
+					`and restate it in one line as your implementation outline before ` +
+					`making changes. Do NOT ask the user to re-explain Context, ` +
+					`Requirements, or Acceptance Criteria that are already written above — ` +
+					`asking is only for things genuinely missing from the plan. ` +
+					`Do not touch git. ` +
 					`Run /wp-issue with another ID to swap, or /wp-clear to exit.`;
 
 				pi.sendMessage(
@@ -609,8 +623,11 @@ function implementingSystemMessage(t: CreatedTicket): string {
 	const body = (t.description ?? "").trim() || "(this ticket has no description — ask the user for clarification)";
 
 	return `[IMPLEMENTING TICKET ${t.identifier}]
-You are implementing the following Linear issue. Treat this block as
-authoritative — do NOT call any Linear MCP tools to re-fetch it.
+You are implementing the following Linear issue. The Description below
+was hand-written to be self-sufficient — read it end-to-end BEFORE
+exploring the repo, running tools, or asking the user any clarifying
+questions. Treat this block as authoritative; do NOT call any Linear
+MCP tools to re-fetch it.
 
 ${meta}
 
@@ -624,13 +641,19 @@ This ticket has already been planned (the description above IS the plan).
 Your job is to implement it.
 
 Rules:
-  1. Do NOT touch git. Never run \`git commit\`, \`git push\`, \`git checkout\`,
+  1. The Description above is the contract. Its Context, Requirements,
+     and Acceptance Criteria are what "done" means. Do NOT ask the user
+     to restate facts that are already written there — asking is only
+     for things genuinely missing from the plan. "What should I do?" or
+     "can you give me more detail?" when the answer is in the Description
+     is a failure mode to avoid.
+  2. Do NOT touch git. Never run \`git commit\`, \`git push\`, \`git checkout\`,
      \`git branch\`, \`git merge\`, \`git rebase\`, \`git stash\`, \`git pull\`,
      \`git reset\`, or any related command. Branches, commits, and PRs
      are handled outside this conversation. The ticket transitions to
      Done automatically when the matching commit lands.
-  2. Focus on the description's acceptance criteria above.
-  3. If you need clarification, ask the user.
+  3. Drive against the Acceptance Criteria above; treat each checkbox as
+     a verifiable goal.
   4. Use the full standard tool set (read, write, edit, bash, grep, etc.)
      freely — bash for non-git commands is fine.
   5. The user can swap to a different ticket with /wp-issue <id> or
