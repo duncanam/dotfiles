@@ -17,10 +17,26 @@ export interface PlanMeta {
 }
 
 // Defaults pulled from ~/.claude/commands/ticket.md (Platform team, Savage project).
-// The Linear MCP `save_issue` tool resolves names/IDs/keys internally, so we
-// only need the IDs to seed a fresh plan file — no name→ID label table required.
-const DEFAULT_TEAM = "96e7d2a4-db27-4b30-acb8-d12068210f1d"; // Platform (PLAT)
-const DEFAULT_PROJECT = "84f220b8-846e-4848-8e74-ce0b2f0a6aea"; // Savage
+// The Linear MCP `save_issue` tool resolves names/IDs/keys internally, but we
+// keep the canonical UUIDs here so we can (a) seed fresh plan files and (b)
+// repair frontmatter that an over-eager LLM rewrote with bare names like
+// `team: Platform` or `project: null`. See `coerceMetaDefaults` below.
+export const DEFAULT_TEAM = "96e7d2a4-db27-4b30-acb8-d12068210f1d"; // Platform (PLAT)
+export const DEFAULT_PROJECT = "84f220b8-846e-4848-8e74-ce0b2f0a6aea"; // Savage
+export const DEFAULT_ASSIGNEE = "me"; // Linear MCP resolves "me" to the OAuth'd user.
+
+// Case-insensitive aliases the LLM is likely to write into frontmatter when
+// it doesn't have the UUID handy. Resolved at upload time so a stripped
+// frontmatter still ends up pointing at the right team/project.
+const TEAM_ALIASES: Record<string, string> = {
+	platform: DEFAULT_TEAM,
+	plat: DEFAULT_TEAM,
+};
+const PROJECT_ALIASES: Record<string, string> = {
+	savage: DEFAULT_PROJECT,
+};
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // Matches Linear's UI labels (the MCP `save_issue` schema says
 // "0=None, 1=Urgent, 2=High, 3=Normal, 4=Low").
@@ -278,4 +294,130 @@ export function validatePlan(meta: PlanMeta, body: string): PlanValidation {
 	}
 
 	return { ok: errors.length === 0, errors, warnings };
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// Defensive fallback for when the agent rewrites frontmatter and drops the
+// canonical team/project UUIDs ("team: Platform", "project: null", etc.).
+// ──────────────────────────────────────────────────────────────────────────
+
+export interface MetaDefaultsResult {
+	meta: PlanMeta;
+	/** Human-readable list of fixes applied ("team: Platform → 96e7…"). Empty if nothing changed. */
+	fixes: string[];
+}
+
+/**
+ * Resolve a frontmatter team/project value to its canonical UUID when
+ * possible. Idempotent: a value that's already a UUID round-trips unchanged.
+ * Returns the original string if we don't recognize it (so Linear MCP gets a
+ * chance to resolve it server-side).
+ */
+function resolveAlias(value: string, aliases: Record<string, string>): string {
+	if (UUID_RE.test(value)) return value;
+	const hit = aliases[value.trim().toLowerCase()];
+	return hit ?? value;
+}
+
+/**
+ * Make a best effort to keep the canonical Platform/Savage/me values in the
+ * frontmatter even if the agent stripped them while editing the plan.
+ *
+ * Rules:
+ *   • If `team` is missing/empty, fall back to DEFAULT_TEAM.
+ *   • If `team` is a known alias ("Platform", "PLAT"), swap in the UUID.
+ *   • If `project` is missing, empty, or `null` (the YAML parser maps both
+ *     a missing key and an explicit `null` to `undefined` in `PlanMeta`),
+ *     fall back to DEFAULT_PROJECT.
+ *   • If `project` is a known alias ("Savage"), swap in the UUID.
+ *   • If `assignee` is missing or an empty string, fall back to
+ *     DEFAULT_ASSIGNEE ("me"). An explicit `null` IS preserved — the YAML
+ *     parser keeps null distinct from missing for assignee — so a user who
+ *     genuinely wants the ticket unassigned can write `assignee: null`.
+ *
+ * If you ever need a real "no project" tickets workflow, extend `PlanMeta`
+ * to carry `project: string | null` so we can tell the two cases apart
+ * here. For now this matches the team's actual usage (everything goes to
+ * Platform/Savage, assigned to the running user).
+ */
+export function coerceMetaDefaults(meta: PlanMeta): MetaDefaultsResult {
+	const out: PlanMeta = { ...meta };
+	const fixes: string[] = [];
+
+	if (!out.team || !out.team.trim()) {
+		fixes.push(`team: (missing) → ${DEFAULT_TEAM} (Platform)`);
+		out.team = DEFAULT_TEAM;
+	} else {
+		const resolved = resolveAlias(out.team, TEAM_ALIASES);
+		if (resolved !== out.team) {
+			fixes.push(`team: ${out.team} → ${resolved}`);
+			out.team = resolved;
+		}
+	}
+
+	if (out.project === undefined) {
+		fixes.push(`project: (missing) → ${DEFAULT_PROJECT} (Savage)`);
+		out.project = DEFAULT_PROJECT;
+	} else if (typeof out.project === "string" && out.project.trim()) {
+		const resolved = resolveAlias(out.project, PROJECT_ALIASES);
+		if (resolved !== out.project) {
+			fixes.push(`project: ${out.project} → ${resolved}`);
+			out.project = resolved;
+		}
+	}
+
+	// `null` is meaningful here (= unassigned) so we only fix `undefined` /
+	// empty-string. `normalizeMeta` preserves explicit `null` for assignee.
+	if (out.assignee === undefined || (typeof out.assignee === "string" && !out.assignee.trim())) {
+		fixes.push(`assignee: (missing) → ${DEFAULT_ASSIGNEE}`);
+		out.assignee = DEFAULT_ASSIGNEE;
+	}
+
+	return { meta: out, fixes };
+}
+
+/**
+ * Rewrite a single frontmatter scalar in-place, preserving the rest of the
+ * frontmatter and body byte-for-byte. If the key isn't present we insert it
+ * right after the opening `---`.
+ *
+ * The friendly `# comment` is only emitted for our two canonical UUIDs so we
+ * don't blow away whatever the user / agent wrote in other situations.
+ */
+function rewriteFrontmatterScalar(text: string, key: string, value: string): string {
+	const match = text.match(FRONTMATTER_RE);
+	if (!match) return text;
+	const rawMeta = match[1];
+	const body = match[2];
+
+	let comment = "";
+	if (key === "team" && value === DEFAULT_TEAM) comment = "    # Platform (PLAT)";
+	else if (key === "project" && value === DEFAULT_PROJECT) comment = "    # Savage";
+	else if (key === "assignee" && value === DEFAULT_ASSIGNEE) comment = '    # "me", email, name, or null for unassigned';
+
+	const keyLineRe = new RegExp(`^([ \\t]*)${key}\\s*:[^\\n]*$`, "m");
+	let next: string;
+	if (keyLineRe.test(rawMeta)) {
+		next = rawMeta.replace(keyLineRe, (_m, indent: string) => `${indent}${key}: ${value}${comment}`);
+	} else {
+		next = `${key}: ${value}${comment}\n${rawMeta}`;
+	}
+	return `---\n${next}\n---\n${body}`;
+}
+
+/**
+ * Persist coerced team/project values back to the plan file, preserving every
+ * other line. `keys` is the list of fields whose values were changed by
+ * `coerceMetaDefaults`; we only touch those lines.
+ */
+export function rewriteFrontmatterFields(
+	text: string,
+	updates: Partial<Record<"team" | "project" | "assignee", string | null>>,
+): string {
+	let next = text;
+	for (const [key, value] of Object.entries(updates)) {
+		const rendered = value === null ? "null" : String(value);
+		next = rewriteFrontmatterScalar(next, key, rendered);
+	}
+	return next;
 }

@@ -24,7 +24,16 @@ import { isAbsolute, join, resolve } from "node:path";
 import type { ExtensionAPI, ExtensionContext } from "@mariozechner/pi-coding-agent";
 import { describeTools, disconnectLinearClient, getIssue, LinearError, uploadPlan, type CreatedTicket } from "./linear.js";
 import { isInsideNvim, openInNvim } from "./nvim.js";
-import { defaultPlanText, parsePlan, validatePlan } from "./template.js";
+import {
+	coerceMetaDefaults,
+	defaultPlanText,
+	DEFAULT_ASSIGNEE,
+	DEFAULT_PROJECT,
+	DEFAULT_TEAM,
+	parsePlan,
+	rewriteFrontmatterFields,
+	validatePlan,
+} from "./template.js";
 import { renderTicketBox } from "./widget.js";
 
 const PLANS_DIR = join(homedir(), ".pi", "agent", "work-plans");
@@ -206,11 +215,11 @@ export default function workPlanExtension(pi: ExtensionAPI): void {
 							? `User's seed input (treat as raw context, NOT as a finished title): ${seed}\n\n` +
 							  `Please write a complete first draft directly with \`edit\`/\`write\`:\n` +
 							  `  • Replace the placeholder \`title:\` in frontmatter with a short imperative title you craft from the seed (e.g. 'Cache quote endpoint responses', not the user's raw phrasing).\n` +
-							  `  • Fill in ALL frontmatter fields with judgment — do not leave placeholders or defaults:\n` +
+							  `  • Fill in placeholder frontmatter fields with judgment:\n` +
 							  `      - priority: default 3 (medium) unless urgency is clear from context\n` +
 							  `      - labels: choose from the allowed list based on the nature of the work (do not leave <label>)\n` +
 							  `      - state: Todo if immediately actionable, Backlog otherwise\n` +
-							  `      - team, project, assignee: leave as-is unless the user specifies otherwise\n` +
+							  `  • DO NOT touch the \`team:\`, \`project:\`, or \`assignee:\` lines. They are pre-populated with the canonical Platform team UUID, Savage project UUID, and \`assignee: me\` (which Linear MCP resolves to the running user). Keep them byte-for-byte unless the user explicitly names a different team / project / assignee.\n` +
 							  `  • Fill in Context / Requirements / Acceptance Criteria / Notes.\n` +
 							  `  • Ask any clarifying questions you need.`
 							: "Please ask me what we're working on so we can start drafting."),
@@ -374,7 +383,35 @@ export default function workPlanExtension(pi: ExtensionAPI): void {
 			}
 
 			const text = readFileSync(planFile, "utf8");
-			const { meta, body } = parsePlan(text);
+			const { meta: parsedMeta, body } = parsePlan(text);
+
+			// Backstop: if the agent stripped or aliased the canonical team/project
+			// UUIDs while editing the plan, restore them before validation. This
+			// catches the failure mode where the LLM rewrites `team: <UUID>` as
+			// `team: Platform` (or sets `project: null`) and then claims it can't
+			// find the IDs.
+			const { meta, fixes } = coerceMetaDefaults(parsedMeta);
+			if (fixes.length > 0) {
+				const updates: Partial<Record<"team" | "project" | "assignee", string | null>> = {};
+				if (meta.team !== parsedMeta.team) updates.team = meta.team ?? null;
+				if (meta.project !== parsedMeta.project) updates.project = meta.project ?? null;
+				if (meta.assignee !== parsedMeta.assignee) updates.assignee = meta.assignee ?? null;
+				if (Object.keys(updates).length > 0) {
+					try {
+						writeFileSync(planFile, rewriteFrontmatterFields(text, updates), "utf8");
+					} catch (err) {
+						ctx.ui.notify(
+							`Could not rewrite plan file with restored defaults: ${(err as Error).message}`,
+							"warning",
+						);
+					}
+				}
+				ctx.ui.notify(
+					`Restored frontmatter defaults before upload:\n${fixes.map((f) => `  • ${f}`).join("\n")}`,
+					"info",
+				);
+			}
+
 			const validation = validatePlan(meta, body);
 			if (!validation.ok) {
 				ctx.ui.notify(
@@ -562,13 +599,23 @@ const RULES_BLOCK = `Each turn:
        labels (list, choose from: Feature, Bug, Improvement, Refactor,
          Tech Debt, Infrastructure, Operations UI, Discussion),
        state (Backlog | Todo | In Progress | ...).
-  3. The body MUST contain these sections in this order:
+  3. **DO NOT modify the \`team:\`, \`project:\`, or \`assignee:\` lines.**
+     They contain hard-coded values the upload tool requires. The canonical
+     values are:
+       team:     ${DEFAULT_TEAM}    # Platform (PLAT)
+       project:  ${DEFAULT_PROJECT}    # Savage
+       assignee: ${DEFAULT_ASSIGNEE}    # Linear MCP resolves "me" to the running user
+     If for any reason the file no longer shows those lines, restore them
+     verbatim. Do not replace UUIDs with names, do not set \`project: null\`,
+     do not drop the assignee line, and do not "clean up" the inline
+     comments.
+  4. The body MUST contain these sections in this order:
        ## Context           — why this matters; reference Savage if relevant
        ## Requirements      — numbered, concrete, testable items
        ## Acceptance Criteria — bulleted done conditions
        ## Notes / Constraints — optional
-  4. Do NOT execute, implement, or run any of the plan. Only edit the file.
-  5. Be concise. Write so another LLM could pick it up without clarification.
+  5. Do NOT execute, implement, or run any of the plan. Only edit the file.
+  6. Be concise. Write so another LLM could pick it up without clarification.
 
 When the user is satisfied they will run \`/wp-upload\` to submit. They
 may also \`/wp-cancel\` to bail. Don't try to upload for them.`;
