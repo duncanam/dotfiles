@@ -163,3 +163,7 @@ export PATH="$BUN_INSTALL/bin:$PATH"
 
 # Dioxus
 export PATH="$HOME/.cargo/bin:$PATH"
+
+# Meridian
+export MERIDIAN_PASSTHROUGH=1
+export MERIDIAN_NO_FILE_CHANGES=1
