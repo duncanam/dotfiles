@@ -149,8 +149,10 @@ export NVM_DIR="$HOME/.nvm"
 
 # !! Contents within this block are managed by juliaup !!
 
-path=("$HOME/.juliaup/bin" $path)
+path=('/Users/duncan/.juliaup/bin' $path)
 export PATH
+# Tab completion for juliaup and julia channel selection
+[ -f "/Users/duncan/.julia/juliaup/completions/zsh.zsh" ] && source "/Users/duncan/.julia/juliaup/completions/zsh.zsh"
 
 # <<< juliaup initialize <<<
 
