@@ -1,9 +1,21 @@
 {
-  "lastChangelogVersion": "0.74.0",
+  "skills": ["/Users/duncan/git/parasolid_llm/skills"],
+  "lastChangelogVersion": "0.80.3",
   "defaultProvider": "anthropic",
-  "defaultModel": "claude-opus-4-7",
+  "defaultModel": "claude-opus-4-8",
   "defaultThinkingLevel": "xhigh",
   "editorPaddingX": 1,
   "showHardwareCursor": true,
-  "theme": "light"
+  "theme": "light",
+  "httpIdleTimeoutMs": 300000,
+  "retry": {
+    "enabled": true,
+    "maxRetries": 3,
+    "baseDelayMs": 2000,
+    "provider": {
+      "maxRetries": 0,
+      "maxRetryDelayMs": 60000
+    }
+  },
+  "hideThinkingBlock": false
 }
