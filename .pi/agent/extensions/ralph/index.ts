@@ -45,7 +45,7 @@ const MAX_CONSECUTIVE_FAILS = 5;
 const NO_PROGRESS_LIMIT = 3;
 const WORKER_TIMEOUT_MS = 45 * 60 * 1000; // bench/build-heavy tasks can be slow
 const DIFF_BUDGET = 6000; // chars of diff shown to the manager
-const RECENT_ACTIONS = 4;
+const RECENT_ACTIONS = 6;
 const BOX_MIN_WIDTH = 56;
 const BOX_MAX_WIDTH = 160;
 const SPINNER_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
@@ -126,6 +126,7 @@ type Phase = "idle" | "planning" | "working" | "reviewing";
 
 interface RalphState {
 	active: boolean;
+	sessionId: number; // incremented on every /ralph invocation; lets stale runLoop coroutines detect they've been superseded
 	goal: string;
 	iteration: number;
 	startedAt: number;
@@ -137,9 +138,12 @@ interface RalphState {
 	recentActions: string[];
 }
 
+let _nextSessionId = 1;
+
 function idleState(): RalphState {
 	return {
 		active: false,
+		sessionId: 0,
 		goal: "",
 		iteration: 0,
 		startedAt: 0,
@@ -158,6 +162,20 @@ let pi!: ExtensionAPI;
 let monitorTimer: ReturnType<typeof setInterval> | null = null;
 let monitorCtx: ExtensionContext | null = null;
 let spinnerFrame = 0;
+
+// Cache the resolved `complete` function so a single transient import failure
+// on the first manager call doesn't permanently break the manager for the session.
+let _piAiComplete: typeof import("@earendil-works/pi-ai/compat").complete | null = null;
+async function getComplete(): Promise<typeof import("@earendil-works/pi-ai/compat").complete | null> {
+	if (_piAiComplete !== null) return _piAiComplete;
+	try {
+		const mod = await import("@earendil-works/pi-ai/compat");
+		_piAiComplete = mod.complete;
+		return _piAiComplete;
+	} catch {
+		return null;
+	}
+}
 
 // ---------------------------------------------------------------------------
 // Filesystem helpers
@@ -182,9 +200,30 @@ function readFileSafe(p: string): string {
 const readGoal = (cwd: string) => readFileSafe(rf(cwd, "GOAL.md"));
 const readPlan = (cwd: string) => readFileSafe(rf(cwd, "plan.md"));
 
+const PROGRESS_TAIL_BYTES = 16_000; // read at most 16 KB from the end — avoids loading the full file after many iterations
+
 function readProgressTail(cwd: string, lines: number): string {
-	const all = readFileSafe(rf(cwd, "progress.md"));
-	return all ? all.split("\n").slice(-lines).join("\n") : "";
+	const p = rf(cwd, "progress.md");
+	try {
+		const size = fs.statSync(p).size;
+		if (size === 0) return "";
+		let content: string;
+		if (size <= PROGRESS_TAIL_BYTES) {
+			content = fs.readFileSync(p, "utf8");
+		} else {
+			const fd = fs.openSync(p, "r");
+			const buf = Buffer.alloc(PROGRESS_TAIL_BYTES);
+			fs.readSync(fd, buf, 0, PROGRESS_TAIL_BYTES, size - PROGRESS_TAIL_BYTES);
+			fs.closeSync(fd);
+			content = buf.toString("utf8");
+			// Drop the first (likely partial) line caused by the mid-file read offset.
+			const nl = content.indexOf("\n");
+			if (nl >= 0) content = content.slice(nl + 1);
+		}
+		return content.split("\n").slice(-lines).join("\n");
+	} catch {
+		return "";
+	}
 }
 
 function progressSize(cwd: string): number {
@@ -260,6 +299,23 @@ function repoSnapshot(cwd: string): string | null {
 
 function truncate(s: string, n: number): string {
 	return s.length > n ? `${s.slice(0, n)}\n…[truncated]` : s;
+}
+
+// Send SIGTERM then SIGKILL after 5 s so workers that ignore SIGTERM don't linger.
+function killGracefully(child: ChildProcess): void {
+	try {
+		child.kill("SIGTERM");
+	} catch {
+		/* already gone */
+	}
+	const t = setTimeout(() => {
+		try {
+			child.kill("SIGKILL");
+		} catch {
+			/* already gone */
+		}
+	}, 5000);
+	(t as unknown as { unref?: () => void }).unref?.();
 }
 
 function gitDiffSince(cwd: string, beforeHead: string | null): string {
@@ -338,10 +394,8 @@ async function callManager(ctx: ExtensionContext, systemPrompt: string, userText
 	}
 	if (!auth.ok || !auth.apiKey) return null;
 
-	let complete: typeof import("@earendil-works/pi-ai/compat").complete;
-	try {
-		({ complete } = await import("@earendil-works/pi-ai/compat"));
-	} catch {
+	const complete = await getComplete();
+	if (!complete) {
 		pushAction("manager: pi-ai unavailable");
 		return null;
 	}
@@ -558,8 +612,9 @@ function runWorker(
 // Orchestration loop
 // ---------------------------------------------------------------------------
 
-async function runLoop(ctx: ExtensionContext): Promise<void> {
+async function runLoop(ctx: ExtensionContext, sessionId: number): Promise<void> {
 	const cwd = ctx.cwd;
+	const stale = () => state.sessionId !== sessionId; // true if a newer /ralph has started
 	let fails = 0;
 	let noProgress = 0;
 	try {
@@ -570,17 +625,18 @@ async function runLoop(ctx: ExtensionContext): Promise<void> {
 		renderMonitor();
 		const init = await callManager(ctx, MANAGER_INIT_SYS, initUser(cwd));
 		state.running = false;
-		if (!state.active) return;
+		if (stale() || !state.active) return;
 		if (init) {
 			writePlan(cwd, init.plan);
 			writeSteering(cwd, init.steering);
+			recordManagerNote(cwd, 0, init); // iteration 0 = initial planning pass
 			pushAction("manager: plan ready");
 		} else {
 			pushAction("manager: no initial plan (continuing)");
 		}
 		renderMonitor();
 
-		while (state.active && state.iteration < MAX_ITERATIONS) {
+		while (!stale() && state.active && state.iteration < MAX_ITERATIONS) {
 			state.iteration += 1;
 			state.turnStartedAt = Date.now();
 			state.running = true;
@@ -593,7 +649,7 @@ async function runLoop(ctx: ExtensionContext): Promise<void> {
 			const before = repoSnapshot(cwd);
 			const { code, timedOut, summary } = await runWorker(ctx, state.iteration);
 			state.running = false;
-			if (!state.active) break;
+			if (stale() || !state.active) break;
 
 			if (timedOut || code !== 0) {
 				fails += 1;
@@ -626,7 +682,7 @@ async function runLoop(ctx: ExtensionContext): Promise<void> {
 				reviewUser(cwd, gitDiffSince(cwd, beforeHead), summary),
 			);
 			state.running = false;
-			if (!state.active) break;
+			if (stale() || !state.active) break;
 
 			if (review) {
 				writePlan(cwd, review.plan);
@@ -654,7 +710,7 @@ async function runLoop(ctx: ExtensionContext): Promise<void> {
 				noProgress = 0;
 			}
 		}
-		if (state.active) finish(ctx, "max");
+		if (!stale() && state.active) finish(ctx, "max");
 	} catch (err) {
 		pushAction(`loop error: ${(err as Error).message}`);
 		finish(ctx, "failed");
@@ -664,16 +720,13 @@ async function runLoop(ctx: ExtensionContext): Promise<void> {
 type FinishReason = "complete" | "halted" | "converged" | "failed" | "max" | "stopped";
 
 function finish(ctx: ExtensionContext, reason: FinishReason, detail?: string): void {
+	if (!state.active) return; // guard against re-entry
 	const iterations = state.iteration;
 	state.active = false;
 	state.running = false;
 	state.phase = "idle";
 	if (state.child) {
-		try {
-			state.child.kill("SIGTERM");
-		} catch {
-			/* gone */
-		}
+		killGracefully(state.child);
 		state.child = null;
 	}
 	if (state.managerAbort) {
@@ -863,7 +916,18 @@ export default function (api: ExtensionAPI) {
 
 			setupRalphDir(cwd, argGoal ? goal : undefined);
 
+			// Warn if any configured worker guard extensions can't be resolved.
+			const foundGuards = resolveWorkerExtensions(cwd).map((p) => path.basename(p));
+			const missingGuards = WORKER_EXTENSIONS.filter((name) => !foundGuards.includes(name));
+			if (missingGuards.length > 0) {
+				ctx.ui.notify(
+					`ralph: worker guard extension(s) not found — workers will run without them: ${missingGuards.join(", ")}`,
+					"warning",
+				);
+			}
+
 			state = idleState();
+			state.sessionId = _nextSessionId++;
 			state.active = true;
 			state.goal = goal;
 			state.startedAt = Date.now();
@@ -875,7 +939,7 @@ export default function (api: ExtensionAPI) {
 				);
 			}
 			startMonitor(ctx);
-			void runLoop(ctx);
+			void runLoop(ctx, state.sessionId);
 		},
 	});
 
@@ -892,11 +956,7 @@ export default function (api: ExtensionAPI) {
 
 	pi.on("session_shutdown", async () => {
 		if (state.child) {
-			try {
-				state.child.kill("SIGTERM");
-			} catch {
-				/* gone */
-			}
+			killGracefully(state.child);
 			state.child = null;
 		}
 		if (state.managerAbort) {

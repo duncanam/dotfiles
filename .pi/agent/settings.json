@@ -1,5 +1,7 @@
 {
-  "skills": ["/Users/duncan/git/parasolid_llm/skills"],
+  "skills": [
+    "/Users/duncan/git/parasolid_llm/skills"
+  ],
   "lastChangelogVersion": "0.80.3",
   "defaultProvider": "anthropic",
   "defaultModel": "claude-opus-4-8",
