@@ -2,23 +2,36 @@
  * Protected Write Paths Extension
  *
  * Blocks write and edit operations to protected paths.
- * Useful for preventing accidental modifications to sensitive files.
+ *
+ * - .git/ and node_modules/ are globally protected (anywhere on disk).
+ * - Any file matching *.env* (*.env, .env.local, .env.example, etc.)
+ *   is ONLY protected when it lives DIRECTLY in the home directory
+ *   (e.g. ~/.env, ~/.env.local). Subdirectories under ~ are not affected,
+ *   so project files like ~/git/project/config.env.example are free to write.
  */
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { homedir } from "node:os";
+import { resolve, dirname } from "node:path";
 
 export default function (pi: ExtensionAPI) {
-	const protectedPaths = [".env", ".git/", "node_modules/"];
+	const home = homedir();
+	const globalProtectedPaths = [".git/", "node_modules/"];
 
 	pi.on("tool_call", async (event, ctx) => {
 		if (event.toolName !== "write" && event.toolName !== "edit") {
 			return undefined;
 		}
 
-		const path = event.input.path as string;
-		const isProtected = protectedPaths.some((p) => path.includes(p));
+		const path = resolve(event.input.path as string);
+		const isGloballyProtected = globalProtectedPaths.some((p) =>
+			path.includes(p),
+		);
 
-		if (isProtected) {
+		const isEnvInHomeRoot =
+			dirname(path) === home && path.includes(".env");
+
+		if (isGloballyProtected || isEnvInHomeRoot) {
 			if (ctx.hasUI) {
 				ctx.ui.notify(`Blocked write to protected path: ${path}`, "warning");
 			}

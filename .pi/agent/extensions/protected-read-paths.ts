@@ -2,23 +2,30 @@
  * Protected Read Paths Extension
  *
  * Blocks read operations against protected paths.
- * Useful for preventing accidental exposure of secrets (e.g. .env files).
+ *
+ * Any file matching *.env* (*.env, .env.local, .env.example, etc.)
+ * is ONLY protected when it lives DIRECTLY in the home directory
+ * (e.g. ~/.env, ~/.env.local). Subdirectories under ~ are not affected,
+ * so project files like ~/git/project/.env are free to read.
  */
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { homedir } from "node:os";
+import { resolve, dirname } from "node:path";
 
 export default function (pi: ExtensionAPI) {
-	const protectedPaths = [".env"];
+	const home = homedir();
 
 	pi.on("tool_call", async (event, ctx) => {
 		if (event.toolName !== "read") {
 			return undefined;
 		}
 
-		const path = event.input.path as string;
-		const isProtected = protectedPaths.some((p) => path.includes(p));
+		const path = resolve(event.input.path as string);
+		const isEnvInHomeRoot =
+			dirname(path) === home && path.includes(".env");
 
-		if (isProtected) {
+		if (isEnvInHomeRoot) {
 			if (ctx.hasUI) {
 				ctx.ui.notify(`Blocked read of protected path: ${path}`, "warning");
 			}
