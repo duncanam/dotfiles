@@ -6,6 +6,52 @@
       "headers": {
         "x-meridian-agent": "pi"
       }
+    },
+    "deepseek-atmc": {
+      "name": "DeepSeek (atmc)",
+      "baseUrl": "https://deepseek-v4-v6.atmc.dev/v1",
+      "api": "openai-completions",
+      "apiKey": "sk-noauth",
+      "models": [
+        {
+          "id": "DeepSeek-V4-Flash",
+          "name": "DeepSeek V4 Flash",
+          "reasoning": true,
+          "input": ["text"],
+          "contextWindow": 1000000,
+          "maxTokens": 384000,
+          "cost": { "input": 0, "output": 0, "cacheRead": 0, "cacheWrite": 0 },
+          "compat": {
+            "thinkingFormat": "chat-template",
+            "chatTemplateKwargs": { "thinking": { "$var": "thinking.enabled" } }
+          }
+        }
+      ]
+    },
+    "vllm-atmc": {
+      "name": "vLLM (atmc)",
+      "baseUrl": "https://vllm.atmc.dev/v1",
+      "api": "openai-completions",
+      "apiKey": "sk-noauth",
+      "models": [
+        {
+          "id": "Qwen3.6-27B-FP8",
+          "name": "Qwen 3.6 27B FP8",
+          "reasoning": true,
+          "input": ["text"],
+          "contextWindow": 131072,
+          "maxTokens": 32768,
+          "cost": { "input": 0, "output": 0, "cacheRead": 0, "cacheWrite": 0 },
+          "compat": {
+            "thinkingFormat": "deepseek",
+            "supportsReasoningEffort": false,
+            "supportsDeveloperRole": false
+          },
+          "thinkingLevelMap": {
+            "off": null
+          }
+        }
+      ]
     }
   }
 }
