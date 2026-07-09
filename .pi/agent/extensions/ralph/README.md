@@ -23,7 +23,39 @@ Auto-discovered on startup. `/reload` picks up changes in a running session.
 /ralph <goal>     # start (writes .ralph/GOAL.md and begins)
 /ralph            # resume the existing goal (uses .ralph/GOAL.md + progress)
 /ralph-stop       # stop the loop and kill the current worker
+/ralph-set        # show all current live settings
+/ralph-set <key> <value>   # update a setting mid-loop (no restart)
+/ralph-set <key> @<file>   # load a setting value from a file (useful for prompts)
+/ralph-set reload           # reload settings from .ralph/settings.json
+/ralph-set save             # persist current in-memory settings to disk
 ```
+
+Settings are loaded from `.ralph/settings.json` on `/ralph` start and can be
+changed at any time via `/ralph-set` — the loop reads the live values each
+iteration, so changes take effect immediately without restarting. Simple
+settings (numbers, booleans, arrays) are auto-persisted; prompt strings
+(`workerPrompt`, `managerInitSys`, `managerReviewSys`) are live-only until
+you run `/ralph-set save` or edit `.ralph/settings.json` directly and reload.
+
+Available settings:
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `maxIterations` | number | 1000 | Max loop iterations before forced stop |
+| `maxConsecutiveFails` | number | 5 | Consecutive worker crashes before giving up |
+| `noProgressLimit` | number | 3 | Git-no-change iterations before convergence |
+| `workerTimeoutMs` | number | 2700000 (45m) | Per-worker wall-clock timeout |
+| `diffBudget` | number | 6000 | Max chars of diff shown to the manager |
+| `recentActions` | number | 6 | Lines in the live monitor box |
+| `requiredGuards` | string[] | ["protected-write-paths.ts"] | Extensions loaded in workers |
+| `excludedExtensionNames` | string[] | ["ralph", "work-plan"] | Extensions excluded from workers |
+| `progressTailBytes` | number | 16000 | Bytes read from end of progress.md |
+| `workerPrompt` | string | _(long prompt)_ | System prompt for each worker pi |
+| `managerInitSys` | string | _(long prompt)_ | System prompt for initial planning |
+| `managerReviewSys` | string | _(long prompt)_ | System prompt for iteration review |
+
+Multi-line string settings like `workerPrompt` are best set by writing the
+new content to a file, then running `/ralph-set workerPrompt @my-prompt.md`.
 
 A live monitor box above the editor shows phase (planning / working / reviewing), iteration,
 elapsed time, and a rolling feed of the current worker's tool calls.

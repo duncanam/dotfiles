@@ -37,86 +37,109 @@ import * as readline from "node:readline";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 
 // ---------------------------------------------------------------------------
-// Tunables
+// Settings — loaded from .ralph/settings.json; all fields are live-mutable via
+// /ralph-set while the loop runs (no restart needed).
 // ---------------------------------------------------------------------------
 
-const MAX_ITERATIONS = 1000;
-const MAX_CONSECUTIVE_FAILS = 5;
-const NO_PROGRESS_LIMIT = 3;
-const WORKER_TIMEOUT_MS = 45 * 60 * 1000; // bench/build-heavy tasks can be slow
-const DIFF_BUDGET = 6000; // chars of diff shown to the manager
-const RECENT_ACTIONS = 6;
-const BOX_MIN_WIDTH = 56;
-const BOX_MAX_WIDTH = 160;
-const SPINNER_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
+interface RalphSettings {
+	maxIterations: number;
+	maxConsecutiveFails: number;
+	noProgressLimit: number;
+	workerTimeoutMs: number;
+	diffBudget: number;
+	recentActions: number;
+	boxMinWidth: number;
+	boxMaxWidth: number;
+	spinnerFrames: string[];
+	workerPrompt: string;
+	managerInitSys: string;
+	managerReviewSys: string;
+	requiredGuards: string[];
+	excludedExtensionNames: string[];
+	progressTailBytes: number;
+}
 
-const WORKER_PROMPT = [
-	"You are ONE iteration of an autonomous build loop working toward a fixed GOAL.",
-	"You have a FRESH context and remember NOTHING from previous iterations. All durable",
-	"state lives in files under .ralph/ and in the repository itself.",
-	"",
-	"Do this, in order:",
-	"1. Read .ralph/GOAL.md (the objective), .ralph/plan.md (the manager's current prioritized",
-	"   plan — follow it), .ralph/steering.md (a directive for THIS run, if present), and",
-	"   .ralph/progress.md (what past iterations did). Inspect the repo (`git status`, run the",
-	"   build/tests) to see what is done and what is next.",
-	"2. Choose the SINGLE most valuable next unit of work toward the GOAL (respect the plan).",
-	"3. Implement it — make real changes to the code.",
-	"4. VERIFY: run the build and tests (or otherwise prove it works). If you broke something,",
-	"   fix it before finishing this iteration.",
-	"5. Append a short, dated entry to .ralph/progress.md EARLY and keep it updated as you go — it",
-	"   is your ONLY durable memory across iterations (fresh context each run). Record what you did,",
-	"   the key results/numbers, assumptions, and what the next iteration should do. You may keep",
-	"   scratch artifacts under .ralph/, but progress.md is the canonical log. Commit code with git",
-	"   if the repo uses it.",
-	"",
-	"If — after inspecting the state — you believe the GOAL is already fully complete, do NOT",
-	"invent unnecessary work: make NO code changes and note 'nothing to do — <reason>' in",
-	".ralph/progress.md. (A separate manager decides when the loop actually ends.)",
-	"",
-	"Rules:",
-	"- Never ask questions — you are unsupervised. Make the most reasonable assumption, note it,",
-	"  and proceed.",
-	"- Do exactly ONE focused unit of work this run, then stop. The loop restarts you fresh.",
-	"- Prefer small, safe, verifiable steps. Do not delete .ralph/GOAL.md.",
-].join("\n");
+const DEFAULT_SETTINGS: RalphSettings = {
+	maxIterations: 1000,
+	maxConsecutiveFails: 5,
+	noProgressLimit: 3,
+	workerTimeoutMs: 45 * 60 * 1000,
+	diffBudget: 6000,
+	recentActions: 6,
+	boxMinWidth: 56,
+	boxMaxWidth: 160,
+	spinnerFrames: ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"],
+	workerPrompt: [
+		"You are ONE iteration of an autonomous build loop working toward a fixed GOAL.",
+		"You have a FRESH context and remember NOTHING from previous iterations. All durable",
+		"state lives in files under .ralph/ and in the repository itself.",
+		"",
+		"Do this, in order:",
+		"1. Read .ralph/GOAL.md (the objective), .ralph/plan.md (the manager's current prioritized",
+		"   plan — follow it), .ralph/steering.md (a directive for THIS run, if present), and",
+		"   .ralph/progress.md (what past iterations did). Inspect the repo (`git status`, run the",
+		"   build/tests) to see what is done and what is next.",
+		"2. Choose the SINGLE most valuable next unit of work toward the GOAL (respect the plan).",
+		"3. Implement it — make real changes to the code.",
+		"4. VERIFY: run the build and tests (or otherwise prove it works). If you broke something,",
+		"   fix it before finishing this iteration.",
+		"5. Append a short, dated entry to .ralph/progress.md EARLY and keep it updated as you go — it",
+		"   is your ONLY durable memory across iterations (fresh context each run). Record what you did,",
+		"   the key results/numbers, assumptions, and what the next iteration should do. You may keep",
+		"   scratch artifacts under .ralph/, but progress.md is the canonical log. Commit code with git",
+		"   if the repo uses it.",
+		"",
+		"If — after inspecting the state — you believe the GOAL is already fully complete, do NOT",
+		"invent unnecessary work: make NO code changes and note 'nothing to do — <reason>' in",
+		".ralph/progress.md. (A separate manager decides when the loop actually ends.)",
+		"",
+		"Rules:",
+		"- Never ask questions — you are unsupervised. Make the most reasonable assumption, note it,",
+		"  and proceed.",
+		"- Do exactly ONE focused unit of work this run, then stop. The loop restarts you fresh.",
+		"- Prefer small, safe, verifiable steps. Do not delete .ralph/GOAL.md.",
+	].join("\n"),
+	managerInitSys: [
+		"You are the MANAGER of an autonomous build loop (a 'Ralph' loop). You do NOT write code.",
+		"Ephemeral worker agents each do one unit of work toward a fixed GOAL in a fresh context.",
+		"Given the GOAL and the current repository state, produce an initial PLAN: a short,",
+		"prioritized checklist of concrete steps for the workers.",
+		"",
+		"Respond with STRICT JSON only (no prose, no code fences):",
+		'{ "status": "advancing", "analysis": "1-2 sentences", "decision": "continue",',
+		'  "plan": "<contents for .ralph/plan.md>", "steering": "optional note for the first worker" }',
+	].join("\n"),
+	managerReviewSys: [
+		"You are the MANAGER of an autonomous build loop (a 'Ralph' loop). You do NOT write code.",
+		"Ephemeral worker agents each do one unit of work toward a fixed GOAL in a fresh context;",
+		"you review what just happened and steer the next one.",
+		"",
+		"You receive: the GOAL, the current PLAN, recent PROGRESS notes, and the DIFF the last",
+		"worker produced. Assess the trajectory and respond with STRICT JSON only (no prose, no",
+		"code fences):",
+		"{",
+		'  "status": "advancing" | "thrashing" | "stuck" | "complete",',
+		'  "analysis": "1-3 sentence assessment of the last worker and overall trajectory",',
+		'  "decision": "continue" | "stop",',
+		'  "plan": "the FULL updated contents for .ralph/plan.md: a short prioritized checklist of',
+		'           the next concrete steps; remove done items, add newly discovered work",',
+		'  "steering": "optional 1-2 sentence directive for the NEXT worker, or empty"',
+		"}",
+		"",
+		"Guidance:",
+		"- advancing: real progress → decision continue.",
+		"- thrashing: churning / reverting / going in circles → continue but use steering+plan to",
+		"  break the pattern; if it has thrashed repeatedly with no net progress → stop.",
+		"- stuck: no meaningful progress and no clear path → stop.",
+		"- complete: the GOAL is genuinely met AND verified (build/tests green per the evidence) →",
+		"  stop. Be conservative: prefer continue if unsure.",
+	].join("\n"),
+	requiredGuards: ["protected-write-paths.ts"],
+	excludedExtensionNames: ["ralph", "work-plan"],
+	progressTailBytes: 16_000,
+};
 
-const MANAGER_INIT_SYS = [
-	"You are the MANAGER of an autonomous build loop (a 'Ralph' loop). You do NOT write code.",
-	"Ephemeral worker agents each do one unit of work toward a fixed GOAL in a fresh context.",
-	"Given the GOAL and the current repository state, produce an initial PLAN: a short,",
-	"prioritized checklist of concrete steps for the workers.",
-	"",
-	"Respond with STRICT JSON only (no prose, no code fences):",
-	'{ "status": "advancing", "analysis": "1-2 sentences", "decision": "continue",',
-	'  "plan": "<contents for .ralph/plan.md>", "steering": "optional note for the first worker" }',
-].join("\n");
-
-const MANAGER_REVIEW_SYS = [
-	"You are the MANAGER of an autonomous build loop (a 'Ralph' loop). You do NOT write code.",
-	"Ephemeral worker agents each do one unit of work toward a fixed GOAL in a fresh context;",
-	"you review what just happened and steer the next one.",
-	"",
-	"You receive: the GOAL, the current PLAN, recent PROGRESS notes, and the DIFF the last",
-	"worker produced. Assess the trajectory and respond with STRICT JSON only (no prose, no",
-	"code fences):",
-	"{",
-	'  "status": "advancing" | "thrashing" | "stuck" | "complete",',
-	'  "analysis": "1-3 sentence assessment of the last worker and overall trajectory",',
-	'  "decision": "continue" | "stop",',
-	'  "plan": "the FULL updated contents for .ralph/plan.md: a short prioritized checklist of',
-	'           the next concrete steps; remove done items, add newly discovered work",',
-	'  "steering": "optional 1-2 sentence directive for the NEXT worker, or empty"',
-	"}",
-	"",
-	"Guidance:",
-	"- advancing: real progress → decision continue.",
-	"- thrashing: churning / reverting / going in circles → continue but use steering+plan to",
-	"  break the pattern; if it has thrashed repeatedly with no net progress → stop.",
-	"- stuck: no meaningful progress and no clear path → stop.",
-	"- complete: the GOAL is genuinely met AND verified (build/tests green per the evidence) →",
-	"  stop. Be conservative: prefer continue if unsure.",
-].join("\n");
+let currentSettings: RalphSettings = { ...DEFAULT_SETTINGS };
 
 // ---------------------------------------------------------------------------
 // State
@@ -200,20 +223,18 @@ function readFileSafe(p: string): string {
 const readGoal = (cwd: string) => readFileSafe(rf(cwd, "GOAL.md"));
 const readPlan = (cwd: string) => readFileSafe(rf(cwd, "plan.md"));
 
-const PROGRESS_TAIL_BYTES = 16_000; // read at most 16 KB from the end — avoids loading the full file after many iterations
-
 function readProgressTail(cwd: string, lines: number): string {
 	const p = rf(cwd, "progress.md");
 	try {
 		const size = fs.statSync(p).size;
 		if (size === 0) return "";
 		let content: string;
-		if (size <= PROGRESS_TAIL_BYTES) {
+		if (size <= currentSettings.progressTailBytes) {
 			content = fs.readFileSync(p, "utf8");
 		} else {
 			const fd = fs.openSync(p, "r");
-			const buf = Buffer.alloc(PROGRESS_TAIL_BYTES);
-			fs.readSync(fd, buf, 0, PROGRESS_TAIL_BYTES, size - PROGRESS_TAIL_BYTES);
+			const buf = Buffer.alloc(currentSettings.progressTailBytes);
+			fs.readSync(fd, buf, 0, currentSettings.progressTailBytes, size - currentSettings.progressTailBytes);
 			fs.closeSync(fd);
 			content = buf.toString("utf8");
 			// Drop the first (likely partial) line caused by the mid-file read offset.
@@ -270,6 +291,74 @@ function recordManagerNote(cwd: string, iteration: number, v: Verdict): void {
 	}
 }
 
+// ---------------------------------------------------------------------------
+// Settings persistence
+// ---------------------------------------------------------------------------
+
+function loadSettings(cwd: string): RalphSettings {
+	const p = rf(cwd, "settings.json");
+	try {
+		const raw = JSON.parse(fs.readFileSync(p, "utf8")) as Partial<RalphSettings>;
+		return { ...DEFAULT_SETTINGS, ...raw };
+	} catch {
+		return { ...DEFAULT_SETTINGS };
+	}
+}
+
+function saveSettings(cwd: string, s: RalphSettings): void {
+	const p = rf(cwd, "settings.json");
+	fs.writeFileSync(p, JSON.stringify(s, null, 2) + "\n");
+}
+
+/** Parse a string value for a settings key, returning the typed value or undefined. */
+function coerceSetting(key: string, raw: string): unknown {
+	const def = DEFAULT_SETTINGS[key as keyof RalphSettings];
+	if (def === undefined) return undefined;
+
+	// Try JSON parse first (for arrays, numbers that should be strings, etc.)
+	if (raw.startsWith("[") || raw.startsWith("{") || raw === "true" || raw === "false" || raw === "null") {
+		try {
+			return JSON.parse(raw);
+		} catch {
+			/* fall through */
+		}
+	}
+
+	if (typeof def === "number") {
+		const n = Number(raw);
+		if (!Number.isNaN(n)) return n;
+		// Support expressions like "45*60*1000"
+		try {
+			const evaluated = Function(`"use strict"; return (${raw})`)();
+			if (typeof evaluated === "number" && !Number.isNaN(evaluated)) return evaluated;
+		} catch {
+			/* not an expression */
+		}
+		return undefined;
+	}
+
+	if (typeof def === "boolean") {
+		if (raw === "true" || raw === "1" || raw === "yes") return true;
+		if (raw === "false" || raw === "0" || raw === "no") return false;
+		return undefined;
+	}
+
+	if (typeof def === "string") {
+		return raw;
+	}
+
+	if (Array.isArray(def)) {
+		// Try JSON array first, then comma-separated
+		try {
+			return JSON.parse(raw);
+		} catch {
+			return raw.split(",").map((s) => s.trim()).filter(Boolean);
+		}
+	}
+
+	return undefined;
+}
+
 function runGit(cwd: string, cmd: string): string {
 	try {
 		return execSync(cmd, { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] });
@@ -321,7 +410,7 @@ function killGracefully(child: ChildProcess): void {
 function gitDiffSince(cwd: string, beforeHead: string | null): string {
 	if (!beforeHead) {
 		const wt = runGit(cwd, "git --no-pager diff").trim();
-		return wt ? truncate(wt, DIFF_BUDGET) : "(no tracked changes / not a git repo)";
+		return wt ? truncate(wt, currentSettings.diffBudget) : "(no tracked changes / not a git repo)";
 	}
 	const commits = runGit(cwd, `git --no-pager log --oneline ${beforeHead}..HEAD`).trim();
 	const stat = runGit(cwd, `git --no-pager diff --stat ${beforeHead}..HEAD`).trim();
@@ -329,7 +418,7 @@ function gitDiffSince(cwd: string, beforeHead: string | null): string {
 	const parts: string[] = [];
 	if (commits) parts.push(`Commits:\n${commits}`);
 	if (stat) parts.push(`Files:\n${stat}`);
-	if (patch) parts.push(`Patch:\n${truncate(patch, DIFF_BUDGET)}`);
+	if (patch) parts.push(`Patch:\n${truncate(patch, currentSettings.diffBudget)}`);
 	return parts.join("\n\n") || "(no changes this iteration)";
 }
 
@@ -448,31 +537,63 @@ function resolvePiInvocation(): { cmd: string; baseArgs: string[] } {
 	return { cmd: "pi", baseArgs: [] };
 }
 
-// Workers run lean (--no-extensions) but we still want a few safety guards loaded
-// explicitly (they are headless-safe: they block without prompting). Resolve each
-// by filename across the likely extension locations and return absolute paths.
-const WORKER_EXTENSIONS = ["protected-write-paths.ts"];
+// Workers run with --no-extensions but we load all project + global extensions
+// explicitly, skipping only ralph and ralph-adjacent extensions.
+// REQUIRED_GUARDS are checked for presence and warned about if missing.
+// (Defined in currentSettings.requiredGuards)
+
+// Extension names (directory or file) to skip — ralph itself plus any ralph-
+// adjacent extensions that should not run inside workers.
+// (Defined in currentSettings.excludedExtensionNames)
+
+// Resolved path of the ralph extension's own directory — used to exclude itself
+// even via the path-based check (belt-and-suspenders with the name check above).
+const RALPH_OWN_DIR = typeof __dirname === "string" ? path.resolve(__dirname) : null;
 
 function resolveWorkerExtensions(cwd: string): string[] {
-	const dirs: string[] = [];
-	try {
-		if (typeof __dirname === "string") dirs.push(path.dirname(__dirname));
-	} catch {
-		/* __dirname not provided by this loader */
-	}
-	dirs.push(path.join(os.homedir(), ".pi", "agent", "extensions"));
-	dirs.push(path.join(cwd, ".pi", "extensions"));
-
 	const found: string[] = [];
-	for (const name of WORKER_EXTENSIONS) {
-		for (const dir of dirs) {
-			const p = path.join(dir, name);
-			if (fs.existsSync(p)) {
-				found.push(p);
-				break;
-			}
+	const seen = new Set<string>();
+
+	function addExt(p: string): void {
+		const resolved = path.resolve(p);
+		if (!seen.has(resolved)) {
+			seen.add(resolved);
+			found.push(p);
 		}
 	}
+
+	const searchDirs = [
+		path.join(os.homedir(), ".pi", "agent", "extensions"),
+		path.join(cwd, ".ralph"), // project-local ralph extensions
+		path.join(cwd, ".pi", "extensions"),
+	];
+
+	for (const dir of searchDirs) {
+		try {
+			const entries = fs.readdirSync(dir, { withFileTypes: true });
+			for (const entry of entries) {
+				const fullPath = path.resolve(dir, entry.name);
+				if (new Set(currentSettings.excludedExtensionNames).has(entry.name)) continue;
+
+				if (entry.isDirectory()) {
+					// Extension packaged as a subdirectory with index.ts
+					if (RALPH_OWN_DIR && fullPath === RALPH_OWN_DIR) continue;
+					const indexPath = path.join(fullPath, "index.ts");
+					if (fs.existsSync(indexPath)) addExt(indexPath);
+				} else if (
+					entry.isFile() &&
+					entry.name.endsWith(".ts") &&
+					!entry.name.endsWith(".d.ts") &&
+					!entry.name.includes(".disabled")
+				) {
+					addExt(path.join(dir, entry.name));
+				}
+			}
+		} catch {
+			/* directory not found or unreadable — skip */
+		}
+	}
+
 	return found;
 }
 
@@ -501,7 +622,7 @@ function assistantText(message: unknown): string {
 
 function pushAction(line: string): void {
 	state.recentActions.push(line);
-	if (state.recentActions.length > RECENT_ACTIONS) state.recentActions.shift();
+	if (state.recentActions.length > currentSettings.recentActions) state.recentActions.shift();
 }
 
 function handleWorkerLine(line: string, logStream: fs.WriteStream): string | null {
@@ -550,7 +671,7 @@ function runWorker(
 		// discovery is off — `-e` paths still load with --no-extensions.
 		for (const ext of resolveWorkerExtensions(cwd)) args.push("-e", ext);
 		if (ctx.model) args.push("--model", `${ctx.model.provider}/${ctx.model.id}`);
-		args.push(WORKER_PROMPT);
+		args.push(currentSettings.workerPrompt);
 
 		let child: ChildProcess;
 		try {
@@ -569,7 +690,7 @@ function runWorker(
 		let lastSummary = "";
 		const timer = setTimeout(() => {
 			timedOut = true;
-			pushAction(`worker exceeded ${Math.round(WORKER_TIMEOUT_MS / 60000)}m — killing`);
+			pushAction(`worker exceeded ${Math.round(currentSettings.workerTimeoutMs / 60000)}m — killing`);
 			renderMonitor();
 			try {
 				child.kill("SIGTERM");
@@ -583,7 +704,7 @@ function runWorker(
 					/* gone */
 				}
 			}, 5000);
-		}, WORKER_TIMEOUT_MS);
+		}, currentSettings.workerTimeoutMs);
 
 		if (child.stdout) {
 			const rl = readline.createInterface({ input: child.stdout });
@@ -623,7 +744,7 @@ async function runLoop(ctx: ExtensionContext, sessionId: number): Promise<void> 
 		state.running = true;
 		pushAction("manager: planning…");
 		renderMonitor();
-		const init = await callManager(ctx, MANAGER_INIT_SYS, initUser(cwd));
+		const init = await callManager(ctx, currentSettings.managerInitSys, initUser(cwd));
 		state.running = false;
 		if (stale() || !state.active) return;
 		if (init) {
@@ -636,7 +757,7 @@ async function runLoop(ctx: ExtensionContext, sessionId: number): Promise<void> 
 		}
 		renderMonitor();
 
-		while (!stale() && state.active && state.iteration < MAX_ITERATIONS) {
+		while (!stale() && state.active && state.iteration < currentSettings.maxIterations) {
 			state.iteration += 1;
 			state.turnStartedAt = Date.now();
 			state.running = true;
@@ -654,9 +775,9 @@ async function runLoop(ctx: ExtensionContext, sessionId: number): Promise<void> 
 			if (timedOut || code !== 0) {
 				fails += 1;
 				noProgress = 0;
-				pushAction(`worker ${timedOut ? "timed out" : `exited ${code}`} (${fails}/${MAX_CONSECUTIVE_FAILS})`);
+				pushAction(`worker ${timedOut ? "timed out" : `exited ${code}`} (${fails}/${currentSettings.maxConsecutiveFails})`);
 				renderMonitor();
-				if (fails >= MAX_CONSECUTIVE_FAILS) return finish(ctx, "failed");
+				if (fails >= currentSettings.maxConsecutiveFails) return finish(ctx, "failed");
 				continue;
 			}
 			fails = 0;
@@ -678,7 +799,7 @@ async function runLoop(ctx: ExtensionContext, sessionId: number): Promise<void> 
 			const beforeHead = before ? before.split("\n")[0] : null;
 			const review = await callManager(
 				ctx,
-				MANAGER_REVIEW_SYS,
+				currentSettings.managerReviewSys,
 				reviewUser(cwd, gitDiffSince(cwd, beforeHead), summary),
 			);
 			state.running = false;
@@ -703,9 +824,9 @@ async function runLoop(ctx: ExtensionContext, sessionId: number): Promise<void> 
 			const advancing = review?.status === "advancing";
 			if (trackable && !changed && !advancing) {
 				noProgress += 1;
-				pushAction(`no changes (${noProgress}/${NO_PROGRESS_LIMIT})`);
+				pushAction(`no changes (${noProgress}/${currentSettings.noProgressLimit})`);
 				renderMonitor();
-				if (noProgress >= NO_PROGRESS_LIMIT) return finish(ctx, "converged");
+				if (noProgress >= currentSettings.noProgressLimit) return finish(ctx, "converged");
 			} else {
 				noProgress = 0;
 			}
@@ -748,13 +869,13 @@ function finish(ctx: ExtensionContext, reason: FinishReason, detail?: string): v
 			headline = `⚠ ralph halted by manager after ${iterations} iteration(s) (stuck/thrashing).`;
 			break;
 		case "converged":
-			headline = `✓ ralph converged after ${iterations} iteration(s) — ${NO_PROGRESS_LIMIT} in a row with no changes.`;
+			headline = `✓ ralph converged after ${iterations} iteration(s) — ${currentSettings.noProgressLimit} in a row with no changes.`;
 			break;
 		case "failed":
-			headline = `⚠ ralph stopped after ${MAX_CONSECUTIVE_FAILS} consecutive worker failures.`;
+			headline = `⚠ ralph stopped after ${currentSettings.maxConsecutiveFails} consecutive worker failures.`;
 			break;
 		case "max":
-			headline = `■ ralph stopped: reached the ${MAX_ITERATIONS}-iteration cap.`;
+			headline = `■ ralph stopped: reached the ${currentSettings.maxIterations}-iteration cap.`;
 			break;
 		case "stopped":
 			headline = `■ ralph stopped after ${iterations} iteration(s).`;
@@ -817,7 +938,7 @@ function dimText(s: string): string {
 function boxWidth(): number {
 	// Fill the terminal width (minus a small margin), within sensible bounds.
 	const cols = process.stdout?.columns ?? 80;
-	return Math.max(BOX_MIN_WIDTH, Math.min(cols - 4, BOX_MAX_WIDTH));
+	return Math.max(currentSettings.boxMinWidth, Math.min(cols - 4, currentSettings.boxMaxWidth));
 }
 
 function renderBox(title: string, rows: string[]): string[] {
@@ -837,7 +958,7 @@ function renderMonitor(): void {
 		return;
 	}
 	const now = Date.now();
-	const spin = state.running ? SPINNER_FRAMES[spinnerFrame % SPINNER_FRAMES.length] : "•";
+	const spin = state.running ? currentSettings.spinnerFrames[spinnerFrame % currentSettings.spinnerFrames.length] : "•";
 	const step = fmtDuration(state.running ? now - state.turnStartedAt : 0);
 	// Keep this compact: pi truncates widgets that are too tall.
 	const rows = [
@@ -915,10 +1036,11 @@ export default function (api: ExtensionAPI) {
 			}
 
 			setupRalphDir(cwd, argGoal ? goal : undefined);
+			currentSettings = loadSettings(cwd);
 
-			// Warn if any configured worker guard extensions can't be resolved.
+			// Warn if any required guard extensions can't be resolved.
 			const foundGuards = resolveWorkerExtensions(cwd).map((p) => path.basename(p));
-			const missingGuards = WORKER_EXTENSIONS.filter((name) => !foundGuards.includes(name));
+			const missingGuards = currentSettings.requiredGuards.filter((name) => !foundGuards.includes(name));
 			if (missingGuards.length > 0) {
 				ctx.ui.notify(
 					`ralph: worker guard extension(s) not found — workers will run without them: ${missingGuards.join(", ")}`,
@@ -951,6 +1073,116 @@ export default function (api: ExtensionAPI) {
 				return;
 			}
 			finish(ctx, "stopped");
+		},
+	});
+
+	pi.registerCommand("ralph-set", {
+		description:
+			"View or change ralph settings live (no restart needed). " +
+			"Usage: /ralph-set                  — show all settings\n" +
+			"       /ralph-set <key> <value>    — set a simple value\n" +
+			"       /ralph-set <key> @<file>    — load value from file (for prompts)\n" +
+			"       /ralph-set reload           — reload from .ralph/settings.json\n" +
+			"       /ralph-set save             — save current in-memory settings to disk",
+		handler: async (args, ctx) => {
+			const cwd = ctx.cwd;
+			const trimmed = args.trim();
+
+			// ── No args → display current settings ──
+			if (!trimmed) {
+				const display = Object.entries(currentSettings)
+					.map(([key, value]) => {
+						if (typeof value === "string" && value.length > 80) {
+							return `  ${key}: <${value.length} chars>`;
+						}
+						if (Array.isArray(value)) {
+							return `  ${key}: [${value.map((v) => (typeof v === "string" ? `"${v}"` : String(v))).join(", ")}]`;
+						}
+						return `  ${key}: ${JSON.stringify(value)}`;
+					})
+					.join("\n");
+				ctx.ui.notify(`Current ralph settings (edit .ralph/settings.json for full control):\n\n${display}`, "info");
+				return;
+			}
+
+			// ── Special sub-commands ──
+			if (trimmed === "reload") {
+				currentSettings = loadSettings(cwd);
+				ctx.ui.notify("ralph settings reloaded from .ralph/settings.json", "info");
+				return;
+			}
+			if (trimmed === "save") {
+				saveSettings(cwd, currentSettings);
+				ctx.ui.notify("ralph settings saved to .ralph/settings.json", "info");
+				return;
+			}
+
+			// ── Parse key [value] ──
+			const spaceIdx = trimmed.indexOf(" ");
+			const key = spaceIdx > 0 ? trimmed.slice(0, spaceIdx) : trimmed;
+			let rawValue: string | undefined = spaceIdx > 0 ? trimmed.slice(spaceIdx + 1).trim() : undefined;
+
+			if (!(key in DEFAULT_SETTINGS)) {
+				ctx.ui.notify(
+					`Unknown setting "${key}". Valid keys: ${Object.keys(DEFAULT_SETTINGS).join(", ")}`,
+					"error",
+				);
+				return;
+			}
+
+			// ── Load value from file if prefixed with @ ──
+			if (rawValue && rawValue.startsWith("@")) {
+				const filePath = rawValue.slice(1);
+				try {
+					rawValue = fs.readFileSync(
+						path.isAbsolute(filePath) ? filePath : path.join(cwd, filePath),
+						"utf8",
+					).trim();
+				} catch (err) {
+					ctx.ui.notify(`Cannot read file "${filePath}": ${(err as Error).message}`, "error");
+					return;
+				}
+			}
+
+			// ── Show current value when no value given ──
+			if (rawValue === undefined || rawValue === "") {
+				const v = (currentSettings as unknown as Record<string, unknown>)[key];
+				if (typeof v === "string" && v.length > 200) {
+					ctx.ui.notify(`${key}: <${v.length} chars, first 200: ${v.slice(0, 200)}…>`, "info");
+				} else if (Array.isArray(v)) {
+					ctx.ui.notify(`${key}: [${v.map((i) => (typeof i === "string" ? `"${i}"` : String(i))).join(", ")}]`, "info");
+				} else {
+					ctx.ui.notify(`${key}: ${JSON.stringify(v)}`, "info");
+				}
+				return;
+			}
+
+			// ── Update the setting ──
+			const typed = coerceSetting(key, rawValue);
+			if (typed === undefined) {
+				ctx.ui.notify(
+					`Cannot parse "${rawValue.slice(0, 100)}" for setting "${key}". ` +
+						`Expected type: ${typeof DEFAULT_SETTINGS[key as keyof RalphSettings]}`,
+					"error",
+				);
+				return;
+			}
+
+			(currentSettings as unknown as Record<string, unknown>)[key] = typed;
+
+			const isPromptKey = ["workerPrompt", "managerInitSys", "managerReviewSys"].includes(key);
+			const summary = isPromptKey
+				? `<${(typed as string).length} chars>`
+				: JSON.stringify(typed);
+			ctx.ui.notify(`ralph: ${key} = ${summary} (live)`, "info");
+
+			// Auto-persist simple (non-prompt) settings
+			if (!isPromptKey) {
+				saveSettings(cwd, currentSettings);
+				ctx.ui.notify(`  → persisted to .ralph/settings.json`, "info");
+			} else {
+				ctx.ui.notify(`  → use /ralph-set save or edit .ralph/settings.json and /ralph-set reload to persist`, "info");
+			}
 		},
 	});
 
