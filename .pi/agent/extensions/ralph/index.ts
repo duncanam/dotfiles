@@ -25,8 +25,10 @@
  *   .ralph/logs/         raw per-iteration worker event streams
  *
  * Commands:
- *   /ralph <goal>   start (or /ralph with no args to resume the existing goal)
- *   /ralph-stop     stop the loop and kill the current worker
+ *   /ralph <goal>       start (or /ralph with no args to resume the existing goal)
+ *   /ralph-stop         stop the loop and kill the current worker
+ *   /ralph-pause        pause the loop (save state, kill worker, resume later)
+ *   /ralph-resume       resume a paused loop
  */
 
 import { type ChildProcess, execSync, spawn } from "node:child_process";
@@ -135,7 +137,7 @@ const DEFAULT_SETTINGS: RalphSettings = {
 		"  stop. Be conservative: prefer continue if unsure.",
 	].join("\n"),
 	requiredGuards: ["protected-write-paths.ts"],
-	excludedExtensionNames: ["ralph", "work-plan"],
+	excludedExtensionNames: ["ralph", "work-plan", "todo-queue.ts"],
 	progressTailBytes: 16_000,
 };
 
@@ -357,6 +359,46 @@ function coerceSetting(key: string, raw: string): unknown {
 	}
 
 	return undefined;
+}
+
+// ---------------------------------------------------------------------------
+// Pause / Resume state — saved to .ralph/pause.json
+// ---------------------------------------------------------------------------
+
+interface PauseState {
+	pausedAt: string;
+	iteration: number;
+	goal: string;
+}
+
+function savePauseState(cwd: string, iteration: number, goal: string): void {
+	const s: PauseState = {
+		pausedAt: new Date().toISOString(),
+		iteration,
+		goal,
+	};
+	fs.writeFileSync(rf(cwd, "pause.json"), JSON.stringify(s, null, 2) + "\n");
+}
+
+function readPauseState(cwd: string): PauseState | null {
+	try {
+		const raw = fs.readFileSync(rf(cwd, "pause.json"), "utf8");
+		const p = JSON.parse(raw) as PauseState;
+		if (typeof p.pausedAt === "string" && typeof p.iteration === "number" && typeof p.goal === "string") {
+			return p;
+		}
+		return null;
+	} catch {
+		return null;
+	}
+}
+
+function clearPauseState(cwd: string): void {
+	try {
+		fs.rmSync(rf(cwd, "pause.json"));
+	} catch {
+		/* file didn't exist */
+	}
 }
 
 function runGit(cwd: string, cmd: string): string {
@@ -740,22 +782,26 @@ async function runLoop(ctx: ExtensionContext, sessionId: number): Promise<void> 
 	let noProgress = 0;
 	try {
 		// Initial planning pass (manager decomposes the goal).
-		state.phase = "planning";
-		state.running = true;
-		pushAction("manager: planning…");
-		renderMonitor();
-		const init = await callManager(ctx, currentSettings.managerInitSys, initUser(cwd));
-		state.running = false;
-		if (stale() || !state.active) return;
-		if (init) {
-			writePlan(cwd, init.plan);
-			writeSteering(cwd, init.steering);
-			recordManagerNote(cwd, 0, init); // iteration 0 = initial planning pass
-			pushAction("manager: plan ready");
-		} else {
-			pushAction("manager: no initial plan (continuing)");
+		// Skipped when resuming from a pause (iteration > 0) — the existing
+		// plan.md + steering.md are still valid from the last review.
+		if (state.iteration === 0) {
+			state.phase = "planning";
+			state.running = true;
+			pushAction("manager: planning…");
+			renderMonitor();
+			const init = await callManager(ctx, currentSettings.managerInitSys, initUser(cwd));
+			state.running = false;
+			if (stale() || !state.active) return;
+			if (init) {
+				writePlan(cwd, init.plan);
+				writeSteering(cwd, init.steering);
+				recordManagerNote(cwd, 0, init); // iteration 0 = initial planning pass
+				pushAction("manager: plan ready");
+			} else {
+				pushAction("manager: no initial plan (continuing)");
+			}
+			renderMonitor();
 		}
-		renderMonitor();
 
 		while (!stale() && state.active && state.iteration < currentSettings.maxIterations) {
 			state.iteration += 1;
@@ -842,6 +888,7 @@ type FinishReason = "complete" | "halted" | "converged" | "failed" | "max" | "st
 
 function finish(ctx: ExtensionContext, reason: FinishReason, detail?: string): void {
 	if (!state.active) return; // guard against re-entry
+	clearPauseState(ctx.cwd);
 	const iterations = state.iteration;
 	state.active = false;
 	state.running = false;
@@ -1014,7 +1061,9 @@ export default function (api: ExtensionAPI) {
 	pi = api;
 
 	pi.registerCommand("ralph", {
-		description: "Autonomous Ralph loop with a smart manager: ephemeral fresh-context pi workers toward a goal.",
+		description:
+			"Autonomous Ralph loop with a smart manager: ephemeral fresh-context pi workers toward a goal. " +
+			"With no arguments, resumes the goal in .ralph/GOAL.md or a previously paused loop.",
 		handler: async (args, ctx) => {
 			if (state.active) {
 				ctx.ui.notify("ralph is already running. Use /ralph-stop first.", "warning");
@@ -1022,20 +1071,48 @@ export default function (api: ExtensionAPI) {
 			}
 			const cwd = ctx.cwd;
 			const argGoal = args.trim();
-			let goal = argGoal;
-			if (!goal) {
-				goal = readGoal(cwd);
-				if (!goal) {
-					ctx.ui.notify("Usage: /ralph <goal>   (or /ralph with no args to resume)", "warning");
-					return;
+			let goal: string;
+			let resumeIteration = 0;
+
+			// ── Determine goal: arg > pause state > GOAL.md ──
+			if (argGoal) {
+				// Starting a brand-new goal — clear any stale pause state
+				clearPauseState(cwd);
+				goal = argGoal;
+			} else {
+				const pauseState = readPauseState(cwd);
+				if (pauseState) {
+					goal = pauseState.goal;
+					resumeIteration = pauseState.iteration;
+				} else {
+					goal = readGoal(cwd);
+					if (!goal) {
+						ctx.ui.notify("Usage: /ralph <goal>   (or /ralph with no args to resume)", "warning");
+						return;
+					}
 				}
 			}
+
 			if (!ctx.model) {
 				ctx.ui.notify("ralph needs a model selected (the manager reviews each iteration).", "error");
 				return;
 			}
 
-			setupRalphDir(cwd, argGoal ? goal : undefined);
+			// Set up the .ralph/ directory (harmless if it already exists)
+			setupRalphDir(cwd, goal);
+
+			// Resume-from-pause: consume the pause bookmark
+			const isPauseResume = resumeIteration > 0;
+			if (isPauseResume) {
+				clearPauseState(cwd);
+				if (ctx.hasUI) {
+					ctx.ui.notify(
+						`⟳ ralph resuming from iteration ${resumeIteration}`,
+						"info",
+					);
+				}
+			}
+
 			currentSettings = loadSettings(cwd);
 
 			// Warn if any required guard extensions can't be resolved.
@@ -1052,11 +1129,12 @@ export default function (api: ExtensionAPI) {
 			state.sessionId = _nextSessionId++;
 			state.active = true;
 			state.goal = goal;
+			state.iteration = resumeIteration;
 			state.startedAt = Date.now();
 
-			if (ctx.hasUI) {
+			if (!isPauseResume && ctx.hasUI) {
 				ctx.ui.notify(
-					"⟳ ralph started — a smart manager steering ephemeral fresh-context workers. Stop with /ralph-stop.",
+					"⟳ ralph started — a smart manager steering ephemeral fresh-context workers. Stop with /ralph-stop or /ralph-pause.",
 					"info",
 				);
 			}
@@ -1073,6 +1151,110 @@ export default function (api: ExtensionAPI) {
 				return;
 			}
 			finish(ctx, "stopped");
+		},
+	});
+
+	pi.registerCommand("ralph-pause", {
+		description:
+			"Pause the running Ralph loop. The current worker is killed, and the manager review is aborted. " +
+			"The loop state (iteration, goal) is saved to .ralph/pause.json. " +
+			"Resume later with /ralph or /ralph-resume.",
+		handler: async (_args, ctx) => {
+			if (!state.active) {
+				ctx.ui.notify("ralph is not running.", "info");
+				return;
+			}
+			const cwd = ctx.cwd;
+			const pausedIteration = state.iteration;
+			const pausedGoal = state.goal;
+
+			// Kill the current worker (if any)
+			if (state.child) {
+				killGracefully(state.child);
+				state.child = null;
+			}
+
+			// Abort any manager review in progress
+			if (state.managerAbort) {
+				try {
+					state.managerAbort.abort();
+				} catch {
+					/* noop */
+				}
+				state.managerAbort = null;
+			}
+
+			// Save pause state before clearing in-memory state
+			savePauseState(cwd, pausedIteration, pausedGoal);
+
+			// Tear down the loop
+			state.active = false;
+			state.running = false;
+			state.phase = "idle";
+			stopMonitor();
+
+			if (ctx.hasUI) {
+				ctx.ui.notify(
+					`⏸ ralph paused at iteration ${pausedIteration} (goal: ${pausedGoal}). ` +
+						`Resume with /ralph or /ralph-resume.`,
+					"info",
+				);
+			}
+		},
+	});
+
+	pi.registerCommand("ralph-resume", {
+		description:
+			"Resume a paused Ralph loop from .ralph/pause.json. " +
+			"Equivalent to running /ralph (with no args) when a pause state exists.",
+		handler: async (_args, ctx) => {
+			if (state.active) {
+				ctx.ui.notify("ralph is already running. Use /ralph-pause first.", "warning");
+				return;
+			}
+			const cwd = ctx.cwd;
+			const pauseState = readPauseState(cwd);
+			if (!pauseState) {
+				ctx.ui.notify("No paused ralph loop found. Start one with /ralph <goal>.", "info");
+				return;
+			}
+
+			if (!ctx.model) {
+				ctx.ui.notify("ralph needs a model selected (the manager reviews each iteration).", "error");
+				return;
+			}
+
+			// Consume the pause bookmark
+			const resumeIteration = pauseState.iteration;
+			clearPauseState(cwd);
+
+			setupRalphDir(cwd, pauseState.goal);
+			currentSettings = loadSettings(cwd);
+
+			const foundGuards = resolveWorkerExtensions(cwd).map((p) => path.basename(p));
+			const missingGuards = currentSettings.requiredGuards.filter((name) => !foundGuards.includes(name));
+			if (missingGuards.length > 0) {
+				ctx.ui.notify(
+					`ralph: worker guard extension(s) not found — workers will run without them: ${missingGuards.join(", ")}`,
+					"warning",
+				);
+			}
+
+			state = idleState();
+			state.sessionId = _nextSessionId++;
+			state.active = true;
+			state.goal = pauseState.goal;
+			state.iteration = resumeIteration;
+			state.startedAt = Date.now();
+
+			if (ctx.hasUI) {
+				ctx.ui.notify(
+					`⟳ ralph resuming from iteration ${resumeIteration} (paused at ${pauseState.pausedAt})`,
+					"info",
+				);
+			}
+			startMonitor(ctx);
+			void runLoop(ctx, state.sessionId);
 		},
 	});
 
@@ -1186,7 +1368,13 @@ export default function (api: ExtensionAPI) {
 		},
 	});
 
-	pi.on("session_shutdown", async () => {
+	pi.on("session_shutdown", async (_event, ctx) => {
+		// If the loop was actively running, auto-pause so the user can resume
+		// after a crash, Ctrl+C, /reload, /new, /resume, etc.
+		if (state.active) {
+			savePauseState(ctx.cwd, state.iteration, state.goal);
+		}
+
 		if (state.child) {
 			killGracefully(state.child);
 			state.child = null;
