@@ -135,6 +135,9 @@ const DEFAULT_SETTINGS: RalphSettings = {
 		"- stuck: no meaningful progress and no clear path → stop.",
 		"- complete: the GOAL is genuinely met AND verified (build/tests green per the evidence) →",
 		"  stop. Be conservative: prefer continue if unsure.",
+		"- Reconcile status with decision: decision:stop is ONLY valid with status complete (success)",
+		"  or stuck/thrashing (giving up). status:advancing ALWAYS pairs with decision:continue — never",
+		"  pair advancing with stop. If you judge the goal met, say complete, not advancing.",
 	].join("\n"),
 	requiredGuards: ["protected-write-paths.ts"],
 	excludedExtensionNames: ["ralph", "work-plan", "todo-queue.ts"],
@@ -859,7 +862,20 @@ async function runLoop(ctx: ExtensionContext, sessionId: number): Promise<void> 
 				if (review.analysis) pushAction(`  ${review.analysis.split("\n")[0]}`);
 				renderMonitor();
 				if (review.decision === "stop") {
-					return finish(ctx, review.status === "complete" ? "complete" : "halted", review.analysis);
+					if (review.status === "complete") {
+						// The only clean success stop: goal genuinely met and verified.
+						return finish(ctx, "complete", review.analysis);
+					} else if (review.status === "thrashing" || review.status === "stuck") {
+						// No path forward → halt.
+						return finish(ctx, "halted", review.analysis);
+					} else {
+						// status === "advancing" + stop is contradictory: "advancing" is a
+						// keep-going signal, so we do NOT terminate on it. A clean success
+						// must be reported as status:complete.
+						pushAction(
+							"manager: advancing but requested stop — continuing (a clean stop needs status:complete)",
+						);
+					}
 				}
 			} else {
 				pushAction("manager: no verdict (continuing)");
