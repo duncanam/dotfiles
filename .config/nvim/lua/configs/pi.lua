@@ -44,6 +44,10 @@ local function close()
     vim.api.nvim_win_close(state.win, true)
   end
   state.win = nil
+  -- Closing the float from terminal-insert mode can leave the window we land
+  -- on stuck in insert mode, which silently eats <leader>/<Space> (which-key
+  -- never fires). Force normal mode so leader mappings keep working.
+  vim.cmd "stopinsert"
 end
 
 function M.toggle()
