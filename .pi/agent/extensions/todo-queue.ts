@@ -374,13 +374,18 @@ export default function (pi: ExtensionAPI) {
   let lastReminderTime = 0;
   const REMINDER_COOLDOWN_MS = 120_000; // 2 minutes
 
-  pi.on("agent_end", (event) => {
+  pi.on("agent_settled", (_event, ctx) => {
     // Escape is an explicit user request to stop. Never turn an aborted/error
     // response into an automatic follow-up that immediately starts work again.
-    const lastAssistant = [...event.messages]
+    const lastAssistant = [...ctx.sessionManager.getBranch()]
       .reverse()
-      .find((message) => message.role === "assistant") as { stopReason?: string } | undefined;
-    if (lastAssistant?.stopReason === "aborted" || lastAssistant?.stopReason === "error") return;
+      .find(
+        (entry) => entry.type === "message" && entry.message.role === "assistant",
+      ) as { message?: { stopReason?: string } } | undefined;
+    if (
+      lastAssistant?.message?.stopReason === "aborted" ||
+      lastAssistant?.message?.stopReason === "error"
+    ) return;
 
     const now = Date.now();
     const openTodos = todos.filter((t) => !t.done);

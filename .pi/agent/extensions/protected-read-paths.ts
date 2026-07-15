@@ -15,13 +15,19 @@ import { basename, dirname, resolve } from "node:path";
 
 export default function (pi: ExtensionAPI) {
 	const home = homedir();
+	const resolveInputPath = (input: string, cwd: string) => {
+		const normalized = input.startsWith("@") ? input.slice(1) : input;
+		if (normalized === "~") return home;
+		if (normalized.startsWith("~/")) return resolve(home, normalized.slice(2));
+		return resolve(cwd, normalized);
+	};
 
 	pi.on("tool_call", async (event, ctx) => {
 		if (event.toolName !== "read") {
 			return undefined;
 		}
 
-		const path = resolve(ctx.cwd, event.input.path as string);
+		const path = resolveInputPath(event.input.path as string, ctx.cwd);
 		const isEnvInHomeRoot =
 			dirname(path) === home && basename(path).includes(".env");
 

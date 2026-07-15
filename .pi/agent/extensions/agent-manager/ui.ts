@@ -1,6 +1,7 @@
 /**
  * agent-manager — widget UI layer (bordered boxes + cost tickers).
  */
+import { truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 import type { AgentHandle, AgentStatus, Swarm } from "./agents.js";
 import type { AgentManagerConfig } from "./config.js";
 
@@ -47,62 +48,32 @@ function glyph(status: AgentStatus): string {
 	}
 }
 
-/** Rough visible column width — double-width for CJK/emoji ranges. */
-function visibleWidth(s: string): number {
-	let w = 0;
-	for (const ch of s) {
-		const code = ch.codePointAt(0)!;
-		if (
-			code >= 0x1100 ||
-			(code >= 0x2e80 && code <= 0x4dbf) ||
-			(code >= 0x4e00 && code <= 0x9fff) ||
-			(code >= 0xa000 && code <= 0xa4cf) ||
-			(code >= 0xac00 && code <= 0xd7af) ||
-			(code >= 0xfe30 && code <= 0xfe6f) ||
-			(code >= 0xff01 && code <= 0xff60) ||
-			(code >= 0xffe0 && code <= 0xffe6) ||
-			(code >= 0x1f000 && code <= 0x1ffff) ||
-			(code >= 0x20000 && code <= 0x2ffff) ||
-			(code >= 0x30000 && code <= 0x3ffff)
-		) {
-			w += 2;
-		} else {
-			w += 1;
-		}
-	}
-	return w;
-}
-
-/** Strip ANSI + control chars, clip to visible width with ellipsis. */
+/** Strip ANSI/control characters and clip to terminal display width. */
 function clipPlain(s: string, width: number): string {
 	// eslint-disable-next-line no-control-regex
 	const clean = s.replace(/\x1b\[[0-9;]*m/g, "").replace(/[\x00-\x08\x0b-\x1f]/g, "");
-	if (width <= 0) return "";
-	if (visibleWidth(clean) > width) {
-		let trimmed = "";
-		let tw = 0;
-		for (const ch of clean) {
-			const cw = visibleWidth(ch);
-			if (tw + cw + 1 > width) break; // +1 for ellipsis
-			trimmed += ch;
-			tw += cw;
-		}
-		return `${trimmed}…`;
-	}
-	return clean;
+	return width > 0 ? truncateToWidth(clean, width, "…") : "";
 }
 
 function topBorder(title: string, cost: string, width: number): string {
+	if (width <= 0) return "";
+	if (width === 1) return "╭";
+	if (width === 2) return "╭╮";
+
 	const right = ` ${cost} ─╮`;
-	let left = `╭─ ${title} `;
-	const maxTitle = width - right.length - 4;
-	if (left.length - 4 > maxTitle) left = `╭─ ${clipPlain(title, maxTitle)} `;
-	const fill = Math.max(0, width - left.length - right.length);
+	const fixedWidth = visibleWidth("╭─  ") + visibleWidth(right);
+	if (fixedWidth > width) return `╭${"─".repeat(width - 2)}╮`;
+
+	const clippedTitle = clipPlain(title, width - fixedWidth);
+	const left = `╭─ ${clippedTitle} `;
+	const fill = Math.max(0, width - visibleWidth(left) - visibleWidth(right));
 	return left + "─".repeat(fill) + right;
 }
 
 function bottomBorder(width: number): string {
-	return `╰${"─".repeat(Math.max(0, width - 2))}╯`;
+	if (width <= 0) return "";
+	if (width === 1) return "╰";
+	return `╰${"─".repeat(width - 2)}╯`;
 }
 
 function duration(seconds: number): string {
@@ -155,42 +126,54 @@ class LeadBox {
 	dispose(): void {}
 
 	render(width: number): string[] {
-		const panelWidth = Math.max(40, width);
-		const innerWidth = panelWidth - 4;
+		if (width <= 0) return [];
+		const panelWidth = width;
+		const innerWidth = Math.max(0, panelWidth - 4);
 		const output: string[] = [];
 		const title = `${this.lead.id} · ${this.lead.status} ${glyph(this.lead.status)}${timingLabel(this.lead, false)}`;
 		output.push(`${CYAN}${BOLD}${topBorder(title, fmtCost(this.lead.cost), panelWidth)}${RESET}`);
 
 		for (const line of this.lead.tail(this.config.leadLogLines)) {
-			const t = clipPlain(line, innerWidth);
-			output.push(this.frame(`${DIM}${t}${RESET}`, visibleWidth(t), panelWidth));
+			const text = clipPlain(line, innerWidth);
+			output.push(this.frame(`${DIM}${text}${RESET}`, visibleWidth(text), panelWidth));
 		}
 
-		const perRow = Math.max(
-			1,
-			Math.min(this.group.length, Math.floor((innerWidth + 1) / (MIN_WORKER_BOX_WIDTH + 1))),
-		);
-		for (let start = 0; start < this.group.length; start += perRow) {
-			const chunk = this.group.slice(start, start + perRow);
-			const boxWidth = Math.floor((innerWidth - (chunk.length - 1)) / chunk.length);
-			const boxes = chunk.map((worker) => workerBoxLines(worker, boxWidth, this.config.workerLogLines));
-			for (let row = 0; row < boxes[0].length; row += 1) {
-				const joined = boxes.map((box) => box[row]).join(" ");
-				// joined contains ANSI codes from the YELLOW coloring added below;
-				// strip them for visible-width calculation so the padding is correct.
-				const visible = joined.replace(/\x1b\[[0-9;]*m/g, "").length;
-				output.push(this.frame(`${YELLOW}${joined}${RESET}`, visible, panelWidth));
+		if (innerWidth < MIN_WORKER_BOX_WIDTH) {
+			for (const worker of this.group) {
+				const short = (worker.id.split(".")[1] ?? worker.id).replace(/^worker/, "w");
+				const latest = worker.latest() || (worker.status === "idle" ? "(idle)" : "");
+				const text = clipPlain(
+					`${short} ${glyph(worker.status)} ${fmtCost(worker.cost)}${latest ? ` · ${latest}` : ""}`,
+					innerWidth,
+				);
+				output.push(this.frame(`${YELLOW}${text}${RESET}`, visibleWidth(text), panelWidth));
+			}
+		} else {
+			const perRow = Math.max(
+				1,
+				Math.min(this.group.length, Math.floor((innerWidth + 1) / (MIN_WORKER_BOX_WIDTH + 1))),
+			);
+			for (let start = 0; start < this.group.length; start += perRow) {
+				const chunk = this.group.slice(start, start + perRow);
+				const boxWidth = Math.floor((innerWidth - (chunk.length - 1)) / chunk.length);
+				const boxes = chunk.map((worker) => workerBoxLines(worker, boxWidth, this.config.workerLogLines));
+				for (let row = 0; row < boxes[0].length; row += 1) {
+					const joined = boxes.map((box) => box[row]).join(" ");
+					output.push(this.frame(`${YELLOW}${joined}${RESET}`, visibleWidth(joined), panelWidth));
+				}
 			}
 		}
 
 		output.push(`${CYAN}${bottomBorder(panelWidth)}${RESET}`);
-		return output;
+		return output.map((line) => truncateToWidth(line, panelWidth, ""));
 	}
 
-	/** Wrap content in the lead's cyan side borders. Padding uses visible width. */
+	/** Wrap content in the lead's cyan side borders without exceeding width. */
 	private frame(content: string, visibleLen: number, width: number): string {
+		if (width <= 0) return "";
+		if (width < 4) return truncateToWidth(`${CYAN}│${RESET}${content}`, width, "");
 		const pad = " ".repeat(Math.max(0, width - 4 - visibleLen));
-		return `${CYAN}│ ${RESET}${content}${pad}${CYAN} │${RESET}`;
+		return truncateToWidth(`${CYAN}│ ${RESET}${content}${pad}${CYAN} │${RESET}`, width, "");
 	}
 }
 
@@ -215,11 +198,14 @@ export class SwarmUI {
 
 	start(): void {
 		const workerTotal = this.swarm.workers.reduce((count, group) => count + group.length, 0);
-		this.host.setWidget(HEADER_KEY, [
+		const header =
 			`${MAGENTA}${BOLD}agent-manager${RESET}${MAGENTA} · ${this.config.manager.model} → ` +
-				`${this.swarm.leads.length}× ${this.config.lead.model} → ${workerTotal}× ${this.config.worker.model}` +
-				` · /agent-manager-kill to stop${RESET}`,
-		]);
+			`${this.swarm.leads.length}× ${this.config.lead.model} → ${workerTotal}× ${this.config.worker.model}` +
+			` · /agent-manager-kill to stop${RESET}`;
+		this.host.setWidget(HEADER_KEY, () => ({
+			render: (width) => (width > 0 ? [truncateToWidth(header, width)] : []),
+			invalidate: () => {},
+		}));
 		this.swarm.leads.forEach((lead, index) => {
 			this.host.setWidget(`agent-manager:${lead.id}`, (tui) => {
 				if (!this.disposed) this.tui = tui;

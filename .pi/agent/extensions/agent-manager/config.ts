@@ -37,7 +37,7 @@ export const DEFAULT_CONFIG: AgentManagerConfig = {
 	worker: { provider: "anthropic", model: "claude-haiku-4-5", thinkingLevel: "low" },
 	leads: 3,
 	workersPerLead: 5,
-	childExtensions: ["protected-read-paths.ts", "protected-write-paths.ts", "context7.ts"],
+	childExtensions: ["protected-read-paths.ts", "protected-write-paths.ts"],
 	managerTools: [
 		"read",
 		"grep",
@@ -125,9 +125,16 @@ export function loadConfig(): AgentManagerConfig {
 	try {
 		return validateConfig(JSON.parse(readFileSync(path, "utf8")));
 	} catch (error) {
-		console.error(`agent-manager: failed to load ${path}, using defaults: ${error}`);
-		return validateConfig(DEFAULT_CONFIG);
+		const message = error instanceof Error ? error.message : String(error);
+		throw new Error(`failed to load ${path}: ${message}`);
 	}
+}
+
+export function loadConfigEditorText(): string {
+	const path = getConfigPath();
+	return existsSync(path)
+		? readFileSync(path, "utf8")
+		: `${JSON.stringify(validateConfig(DEFAULT_CONFIG), null, 2)}\n`;
 }
 
 export function saveConfig(value: unknown): AgentManagerConfig {
@@ -147,5 +154,10 @@ export function resetConfig(): void {
 
 export function resolveChildExtensionPaths(names: string[]): string[] {
 	const base = join(getAgentDir(), "extensions");
-	return names.map((name) => join(base, name)).filter((path) => existsSync(path));
+	const resolved = names.map((name) => ({ name, path: join(base, name) }));
+	const missing = resolved.filter(({ path }) => !existsSync(path));
+	if (missing.length > 0) {
+		throw new Error(`missing child extension(s): ${missing.map(({ name }) => name).join(", ")}`);
+	}
+	return resolved.map(({ path }) => path);
 }

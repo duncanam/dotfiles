@@ -17,13 +17,19 @@ import { basename, dirname, resolve, sep } from "node:path";
 export default function (pi: ExtensionAPI) {
 	const home = homedir();
 	const globalProtectedComponents = new Set([".git", "node_modules"]);
+	const resolveInputPath = (input: string, cwd: string) => {
+		const normalized = input.startsWith("@") ? input.slice(1) : input;
+		if (normalized === "~") return home;
+		if (normalized.startsWith("~/")) return resolve(home, normalized.slice(2));
+		return resolve(cwd, normalized);
+	};
 
 	pi.on("tool_call", async (event, ctx) => {
 		if (event.toolName !== "write" && event.toolName !== "edit") {
 			return undefined;
 		}
 
-		const path = resolve(ctx.cwd, event.input.path as string);
+		const path = resolveInputPath(event.input.path as string, ctx.cwd);
 		const isGloballyProtected = path
 			.split(sep)
 			.some((component) => globalProtectedComponents.has(component));

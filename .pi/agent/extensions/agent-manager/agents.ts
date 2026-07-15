@@ -5,13 +5,21 @@
  * tools + extensions, tracks per-agent status and a log ring buffer that the
  * UI renders into widgets.
  */
+import { realpathSync } from "node:fs";
+import { homedir, tmpdir } from "node:os";
+import { join } from "node:path";
 import {
 	createAgentSession,
+	createBashToolDefinition,
+	createLocalBashOperations,
 	DefaultResourceLoader,
 	defineTool,
+	formatSize,
 	getAgentDir,
 	SessionManager,
+	truncateHead,
 	type AgentSession,
+	type BashOperations,
 	type ModelRegistry,
 	type ToolDefinition,
 } from "@earendil-works/pi-coding-agent";
@@ -22,6 +30,128 @@ import { resolveChildExtensionPaths } from "./config.js";
 export type AgentStatus = "idle" | "working" | "done" | "error" | "aborted" | "timed_out";
 
 const MAX_LOG_LINES = 200;
+const PER_AGENT_REPORT_MAX_BYTES = 24 * 1024;
+const PER_AGENT_REPORT_MAX_LINES = 1_000;
+const AGGREGATE_REPORT_MAX_BYTES = 50 * 1024;
+const AGGREGATE_REPORT_MAX_LINES = 2_000;
+
+export interface BoundedReport {
+	content: string;
+	truncated: boolean;
+}
+
+function boundReport(text: string, maxBytes: number, maxLines: number): BoundedReport {
+	const result = truncateHead(text, {
+		maxBytes: Math.max(1, maxBytes - 512),
+		maxLines: Math.max(1, maxLines - 2),
+	});
+	if (!result.truncated) return { content: text, truncated: false };
+
+	const notice = `\n\n[Output truncated: showing ${result.outputLines}/${result.totalLines} lines and ${formatSize(result.outputBytes)}/${formatSize(result.totalBytes)}. Full output is preserved in tool details.]`;
+	const final = truncateHead(`${result.content}${notice}`, { maxBytes, maxLines });
+	return { content: final.content, truncated: true };
+}
+
+export function boundAgentReport(text: string): BoundedReport {
+	return boundReport(text, PER_AGENT_REPORT_MAX_BYTES, PER_AGENT_REPORT_MAX_LINES);
+}
+
+export function boundAggregateReport(text: string): BoundedReport {
+	return boundReport(text, AGGREGATE_REPORT_MAX_BYTES, AGGREGATE_REPORT_MAX_LINES);
+}
+
+export function sanitizeAgentError(rawMessage: string): string {
+	const urls: string[] = [];
+	const withoutStack = rawMessage.replaceAll(/\n\s*at\s[^\n]+/g, "");
+	const protectedUrls = withoutStack.replaceAll(/\bhttps?:\/\/[^\s)\]}'"`]+/g, (url) => {
+		const token = `\uE000${urls.length}\uE001`;
+		urls.push(url);
+		return token;
+	});
+	const redacted = protectedUrls
+		.replaceAll(/\bfile:\/\/\/[^\s)\]}'"`]+/g, "file://<path>")
+		.replaceAll(/(?<![:/])\/[^\s)\]}'"`]+/g, "<path>");
+	return redacted.replaceAll(/\uE000(\d+)\uE001/g, (_token, index: string) => urls[Number(index)] ?? "<url>");
+}
+
+let workerBashQueue: Promise<void> = Promise.resolve();
+
+function shellQuote(value: string): string {
+	return `'${value.replaceAll("'", `'"'"'`)}'`;
+}
+
+function sandboxString(value: string): string {
+	return value.replaceAll("\\", "\\\\").replaceAll('"', '\\"');
+}
+
+function existingRealpath(path: string): string {
+	try {
+		return realpathSync(path);
+	} catch {
+		return path;
+	}
+}
+
+function workerSandboxProfile(cwd: string): string {
+	const home = homedir();
+	const writeRoots = [
+		existingRealpath(cwd),
+		existingRealpath(tmpdir()),
+		existingRealpath("/tmp"),
+		existingRealpath(join(home, ".cache")),
+		existingRealpath(join(home, ".npm")),
+		existingRealpath(join(home, "Library", "Caches")),
+	];
+	const protectedWrites = [
+		existingRealpath(join(cwd, ".git")),
+		existingRealpath(join(cwd, "node_modules")),
+	];
+	const protectedReads = [
+		join(home, ".ssh"),
+		join(home, ".aws"),
+		join(home, ".gnupg"),
+		join(home, ".env"),
+	];
+	return [
+		"(version 1)",
+		"(deny default)",
+		'(import "system.sb")',
+		"(allow process*)",
+		"(allow file-read*)",
+		"(allow file-write-data (literal \"/dev/null\"))",
+		"(allow sysctl-read)",
+		"(allow mach-lookup)",
+		"(allow network*)",
+		...writeRoots.map((path) => `(allow file-write* (subpath "${sandboxString(path)}"))`),
+		...protectedWrites.map((path) => `(deny file-write* (subpath "${sandboxString(path)}"))`),
+		'(deny file-write* (regex #"/(\\.git|node_modules)(/|$)"))',
+		...protectedReads.map((path) => `(deny file-read* (subpath "${sandboxString(path)}"))`),
+	].join("\n");
+}
+
+function createWorkerBashOperations(cwd: string): BashOperations {
+	const local = createLocalBashOperations();
+	return {
+		async exec(command, commandCwd, options) {
+			const sandboxedCommand =
+				process.platform === "darwin"
+					? `/usr/bin/sandbox-exec -p ${shellQuote(workerSandboxProfile(cwd))} -- /bin/sh -lc ${shellQuote(command)}`
+					: command;
+
+			let release!: () => void;
+			const turn = new Promise<void>((resolve) => { release = resolve; });
+			const previous = workerBashQueue;
+			workerBashQueue = previous.then(() => turn, () => turn);
+			await previous;
+			try {
+				if (options.signal?.aborted) throw new Error("aborted while waiting for worker bash lock");
+				return await local.exec(sandboxedCommand, commandCwd, options);
+			} finally {
+				release();
+			}
+		},
+	};
+}
 
 export class AgentHandle {
 	readonly id: string;
@@ -224,7 +354,8 @@ export class AgentHandle {
 					return `CANCELLED (${this.id}): parent operation was aborted`;
 				}
 				this.setStatus("error");
-				const message = error instanceof Error ? error.message : String(error);
+				const rawMessage = error instanceof Error ? error.message : String(error);
+				const message = sanitizeAgentError(rawMessage);
 				this.push(`✗ ${message}`);
 				return `ERROR (${this.id}): ${message}`;
 			} finally {
@@ -321,9 +452,12 @@ You are a WORKER agent. Complete each self-contained task end-to-end and verify 
 
 async function makeChildLoader(options: {
 	cwd: string;
+	agentId: string;
+	agentTier: "lead" | "worker";
 	rolePrompt: string;
 	extensionPaths: string[];
 	bashTimeoutSeconds: number;
+	sandboxWorkerBash?: boolean;
 	extraTools?: ToolDefinition[];
 }): Promise<DefaultResourceLoader> {
 	const loader = new DefaultResourceLoader({
@@ -335,7 +469,18 @@ async function makeChildLoader(options: {
 			{
 				name: `agent-manager-child:${options.cwd}`,
 				factory: (childPi) => {
+					if (options.sandboxWorkerBash) {
+						childPi.registerTool(
+							createBashToolDefinition(options.cwd, {
+								operations: createWorkerBashOperations(options.cwd),
+							}),
+						);
+					}
 					for (const tool of options.extraTools ?? []) childPi.registerTool(tool);
+					childPi.on("before_provider_headers", (event) => {
+						event.headers["x-agent-manager-agent-id"] = options.agentId;
+						event.headers["x-agent-manager-tier"] = options.agentTier;
+					});
 					childPi.on("tool_call", (event) => {
 						if (event.toolName !== "bash" || !event.input || typeof event.input !== "object") return;
 						const input = event.input as { timeout?: number };
@@ -352,6 +497,12 @@ async function makeChildLoader(options: {
 		appendSystemPrompt: [options.rolePrompt],
 	});
 	await loader.reload();
+	const extensionErrors = loader.getExtensions().errors;
+	if (extensionErrors.length > 0) {
+		throw new Error(
+			`child extension load failed: ${extensionErrors.map(({ path, error }) => `${path}: ${error}`).join("; ")}`,
+		);
+	}
 	return loader;
 }
 
@@ -361,11 +512,31 @@ export interface Swarm {
 	disposeAll(): Promise<void>;
 }
 
+function assertActiveTools(session: AgentSession, tier: string, expectedTools: string[]): void {
+	const expected = [...new Set(expectedTools)];
+	const actual = session.getActiveToolNames();
+	const expectedSet = new Set(expected);
+	if (
+		actual.length !== expectedSet.size ||
+		actual.some((name) => !expectedSet.has(name)) ||
+		expected.some((name) => !actual.includes(name))
+	) {
+		throw new Error(
+			`agent-manager: ${tier} tool setup mismatch (expected: ${expected.join(", ")}; actual: ${actual.join(", ")})`,
+		);
+	}
+}
+
 function findModel(registry: ModelRegistry, tier: string, config: TierModelConfig) {
 	const model = registry.find(config.provider, config.model);
 	if (!model) {
 		throw new Error(
 			`agent-manager: ${tier} model ${config.provider}/${config.model} not found (check pi --list-models)`,
+		);
+	}
+	if (!registry.hasConfiguredAuth(model)) {
+		throw new Error(
+			`agent-manager: ${tier} model ${config.provider}/${config.model} has no configured authentication`,
 		);
 	}
 	return model;
@@ -409,6 +580,8 @@ export async function spawnSwarm(
 					tools: config.workerTools,
 					resourceLoader: await makeChildLoader({
 						cwd,
+						agentId: worker.id,
+						agentTier: "worker",
 						rolePrompt: WORKER_ROLE(
 							worker.id,
 							config.workerTurnTimeoutSeconds,
@@ -416,14 +589,16 @@ export async function spawnSwarm(
 						),
 						extensionPaths,
 						bashTimeoutSeconds: config.workerBashTimeoutSeconds,
+						sandboxWorkerBash: true,
 					}),
 					sessionManager: SessionManager.inMemory(cwd),
 					authStorage,
 					modelRegistry,
 				});
 				wire(worker, session);
-				group.push(worker);
 				spawned.push(worker);
+				assertActiveTools(session, worker.id, config.workerTools);
+				group.push(worker);
 			}
 
 			const runWorkers = defineTool({
@@ -444,10 +619,27 @@ export async function spawnSwarm(
 					const reports = await Promise.all(
 						params.tasks.map(async (task, index) => {
 							const worker = group[index % group.length];
-							return `### ${worker.id}\n${await worker.run(task, signal)}`;
+							// Do not replay failed or timed-out work automatically: it may
+							// already have performed partial mutations. The lead decides how
+							// to recover after inspecting this worker's attributed report.
+							const report = await worker.run(task, signal);
+							const fullText = `### ${worker.id}\n${report}`;
+							return { workerId: worker.id, task, report, bounded: boundAgentReport(fullText) };
 						}),
 					);
-					return { content: [{ type: "text", text: reports.join("\n\n") }], details: {} };
+					const aggregate = boundAggregateReport(reports.map(({ bounded }) => bounded.content).join("\n\n"));
+					return {
+						content: [{ type: "text", text: aggregate.content }],
+						details: {
+							reports: reports.map(({ workerId, task, report, bounded }) => ({
+								workerId,
+								task,
+								report,
+								truncated: bounded.truncated,
+							})),
+							aggregateTruncated: aggregate.truncated,
+						},
+					};
 				},
 			});
 
@@ -465,6 +657,8 @@ export async function spawnSwarm(
 				tools: [...config.leadTools, "run_workers"],
 				resourceLoader: await makeChildLoader({
 					cwd,
+					agentId: lead.id,
+					agentTier: "lead",
 					rolePrompt: LEAD_ROLE(
 						leadId,
 						config.workersPerLead,
@@ -480,9 +674,10 @@ export async function spawnSwarm(
 				modelRegistry,
 			});
 			wire(lead, session);
+			spawned.push(lead);
+			assertActiveTools(session, lead.id, [...config.leadTools, "run_workers"]);
 			leads.push(lead);
 			workers.push(group);
-			spawned.push(lead);
 		}
 	} catch (error) {
 		await disposeAll();
