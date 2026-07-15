@@ -5,6 +5,7 @@
  */
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import type { Model } from "@earendil-works/pi-ai/compat";
+import { Text } from "@earendil-works/pi-tui";
 import { Type } from "typebox";
 import {
 	getConfigPath,
@@ -55,7 +56,7 @@ export default function agentManagerExtension(pi: ExtensionAPI): void {
 			text:
 				event.text +
 				"\n\nAgent-manager mode is active: delegate this todo to one or more leads. Do not execute leaf work directly.",
-			images: event.images,
+			images: event.images ?? [],
 		};
 	});
 
@@ -74,7 +75,7 @@ export default function agentManagerExtension(pi: ExtensionAPI): void {
 	});
 
 	pi.on("before_agent_start", async (event) => {
-		if (!active) return;
+		if (!active || typeof event.systemPrompt !== "string") return;
 		return { systemPrompt: event.systemPrompt + MANAGER_ROLE(active.config) };
 	});
 
@@ -101,6 +102,16 @@ export default function agentManagerExtension(pi: ExtensionAPI): void {
 			lead: Type.Integer({ minimum: 1, description: "Lead number (1-indexed)" }),
 			task: Type.String({ description: "Self-contained task: goal, paths, constraints, completion criteria" }),
 		}),
+		renderCall: (args, theme) => {
+			return new Text(theme.fg("toolTitle", theme.bold(`delegate → lead${args.lead}`)), 0, 0);
+		},
+		renderResult: (result, _options, theme) => {
+			const text = (result.content as Array<{ type: string; text?: string }>).find(
+				(c) => c.type === "text",
+			)?.text ?? "(completed)";
+			const firstLine = text.split("\n")[0].slice(0, 80);
+			return new Text(theme.fg("toolOutput", firstLine), 0, 0);
+		},
 		async execute(_id, params, signal, onUpdate) {
 			if (!active) throw new Error("No active agent tree. Run /agent-manager first.");
 			const lead = active.swarm.leads[params.lead - 1];
@@ -192,12 +203,20 @@ export default function agentManagerExtension(pi: ExtensionAPI): void {
 				context.ui.notify(`Could not switch to manager model ${config.manager.model}`, "error");
 				return;
 			}
-			pi.setThinkingLevel(config.manager.thinkingLevel);
+			try {
+				pi.setThinkingLevel(config.manager.thinkingLevel);
+			} catch {
+				// Non-fatal; keep current thinking level.
+			}
 			const knownTools = new Set(pi.getAllTools().map((tool) => tool.name));
 			const managerTools = [...new Set([...config.managerTools, "delegate"])].filter((name) =>
 				knownTools.has(name),
 			);
-			pi.setActiveTools(managerTools);
+			try {
+				pi.setActiveTools(managerTools);
+			} catch {
+				// Non-fatal; tool restrictions degrade gracefully.
+			}
 
 			ui = new SwarmUI(context.ui, config, swarm, () => active?.managerCost ?? 0);
 			for (const lead of swarm.leads) lead.onChange = onChange;
@@ -267,6 +286,10 @@ export default function agentManagerExtension(pi: ExtensionAPI): void {
 	});
 
 	pi.on("session_shutdown", async () => {
-		await teardown(false);
+		try {
+			await teardown(false);
+		} catch {
+			// Swallow shutdown errors — Pi is already terminating.
+		}
 	});
 }

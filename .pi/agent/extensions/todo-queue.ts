@@ -552,6 +552,9 @@ export default function (pi: ExtensionAPI) {
       const todoList = details.todos;
 
       switch (details.action) {
+        default:
+          return new Text(theme.fg("error", `Unknown action: ${details.action}`), 0, 0);
+
         case "list": {
           if (todoList.length === 0) {
             return new Text(theme.fg("dim", "No todos"), 0, 0);

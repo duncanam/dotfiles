@@ -32,9 +32,9 @@ export interface AgentManagerConfig {
 }
 
 export const DEFAULT_CONFIG: AgentManagerConfig = {
-	manager: { provider: "cursor", model: "opus-4.8@1m", thinkingLevel: "high" },
-	lead: { provider: "cursor", model: "sonnet-5@300k", thinkingLevel: "medium" },
-	worker: { provider: "cursor", model: "gpt-5.6-luna@272k:fast", thinkingLevel: "low" },
+	manager: { provider: "anthropic", model: "claude-opus-4-8", thinkingLevel: "xhigh" },
+	lead: { provider: "anthropic", model: "claude-sonnet-5", thinkingLevel: "medium" },
+	worker: { provider: "anthropic", model: "claude-haiku-4-5", thinkingLevel: "low" },
 	leads: 3,
 	workersPerLead: 5,
 	childExtensions: ["protected-read-paths.ts", "protected-write-paths.ts", "context7.ts"],
@@ -54,8 +54,8 @@ export const DEFAULT_CONFIG: AgentManagerConfig = {
 	leadTurnTimeoutSeconds: 1800,
 	workerTurnTimeoutSeconds: 900,
 	workerBashTimeoutSeconds: 900,
-	leadLogLines: 3,
-	workerLogLines: 1,
+	leadLogLines: 4,
+	workerLogLines: 2,
 };
 
 export function getConfigPath(): string {

@@ -75,6 +75,10 @@ export class AgentHandle {
 	}
 
 	appendText(delta: string): void {
+		// Cap the partial buffer at 10KB to prevent OOM on long no-newline streams.
+		if (this.partial.length > 10_000) {
+			this.flushPartial();
+		}
 		this.partial += delta;
 		const parts = this.partial.split("\n");
 		this.partial = parts.pop() ?? "";
@@ -151,7 +155,7 @@ export class AgentHandle {
 	}
 
 	private triggerTimeout(reason: string): void {
-		if (this.status !== "working" || this.timeoutReason) return;
+		if (this.status !== "working" || this.timeoutReason || !this.session) return;
 		this.timeoutReason = reason;
 		this.push(`◷ timeout: ${reason}`);
 		this.setStatus("timed_out");
@@ -277,11 +281,13 @@ function wire(handle: AgentHandle, session: AgentSession): void {
 				}
 				break;
 			}
-			case "message_update":
-				if (event.assistantMessageEvent.type === "text_delta") {
-					handle.appendText(event.assistantMessageEvent.delta);
+			case "message_update": {
+				const deltaEvent = event.assistantMessageEvent as Record<string, unknown>;
+				if (deltaEvent.type === "text_delta" || deltaEvent.type === "thinking_delta") {
+					handle.appendText((deltaEvent.delta as string) ?? "");
 				}
 				break;
+		}
 			case "tool_execution_start":
 				handle.toolStarted();
 				handle.push(`→ ${event.toolName}`);
