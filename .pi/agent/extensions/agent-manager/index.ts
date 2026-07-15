@@ -99,11 +99,14 @@ export default function agentManagerExtension(pi: ExtensionAPI): void {
 			"Call delegate multiple times in one assistant turn when lead tasks are independent.",
 		],
 		parameters: Type.Object({
-			lead: Type.Integer({ minimum: 1, description: "Lead number (1-indexed)" }),
-			task: Type.String({ description: "Self-contained task: goal, paths, constraints, completion criteria" }),
+			lead: Type.Optional(Type.Integer({ minimum: 1, description: "Lead number (1-indexed)" })),
+			task: Type.Optional(
+				Type.String({ description: "Self-contained task: goal, paths, constraints, completion criteria" }),
+			),
 		}),
 		renderCall: (args, theme) => {
-			return new Text(theme.fg("toolTitle", theme.bold(`delegate → lead${args.lead}`)), 0, 0);
+			const target = typeof args.lead === "number" ? `lead${args.lead}` : "lead?";
+			return new Text(theme.fg("toolTitle", theme.bold(`delegate → ${target}`)), 0, 0);
 		},
 		renderResult: (result, _options, theme) => {
 			const text = (result.content as Array<{ type: string; text?: string }>).find(
@@ -114,13 +117,25 @@ export default function agentManagerExtension(pi: ExtensionAPI): void {
 		},
 		async execute(_id, params, signal, onUpdate) {
 			if (!active) throw new Error("No active agent tree. Run /agent-manager first.");
+			const leadCount = active.swarm.leads.length;
+			const softError = (text: string) => ({ content: [{ type: "text" as const, text }], details: {} });
+			if (typeof params.lead !== "number" || !params.task || !params.task.trim()) {
+				return softError(
+					`Incomplete delegate call (missing ${
+						typeof params.lead !== "number" ? "lead" : "task"
+					}). Re-issue delegate with both a lead number (1-${leadCount}) and a self-contained task including goal, paths, constraints, and completion criteria.`,
+			);
+			}
 			const lead = active.swarm.leads[params.lead - 1];
-			if (!lead) throw new Error(`Lead ${params.lead} does not exist (1-${active.swarm.leads.length}).`);
+			if (!lead) {
+				return softError(`Lead ${params.lead} does not exist. Re-issue delegate with a lead number in 1-${leadCount}.`);
+			}
 			onUpdate?.({
 				content: [{ type: "text", text: `Delegated to ${lead.id}; live progress is shown in its panel…` }],
 				details: {},
 			});
 			const report = await lead.run(params.task, signal);
+			void report;
 			return { content: [{ type: "text", text: `## Report from ${lead.id}\n\n${report}` }], details: {} };
 		},
 	});
