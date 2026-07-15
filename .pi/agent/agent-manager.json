@@ -1,0 +1,60 @@
+{
+  "manager": {
+    "provider": "openai-codex",
+    "model": "gpt-5.6-sol",
+    "thinkingLevel": "max"
+  },
+  "lead": {
+    "provider": "openai-codex",
+    "model": "gpt-5.6-terra",
+    "thinkingLevel": "medium"
+  },
+  "worker": {
+    "provider": "opencode-go",
+    "model": "deepseek-v4-flash",
+    "thinkingLevel": "low"
+  },
+  "leads": 3,
+  "workersPerLead": 5,
+  "maxNomadJobsPerLead": 3,
+  "childExtensions": [
+    "protected-read-paths.ts",
+    "protected-write-paths.ts",
+    "ban-commands.ts",
+    "context7.ts"
+  ],
+  "managerTools": [
+    "read",
+    "grep",
+    "find",
+    "ls",
+    "delegate",
+    "todo",
+    "context7_resolve_library_id",
+    "context7_get_library_docs"
+  ],
+  "leadTools": [
+    "read",
+    "grep",
+    "find",
+    "ls",
+    "context7_resolve_library_id",
+    "context7_get_library_docs"
+  ],
+  "workerTools": [
+    "read",
+    "bash",
+    "edit",
+    "write",
+    "grep",
+    "find"
+  ],
+  "modelResponseTimeoutSeconds": 300,
+  "leadTurnTimeoutSeconds": 1800,
+  "workerTurnTimeoutSeconds": 900,
+  "workerToolTimeoutSeconds": 120,
+  "workerToolTimeoutMaxSeconds": 900,
+  "workerBashTimeoutSeconds": 900,
+  "leadLogLines": 4,
+  "workerLogLines": 2
+}
