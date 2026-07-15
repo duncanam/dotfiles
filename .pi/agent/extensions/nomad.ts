@@ -12,24 +12,30 @@
  * Tools:
  *   nomad_watch   — Watch a job or allocation until terminal state,
  *                   using Nomad blocking queries (no polling).
- *   nomad_logs    — Fetch logs from a finished allocation task.
- *   nomad_submit  — Submit a job spec (HCL or JSON) and optionally watch it.
+ *   nomad_logs     — Fetch logs from a finished allocation task.
+ *   nomad_dispatch — Dispatch a pre-registered parameterized job.
+ *   nomad_submit   — Submit a job spec (HCL or JSON) and optionally watch it.
  *
  * Workflow:
  *   1. Write job spec .hcl file     (write tool)
- *   2. bash: nomad run spec.hcl     (or use nomad_submit)
+ *   2. nomad_submit spec=<path>     (submit and optionally watch)
  *   3. nomad_watch job=<name>       (blocks until terminal, returns immediately)
  *   4. nomad_logs alloc=<id> task=<task>  (get output)
+ *
+ * Agent-manager leads use a coordinated parameterized-job dispatch interface
+ * built on the exported helpers below. Direct Nomad CLI calls are intentionally
+ * banned so ownership, idempotency, and concurrency limits cannot be bypassed.
  */
 
-import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { defineTool, type ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
 
 // ─── Nomad API helpers ───────────────────────────────────────────────────────
 
-interface NomadOpts {
+export interface NomadOpts {
   addr: string;
   token?: string;
+  namespace?: string;
 }
 
 function headers(opts: NomadOpts): Record<string, string> {
@@ -53,13 +59,16 @@ function nomadToken(): string {
  * The server holds the connection until the resource changes or wait expires.
  * Returns { data, nomadIndex } for the next polling cycle.
  */
-async function nomadGet<T>(
+export async function nomadGet<T>(
   path: string,
   opts: NomadOpts,
   options?: { index?: number; wait?: string; signal?: AbortSignal },
 ): Promise<{ data: T; nomadIndex: number }> {
   const base = opts.addr.replace(/\/+$/, "");
   const url = new URL(path, base);
+  if (opts.namespace && !url.searchParams.has("namespace")) {
+    url.searchParams.set("namespace", opts.namespace);
+  }
   if (options?.index !== undefined) url.searchParams.set("index", String(options.index));
   if (options?.wait) url.searchParams.set("wait", options.wait);
 
@@ -81,7 +90,7 @@ async function nomadGet<T>(
 /**
  * POST to the Nomad API.
  */
-async function nomadPost<T>(
+export async function nomadPost<T>(
   path: string,
   body: unknown,
   opts: NomadOpts,
@@ -89,10 +98,35 @@ async function nomadPost<T>(
 ): Promise<T> {
   const base = opts.addr.replace(/\/+$/, "");
   const url = new URL(path, base);
+  if (opts.namespace && !url.searchParams.has("namespace")) {
+    url.searchParams.set("namespace", opts.namespace);
+  }
   const resp = await fetch(url.toString(), {
     method: "POST",
     headers: headers(opts),
     body: JSON.stringify(body),
+    signal,
+  });
+  if (!resp.ok) {
+    const errBody = await resp.text().catch(() => "(no body)");
+    throw new Error(`Nomad API error ${resp.status}: ${errBody}`);
+  }
+  return resp.json() as Promise<T>;
+}
+
+export async function nomadDelete<T>(
+  path: string,
+  opts: NomadOpts,
+  signal?: AbortSignal,
+): Promise<T> {
+  const base = opts.addr.replace(/\/+$/, "");
+  const url = new URL(path, base);
+  if (opts.namespace && !url.searchParams.has("namespace")) {
+    url.searchParams.set("namespace", opts.namespace);
+  }
+  const resp = await fetch(url.toString(), {
+    method: "DELETE",
+    headers: headers(opts),
     signal,
   });
   if (!resp.ok) {
@@ -123,7 +157,7 @@ interface NomadAllocTaskState {
   Events?: NomadAllocTaskEvent[];
 }
 
-interface NomadAlloc {
+export interface NomadAlloc {
   ID: string;
   Name: string;
   Namespace: string;
@@ -136,7 +170,7 @@ interface NomadAlloc {
   TaskStates?: Record<string, NomadAllocTaskState>;
 }
 
-interface NomadJob {
+export interface NomadJob {
   ID: string;
   Name: string;
   Namespace: string;
@@ -224,6 +258,19 @@ const nomadLogsParams = Type.Object({
   })),
 });
 
+const nomadDispatchParams = Type.Object({
+  ...addrTokenFields,
+  job: Type.String({ description: "Pre-registered parameterized Nomad job ID" }),
+  payload: Type.Optional(Type.String({ description: "UTF-8 dispatch payload (maximum 16KiB)" })),
+  meta: Type.Optional(Type.Record(Type.String(), Type.String(), {
+    description: "Metadata required or accepted by the parameterized job",
+  })),
+  idPrefixTemplate: Type.Optional(Type.String({ description: "Prefix added to the dispatched job ID" })),
+  idempotencyToken: Type.Optional(Type.String({
+    description: "Stable token preventing duplicate dispatch; defaults to the Pi tool-call ID",
+  })),
+});
+
 const nomadSubmitParams = Type.Object({
   ...addrTokenFields,
   spec: Type.String({
@@ -246,7 +293,75 @@ function resolveOpts(params: { addr?: string; token?: string }): NomadOpts {
       "Nomad address not set. Set NOMAD_ADDR env var or pass addr=<url> parameter.",
     );
   }
-  return { addr, token: params.token || nomadToken() || undefined };
+  return {
+    addr,
+    token: params.token || nomadToken() || undefined,
+    namespace: process.env.NOMAD_NAMESPACE || undefined,
+  };
+}
+
+/** Resolve the process-owned Nomad connection for coordinated agent tools. */
+export function defaultNomadOpts(): NomadOpts {
+  return resolveOpts({});
+}
+
+export interface NomadDispatchResult {
+  Index?: number;
+  JobCreateIndex?: number;
+  EvalCreateIndex?: number;
+  EvalID?: string;
+  DispatchedJobID: string;
+}
+
+export interface NomadStopResult {
+  EvalID?: string;
+  EvalCreateIndex?: number;
+  JobModifyIndex?: number;
+}
+
+/** Stop and purge one coordinator-owned dispatched job. */
+export async function stopNomadJob(
+  jobId: string,
+  opts: NomadOpts,
+  signal?: AbortSignal,
+): Promise<NomadStopResult> {
+  const normalized = jobId.trim();
+  if (!normalized) throw new Error("Nomad job ID is required");
+  return nomadDelete<NomadStopResult>(
+    `/v1/job/${encodeURIComponent(normalized)}?purge=true`,
+    opts,
+    signal,
+  );
+}
+
+/** Dispatch one trusted, pre-registered parameterized job. */
+export async function dispatchNomadJob(
+  request: {
+    jobId: string;
+    payload?: string;
+    meta?: Record<string, string>;
+    idPrefixTemplate?: string;
+    idempotencyToken: string;
+  },
+  opts: NomadOpts,
+  signal?: AbortSignal,
+): Promise<NomadDispatchResult> {
+  const jobId = request.jobId.trim();
+  if (!jobId) throw new Error("Parameterized Nomad job ID is required");
+
+  const body: Record<string, unknown> = {};
+  if (request.payload !== undefined) {
+    const payload = Buffer.from(request.payload, "utf8");
+    if (payload.byteLength > 16 * 1024) {
+      throw new Error(`Nomad dispatch payload exceeds 16KiB (${payload.byteLength} bytes)`);
+    }
+    body.Payload = payload.toString("base64");
+  }
+  if (request.meta && Object.keys(request.meta).length > 0) body.Meta = request.meta;
+  if (request.idPrefixTemplate) body.IdPrefixTemplate = request.idPrefixTemplate;
+
+  const path = `/v1/job/${encodeURIComponent(jobId)}/dispatch?idempotency_token=${encodeURIComponent(request.idempotencyToken)}`;
+  return nomadPost<NomadDispatchResult>(path, body, opts, signal);
 }
 
 function isAllocTerminal(alloc: NomadAlloc): boolean {
@@ -258,7 +373,7 @@ function isAllocTerminal(alloc: NomadAlloc): boolean {
  * text. Never throws for the common "not ready" / "unavailable" cases — returns a
  * short placeholder instead, so callers can chain safely.
  */
-async function fetchLogs(
+export async function fetchLogs(
   allocId: string,
   task: string,
   type: "stdout" | "stderr",
@@ -488,7 +603,7 @@ async function watchDeployment(
  * For service jobs: waits until the latest deployment completes successfully
  *   or the job is stopped.
  */
-async function watchJob(
+export async function watchJob(
   jobId: string,
   taskFilter: string | undefined,
   opts: NomadOpts,
@@ -641,7 +756,7 @@ function formatJobResult(
 
 // ─── Tool: nomad_watch ───────────────────────────────────────────────────────
 
-const toolNomadWatch = {
+const toolNomadWatch = defineTool<typeof nomadWatchParams, Record<string, unknown>>({
   name: "nomad_watch",
   label: "Nomad Watch",
   description: [
@@ -719,11 +834,11 @@ const toolNomadWatch = {
       },
     };
   },
-};
+});
 
 // ─── Tool: nomad_logs ────────────────────────────────────────────────────────
 
-const toolNomadLogs = {
+const toolNomadLogs = defineTool<typeof nomadLogsParams, Record<string, unknown>>({
   name: "nomad_logs",
   label: "Nomad Logs",
   description: [
@@ -801,11 +916,62 @@ const toolNomadLogs = {
       },
     };
   },
-};
+});
+
+// ─── Tool: nomad_dispatch ────────────────────────────────────────────────────
+
+const toolNomadDispatch = defineTool<typeof nomadDispatchParams, Record<string, unknown>>({
+  name: "nomad_dispatch",
+  label: "Nomad Dispatch",
+  description:
+    "Dispatch one pre-registered parameterized Nomad job with optional payload and metadata. Uses the Pi tool-call ID as the default idempotency token to prevent duplicate retries.",
+  promptSnippet: "Dispatch a pre-registered parameterized Nomad job idempotently",
+  promptGuidelines: [
+    "Use nomad_dispatch instead of the Nomad CLI for parameterized jobs.",
+    "Use nomad_watch with the returned dispatched job ID to wait for completion.",
+  ],
+  parameters: nomadDispatchParams,
+  async execute(
+    toolCallId: string,
+    params: {
+      job: string;
+      payload?: string;
+      meta?: Record<string, string>;
+      idPrefixTemplate?: string;
+      idempotencyToken?: string;
+      addr?: string;
+      token?: string;
+    },
+    signal?: AbortSignal,
+  ) {
+    const result = await dispatchNomadJob(
+      {
+        jobId: params.job,
+        payload: params.payload,
+        meta: params.meta,
+        idPrefixTemplate: params.idPrefixTemplate,
+        idempotencyToken: params.idempotencyToken?.trim() || toolCallId,
+      },
+      resolveOpts(params),
+      signal,
+    );
+    return {
+      content: [{
+        type: "text",
+        text: `Dispatched job "${result.DispatchedJobID}"${result.EvalID ? `\nEval ID: ${result.EvalID}` : ""}`,
+      }],
+      details: {
+        jobId: result.DispatchedJobID,
+        evalId: result.EvalID,
+        idempotencyToken: params.idempotencyToken?.trim() || toolCallId,
+      },
+    };
+  },
+});
 
 // ─── Tool: nomad_submit ──────────────────────────────────────────────────────
 
-const toolNomadSubmit = {
+const toolNomadSubmit = defineTool<typeof nomadSubmitParams, Record<string, unknown>>({
   name: "nomad_submit",
   label: "Nomad Submit",
   description: [
@@ -817,8 +983,7 @@ const toolNomadSubmit = {
   promptGuidelines: [
     "Use nomad_submit when you have a job spec file ready.",
     "It reads the file, submits via the Nomad HTTP API, and waits for completion.",
-    "Alternatively, write the spec with the write tool, submit with bash 'nomad run',",
-    "then use nomad_watch to monitor — that gives more control.",
+    "Use nomad_watch separately when watch=false; do not bypass this tool with the Nomad CLI.",
   ],
   parameters: nomadSubmitParams,
   async execute(
@@ -897,13 +1062,14 @@ const toolNomadSubmit = {
       },
     };
   },
-};
+});
 
 // ─── Extension entry point ───────────────────────────────────────────────────
 
 export default function (pi: ExtensionAPI) {
   pi.registerTool(toolNomadWatch);
   pi.registerTool(toolNomadLogs);
+  pi.registerTool(toolNomadDispatch);
   pi.registerTool(toolNomadSubmit);
 
   // (No UI chrome — tools speak for themselves)
