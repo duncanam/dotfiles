@@ -2,13 +2,13 @@
   "skills": [
     "/Users/duncan/git/parasolid_llm/skills"
   ],
-  "lastChangelogVersion": "0.80.6",
-  "defaultProvider": "cursor",
-  "defaultModel": "claude-fable-5-thinking-xhigh",
+  "lastChangelogVersion": "0.80.7",
+  "defaultProvider": "deepseek-atmc",
+  "defaultModel": "DeepSeek-V4-Flash",
   "defaultThinkingLevel": "high",
   "editorPaddingX": 1,
   "showHardwareCursor": true,
-  "theme": "light",
+  "theme": "light/dark",
   "httpIdleTimeoutMs": 300000,
   "retry": {
     "enabled": true,
@@ -20,7 +20,5 @@
     }
   },
   "hideThinkingBlock": true,
-  "packages": [
-    "npm:@netandreus/pi-cursor-provider"
-  ]
+  "packages": []
 }
