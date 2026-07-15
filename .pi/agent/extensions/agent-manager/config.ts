@@ -26,6 +26,8 @@ export interface AgentManagerConfig {
 	modelResponseTimeoutSeconds: number;
 	leadTurnTimeoutSeconds: number;
 	workerTurnTimeoutSeconds: number;
+	workerToolTimeoutSeconds: number;
+	workerToolTimeoutMaxSeconds: number;
 	workerBashTimeoutSeconds: number;
 	leadLogLines: number;
 	workerLogLines: number;
@@ -53,6 +55,8 @@ export const DEFAULT_CONFIG: AgentManagerConfig = {
 	modelResponseTimeoutSeconds: 300,
 	leadTurnTimeoutSeconds: 1800,
 	workerTurnTimeoutSeconds: 900,
+	workerToolTimeoutSeconds: 120,
+	workerToolTimeoutMaxSeconds: 900,
 	workerBashTimeoutSeconds: 900,
 	leadLogLines: 4,
 	workerLogLines: 2,
@@ -95,6 +99,30 @@ export function validateConfig(value: unknown): AgentManagerConfig {
 	}
 	const user = value as Partial<AgentManagerConfig>;
 	const merged = { ...DEFAULT_CONFIG, ...user };
+	const workerTurnTimeoutSeconds = integer(
+		merged.workerTurnTimeoutSeconds,
+		"workerTurnTimeoutSeconds",
+		1,
+		86_400,
+	);
+	const workerToolTimeoutSeconds = integer(
+		merged.workerToolTimeoutSeconds,
+		"workerToolTimeoutSeconds",
+		1,
+		86_400,
+	);
+	const workerToolTimeoutMaxSeconds = integer(
+		merged.workerToolTimeoutMaxSeconds,
+		"workerToolTimeoutMaxSeconds",
+		1,
+		86_400,
+	);
+	if (workerToolTimeoutSeconds > workerToolTimeoutMaxSeconds) {
+		throw new Error("workerToolTimeoutSeconds must not exceed workerToolTimeoutMaxSeconds");
+	}
+	if (workerToolTimeoutMaxSeconds > workerTurnTimeoutSeconds) {
+		throw new Error("workerToolTimeoutMaxSeconds must not exceed workerTurnTimeoutSeconds");
+	}
 	return {
 		manager: tier(user.manager ?? DEFAULT_CONFIG.manager, DEFAULT_CONFIG.manager, "manager"),
 		lead: tier(user.lead ?? DEFAULT_CONFIG.lead, DEFAULT_CONFIG.lead, "lead"),
@@ -112,7 +140,9 @@ export function validateConfig(value: unknown): AgentManagerConfig {
 			86_400,
 		),
 		leadTurnTimeoutSeconds: integer(merged.leadTurnTimeoutSeconds, "leadTurnTimeoutSeconds", 1, 86_400),
-		workerTurnTimeoutSeconds: integer(merged.workerTurnTimeoutSeconds, "workerTurnTimeoutSeconds", 1, 86_400),
+		workerTurnTimeoutSeconds,
+		workerToolTimeoutSeconds,
+		workerToolTimeoutMaxSeconds,
 		workerBashTimeoutSeconds: integer(merged.workerBashTimeoutSeconds, "workerBashTimeoutSeconds", 1, 86_400),
 		leadLogLines: integer(merged.leadLogLines, "leadLogLines", 0, 10),
 		workerLogLines: integer(merged.workerLogLines, "workerLogLines", 1, 5),

@@ -88,15 +88,18 @@ function duration(seconds: number): string {
 function timingLabel(agent: AgentHandle, compact: boolean): string {
 	if (agent.status !== "working") return "";
 	const timing = agent.timing();
+	const phaseValue = timing.phaseTimeoutSeconds === undefined
+		? duration(timing.phaseElapsedSeconds)
+		: `${duration(timing.phaseElapsedSeconds)}/${duration(timing.phaseTimeoutSeconds)}`;
 	if (timing.phase === "model") {
-		const value = `${duration(timing.phaseElapsedSeconds)}/${duration(agent.modelResponseTimeoutSeconds)}`;
 		return compact
-			? ` · m ${value}`
-			: ` · model ${value} · total ${duration(timing.turnElapsedSeconds)}/${duration(agent.turnTimeoutSeconds)}`;
+			? ` · m ${phaseValue}`
+			: ` · model ${phaseValue} · total ${duration(timing.turnElapsedSeconds)}/${duration(agent.turnTimeoutSeconds)}`;
 	}
+	const phaseName = timing.phase === "tool_wait" ? "wait" : "tool";
 	return compact
-		? ` · t ${duration(timing.phaseElapsedSeconds)}`
-		: ` · tool ${duration(timing.phaseElapsedSeconds)} · total ${duration(timing.turnElapsedSeconds)}/${duration(agent.turnTimeoutSeconds)}`;
+		? ` · ${phaseName} ${phaseValue}`
+		: ` · ${phaseName} ${phaseValue} · total ${duration(timing.turnElapsedSeconds)}/${duration(agent.turnTimeoutSeconds)}`;
 }
 
 function workerBoxLines(worker: AgentHandle, boxWidth: number, logLines: number): string[] {

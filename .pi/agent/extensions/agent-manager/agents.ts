@@ -74,7 +74,87 @@ export function sanitizeAgentError(rawMessage: string): string {
 	return redacted.replaceAll(/\uE000(\d+)\uE001/g, (_token, index: string) => urls[Number(index)] ?? "<url>");
 }
 
-let workerBashQueue: Promise<void> = Promise.resolve();
+type WorkerBashMode = "read" | "write";
+
+interface WorkerBashPhaseCallbacks {
+	onWaiting(): void;
+	onExecuting(): void;
+}
+
+interface LockWaiter {
+	mode: WorkerBashMode;
+	resolve: (release: () => void) => void;
+	reject: (error: Error) => void;
+	signal?: AbortSignal;
+	onAbort?: () => void;
+}
+
+class WorkspaceBashLock {
+	private readers = 0;
+	private writer = false;
+	private queue: LockWaiter[] = [];
+
+	wouldWait(mode: WorkerBashMode): boolean {
+		if (mode === "write") return this.writer || this.readers > 0 || this.queue.length > 0;
+		return this.writer || this.queue.some((waiter) => waiter.mode === "write");
+	}
+
+	acquire(mode: WorkerBashMode, signal?: AbortSignal): Promise<() => void> {
+		if (signal?.aborted) return Promise.reject(new Error("aborted while waiting for worker bash lock"));
+		return new Promise<() => void>((resolve, reject) => {
+			const waiter: LockWaiter = { mode, resolve, reject, signal };
+			waiter.onAbort = () => {
+				const index = this.queue.indexOf(waiter);
+				if (index < 0) return;
+				this.queue.splice(index, 1);
+				reject(new Error("aborted while waiting for worker bash lock"));
+				this.drain();
+			};
+			signal?.addEventListener("abort", waiter.onAbort, { once: true });
+			this.queue.push(waiter);
+			this.drain();
+		});
+	}
+
+	private grant(waiter: LockWaiter): void {
+		if (waiter.onAbort) waiter.signal?.removeEventListener("abort", waiter.onAbort);
+		if (waiter.mode === "write") this.writer = true;
+		else this.readers += 1;
+		let released = false;
+		waiter.resolve(() => {
+			if (released) return;
+			released = true;
+			if (waiter.mode === "write") this.writer = false;
+			else this.readers = Math.max(0, this.readers - 1);
+			this.drain();
+		});
+	}
+
+	private drain(): void {
+		if (this.writer || this.queue.length === 0) return;
+		if (this.readers > 0) {
+			while (this.queue[0]?.mode === "read") this.grant(this.queue.shift()!);
+			return;
+		}
+		if (this.queue[0].mode === "write") {
+			this.grant(this.queue.shift()!);
+			return;
+		}
+		while (this.queue[0]?.mode === "read") this.grant(this.queue.shift()!);
+	}
+}
+
+const workspaceBashLocks = new Map<string, WorkspaceBashLock>();
+
+function workspaceBashLock(cwd: string): WorkspaceBashLock {
+	const key = existingRealpath(cwd);
+	let lock = workspaceBashLocks.get(key);
+	if (!lock) {
+		lock = new WorkspaceBashLock();
+		workspaceBashLocks.set(key, lock);
+	}
+	return lock;
+}
 
 function shellQuote(value: string): string {
 	return `'${value.replaceAll("'", `'"'"'`)}'`;
@@ -92,10 +172,11 @@ function existingRealpath(path: string): string {
 	}
 }
 
-function workerSandboxProfile(cwd: string): string {
+function workerSandboxProfile(cwd: string, mode: WorkerBashMode): string {
 	const home = homedir();
+	const workspace = existingRealpath(cwd);
 	const writeRoots = [
-		existingRealpath(cwd),
+		...(mode === "write" ? [workspace] : []),
 		existingRealpath(tmpdir()),
 		existingRealpath("/tmp"),
 		existingRealpath(join(home, ".cache")),
@@ -103,6 +184,7 @@ function workerSandboxProfile(cwd: string): string {
 		existingRealpath(join(home, "Library", "Caches")),
 	];
 	const protectedWrites = [
+		...(mode === "read" ? [workspace] : []),
 		existingRealpath(join(cwd, ".git")),
 		existingRealpath(join(cwd, "node_modules")),
 	];
@@ -129,22 +211,25 @@ function workerSandboxProfile(cwd: string): string {
 	].join("\n");
 }
 
-function createWorkerBashOperations(cwd: string): BashOperations {
+function createWorkerBashOperations(
+	cwd: string,
+	mode: WorkerBashMode,
+	phases: WorkerBashPhaseCallbacks,
+): BashOperations {
 	const local = createLocalBashOperations();
+	const lock = workspaceBashLock(cwd);
 	return {
 		async exec(command, commandCwd, options) {
-			const sandboxedCommand =
-				process.platform === "darwin"
-					? `/usr/bin/sandbox-exec -p ${shellQuote(workerSandboxProfile(cwd))} -- /bin/sh -lc ${shellQuote(command)}`
-					: command;
-
-			let release!: () => void;
-			const turn = new Promise<void>((resolve) => { release = resolve; });
-			const previous = workerBashQueue;
-			workerBashQueue = previous.then(() => turn, () => turn);
-			await previous;
+			if (process.platform !== "darwin") {
+				throw new Error("worker bash is disabled: no supported workspace sandbox is available on this platform");
+			}
+			const sandboxedCommand = `/usr/bin/sandbox-exec -p ${shellQuote(workerSandboxProfile(cwd, mode))} -- /bin/sh -lc ${shellQuote(command)}`;
+			const waiting = lock.wouldWait(mode);
+			if (waiting) phases.onWaiting();
+			const release = await lock.acquire(mode, options.signal);
 			try {
 				if (options.signal?.aborted) throw new Error("aborted while waiting for worker bash lock");
+				phases.onExecuting();
 				return await local.exec(sandboxedCommand, commandCwd, options);
 			} finally {
 				release();
@@ -158,6 +243,7 @@ export class AgentHandle {
 	readonly kind: "lead" | "worker";
 	readonly turnTimeoutSeconds: number;
 	readonly modelResponseTimeoutSeconds: number;
+	readonly defaultToolTimeoutSeconds: number | undefined;
 	session!: AgentSession;
 	status: AgentStatus = "idle";
 	cost = 0;
@@ -169,23 +255,28 @@ export class AgentHandle {
 	private disposed = false;
 	private startedAt = 0;
 	private lastElapsedMs = 0;
-	private phase: "idle" | "model" | "tool" = "idle";
+	private phase: "idle" | "model" | "tool_wait" | "tool" = "idle";
 	private phaseStartedAt = 0;
 	private activeToolCount = 0;
+	private activeToolNames = new Set<string>();
+	private currentToolTimeoutSeconds: number | undefined;
 	private timeoutReason: string | undefined;
 	private turnTimer: ReturnType<typeof setTimeout> | undefined;
 	private modelTimer: ReturnType<typeof setTimeout> | undefined;
+	private toolTimer: ReturnType<typeof setTimeout> | undefined;
 
 	constructor(options: {
 		id: string;
 		kind: "lead" | "worker";
 		turnTimeoutSeconds: number;
 		modelResponseTimeoutSeconds: number;
+		defaultToolTimeoutSeconds?: number;
 	}) {
 		this.id = options.id;
 		this.kind = options.kind;
 		this.turnTimeoutSeconds = options.turnTimeoutSeconds;
 		this.modelResponseTimeoutSeconds = options.modelResponseTimeoutSeconds;
+		this.defaultToolTimeoutSeconds = options.defaultToolTimeoutSeconds;
 	}
 
 	tail(count: number): string[] {
@@ -240,32 +331,55 @@ export class AgentHandle {
 	}
 
 	timing(): {
-		phase: "idle" | "model" | "tool";
+		phase: "idle" | "model" | "tool_wait" | "tool";
 		turnElapsedSeconds: number;
 		phaseElapsedSeconds: number;
+		phaseTimeoutSeconds: number | undefined;
 	} {
 		const now = Date.now();
 		return {
 			phase: this.phase,
 			turnElapsedSeconds: Math.floor((this.startedAt > 0 ? now - this.startedAt : this.lastElapsedMs) / 1000),
 			phaseElapsedSeconds: this.phaseStartedAt > 0 ? Math.floor((now - this.phaseStartedAt) / 1000) : 0,
+			phaseTimeoutSeconds:
+				this.phase === "model"
+					? this.modelResponseTimeoutSeconds
+					: this.phase === "tool" || this.phase === "tool_wait"
+						? this.currentToolTimeoutSeconds
+						: undefined,
 		};
 	}
 
-	toolStarted(): void {
+	toolStarted(toolName: string): void {
 		if (this.status !== "working") return;
 		this.activeToolCount += 1;
+		this.activeToolNames.add(toolName);
 		if (this.activeToolCount === 1) {
 			this.clearModelTimer();
 			this.phase = "tool";
 			this.phaseStartedAt = Date.now();
+			this.armToolTimer();
 		}
 	}
 
-	toolEnded(): void {
+	toolWaiting(toolName: string): void {
+		if (this.status !== "working" || !this.activeToolNames.has(toolName)) return;
+		this.phase = "tool_wait";
+		this.onChange();
+	}
+
+	toolExecuting(toolName: string): void {
+		if (this.status !== "working" || !this.activeToolNames.has(toolName)) return;
+		this.phase = "tool";
+		this.onChange();
+	}
+
+	toolEnded(toolName: string): void {
 		if (this.status !== "working") return;
+		this.activeToolNames.delete(toolName);
 		this.activeToolCount = Math.max(0, this.activeToolCount - 1);
 		if (this.activeToolCount === 0) {
+			this.clearToolTimer();
 			this.phase = "model";
 			this.phaseStartedAt = Date.now();
 			this.armModelTimer();
@@ -278,10 +392,16 @@ export class AgentHandle {
 		this.modelTimer = undefined;
 	}
 
+	private clearToolTimer(): void {
+		if (this.toolTimer) clearTimeout(this.toolTimer);
+		this.toolTimer = undefined;
+	}
+
 	private clearWatchdogs(): void {
 		if (this.turnTimer) clearTimeout(this.turnTimer);
 		this.turnTimer = undefined;
 		this.clearModelTimer();
+		this.clearToolTimer();
 	}
 
 	private triggerTimeout(reason: string): void {
@@ -301,9 +421,19 @@ export class AgentHandle {
 		);
 	}
 
+	private armToolTimer(): void {
+		this.clearToolTimer();
+		if (this.currentToolTimeoutSeconds === undefined) return;
+		this.toolTimer = setTimeout(() => {
+			const tools = [...this.activeToolNames].join(", ") || "unknown";
+			this.triggerTimeout(`tool phase (${tools}) exceeded ${this.currentToolTimeoutSeconds}s`);
+		}, this.currentToolTimeoutSeconds * 1000);
+	}
+
 	private startWatchdogs(): void {
 		this.timeoutReason = undefined;
 		this.activeToolCount = 0;
+		this.activeToolNames.clear();
 		this.phase = "model";
 		this.phaseStartedAt = Date.now();
 		this.turnTimer = setTimeout(
@@ -316,11 +446,13 @@ export class AgentHandle {
 	private stopWatchdogs(): void {
 		this.clearWatchdogs();
 		this.activeToolCount = 0;
+		this.activeToolNames.clear();
+		this.currentToolTimeoutSeconds = undefined;
 		this.phase = "idle";
 		this.phaseStartedAt = 0;
 	}
 
-	run(task: string, signal?: AbortSignal): Promise<string> {
+	run(task: string, signal?: AbortSignal, toolTimeoutSeconds = this.defaultToolTimeoutSeconds): Promise<string> {
 		const result = this.chain.then(async (): Promise<string> => {
 			if (this.disposed) return `CANCELLED (${this.id}): agent was disposed`;
 			if (signal?.aborted) {
@@ -328,6 +460,10 @@ export class AgentHandle {
 				return `CANCELLED (${this.id}): parent operation was aborted`;
 			}
 
+			this.currentToolTimeoutSeconds =
+				toolTimeoutSeconds === undefined
+					? undefined
+					: Math.max(1, Math.min(toolTimeoutSeconds, this.turnTimeoutSeconds));
 			this.setStatus("working");
 			this.push(`▶ task: ${task.slice(0, 120)}`);
 			this.push("… model response");
@@ -418,35 +554,90 @@ function wire(handle: AgentHandle, session: AgentSession): void {
 					handle.appendText((deltaEvent.delta as string) ?? "");
 				}
 				break;
-		}
+			}
 			case "tool_execution_start":
-				handle.toolStarted();
+				handle.toolStarted(event.toolName);
 				handle.push(`→ ${event.toolName}`);
 				break;
 			case "tool_execution_end":
 				handle.push(`${event.isError ? "✗" : "✓"} ${event.toolName}`);
-				handle.toolEnded();
+				handle.toolEnded(event.toolName);
 				break;
 		}
 	});
 }
 
-const LEAD_ROLE = (id: string, workerCount: number, turnTimeout: number, modelTimeout: number) => `
+const LEAD_ROLE = (
+	id: string,
+	workerCount: number,
+	turnTimeout: number,
+	modelTimeout: number,
+	defaultWorkerToolTimeout: number,
+	maxWorkerToolTimeout: number,
+) => `
 ## Role: ${id} (lead agent)
 
 You are a LEAD agent in a manager→lead→worker tree, coordinating ${workerCount} worker agents.
 - Decompose each manager task into independent, self-contained subtasks and fan them out with run_workers.
 - Every worker task must include paths, goal, constraints, and completion criteria.
+- Worker tools default to ${defaultWorkerToolTimeout}s. Set toolTimeoutSeconds only when a task justifiably needs longer, up to ${maxWorkerToolTimeout}s.
 - You have read-only Pi tools; workers perform all edits. Verify reports against files where practical.
 - Each model phase has a ${modelTimeout}s watchdog and the complete assignment has a ${turnTimeout}s watchdog.
 - Your final message is a concise report to the manager: work done, files touched, verification, risks, and unresolved items.`;
 
-const WORKER_ROLE = (id: string, turnTimeout: number, modelTimeout: number) => `
+const workerBashSchema = Type.Object({
+	command: Type.String({ description: "Bash command to execute" }),
+	mode: Type.Union([Type.Literal("read"), Type.Literal("write")], {
+		description: "Use read for commands that must not modify the workspace; use write when workspace mutation is required",
+	}),
+	timeout: Type.Optional(Type.Number({ description: "Timeout in seconds" })),
+});
+
+function createWorkerBashToolDefinition(
+	cwd: string,
+	handle: AgentHandle,
+): ToolDefinition {
+	const phases = {
+		onWaiting: () => handle.toolWaiting("bash"),
+		onExecuting: () => handle.toolExecuting("bash"),
+	};
+	const readDefinition = createBashToolDefinition(cwd, {
+		operations: createWorkerBashOperations(cwd, "read", phases),
+	});
+	const writeDefinition = createBashToolDefinition(cwd, {
+		operations: createWorkerBashOperations(cwd, "write", phases),
+	});
+	return {
+		...writeDefinition,
+		description: `${writeDefinition.description}\nThe mode field is required: read commands run concurrently in a workspace-write-denied sandbox; write commands receive exclusive workspace access.`,
+		parameters: workerBashSchema,
+		execute: (toolCallId, { mode, ...input }, signal, onUpdate, context) => {
+			if (mode !== "read" && mode !== "write") throw new Error('bash mode must be "read" or "write"');
+			return (mode === "read" ? readDefinition : writeDefinition).execute(
+				toolCallId,
+				input as { command: string; timeout?: number },
+				signal,
+				onUpdate,
+				context,
+			);
+		},
+	} as ToolDefinition;
+}
+
+const WORKER_ROLE = (
+	id: string,
+	turnTimeout: number,
+	modelTimeout: number,
+	defaultToolTimeout: number,
+	maxToolTimeout: number,
+) => `
 ## Role: ${id} (worker agent)
 
 You are a WORKER agent. Complete each self-contained task end-to-end and verify your work.
 - Stay strictly within the assigned scope.
 - Each model phase has a ${modelTimeout}s watchdog and the complete task has a ${turnTimeout}s watchdog.
+- Each tool defaults to ${defaultToolTimeout}s; the lead may raise that task's tool limit to at most ${maxToolTimeout}s.
+- Bash requires mode: "read" or mode: "write". Read mode runs in parallel and cannot write the workspace; use write mode only when workspace mutation is required.
 - If blocked, stop and report the blocker.
 - Your final message briefly reports work, changed files, verification, and remaining issues.`;
 
@@ -458,6 +649,7 @@ async function makeChildLoader(options: {
 	extensionPaths: string[];
 	bashTimeoutSeconds: number;
 	sandboxWorkerBash?: boolean;
+	workerHandle?: AgentHandle;
 	extraTools?: ToolDefinition[];
 }): Promise<DefaultResourceLoader> {
 	const loader = new DefaultResourceLoader({
@@ -470,11 +662,8 @@ async function makeChildLoader(options: {
 				name: `agent-manager-child:${options.cwd}`,
 				factory: (childPi) => {
 					if (options.sandboxWorkerBash) {
-						childPi.registerTool(
-							createBashToolDefinition(options.cwd, {
-								operations: createWorkerBashOperations(options.cwd),
-							}),
-						);
+						if (!options.workerHandle) throw new Error("sandboxed worker bash requires a worker handle");
+						childPi.registerTool(createWorkerBashToolDefinition(options.cwd, options.workerHandle));
 					}
 					for (const tool of options.extraTools ?? []) childPi.registerTool(tool);
 					childPi.on("before_provider_headers", (event) => {
@@ -571,6 +760,7 @@ export async function spawnSwarm(
 					kind: "worker",
 					turnTimeoutSeconds: config.workerTurnTimeoutSeconds,
 					modelResponseTimeoutSeconds: config.modelResponseTimeoutSeconds,
+					defaultToolTimeoutSeconds: config.workerToolTimeoutSeconds,
 				});
 				worker.onChange = onChange;
 				const { session } = await createAgentSession({
@@ -586,10 +776,13 @@ export async function spawnSwarm(
 							worker.id,
 							config.workerTurnTimeoutSeconds,
 							config.modelResponseTimeoutSeconds,
+							config.workerToolTimeoutSeconds,
+							config.workerToolTimeoutMaxSeconds,
 						),
 						extensionPaths,
 						bashTimeoutSeconds: config.workerBashTimeoutSeconds,
 						sandboxWorkerBash: true,
+						workerHandle: worker,
 					}),
 					sessionManager: SessionManager.inMemory(cwd),
 					authStorage,
@@ -601,12 +794,25 @@ export async function spawnSwarm(
 				group.push(worker);
 			}
 
+			const workerTaskSchema = Type.Union([
+				Type.String({ description: "Self-contained subtask using the default tool timeout" }),
+				Type.Object({
+					task: Type.String({ description: "Self-contained subtask" }),
+					toolTimeoutSeconds: Type.Optional(
+						Type.Integer({
+							description: `Per-tool timeout for this task; default ${config.workerToolTimeoutSeconds}s, maximum ${config.workerToolTimeoutMaxSeconds}s`,
+							minimum: 1,
+							maximum: config.workerToolTimeoutMaxSeconds,
+						}),
+					),
+				}),
+			]);
 			const runWorkers = defineTool({
 				name: "run_workers",
 				label: "Run Workers",
-				description: `Fan out 1-${config.workersPerLead} independent, self-contained subtasks to workers concurrently. Call repeatedly for successive waves.`,
+				description: `Fan out 1-${config.workersPerLead} independent, self-contained subtasks concurrently. Tools default to ${config.workerToolTimeoutSeconds}s; raise toolTimeoutSeconds only for justified long operations, up to ${config.workerToolTimeoutMaxSeconds}s.`,
 				parameters: Type.Object({
-					tasks: Type.Array(Type.String({ description: "Self-contained subtask" }), {
+					tasks: Type.Array(workerTaskSchema, {
 						minItems: 1,
 						maxItems: config.workersPerLead,
 					}),
@@ -617,23 +823,35 @@ export async function spawnSwarm(
 						details: {},
 					});
 					const reports = await Promise.all(
-						params.tasks.map(async (task, index) => {
+						params.tasks.map(async (taskSpec, index) => {
 							const worker = group[index % group.length];
+							const task = typeof taskSpec === "string" ? taskSpec : taskSpec.task;
+							const toolTimeoutSeconds =
+								typeof taskSpec === "string" || taskSpec.toolTimeoutSeconds === undefined
+									? config.workerToolTimeoutSeconds
+									: Math.min(taskSpec.toolTimeoutSeconds, config.workerToolTimeoutMaxSeconds);
 							// Do not replay failed or timed-out work automatically: it may
 							// already have performed partial mutations. The lead decides how
 							// to recover after inspecting this worker's attributed report.
-							const report = await worker.run(task, signal);
+							const report = await worker.run(task, signal, toolTimeoutSeconds);
 							const fullText = `### ${worker.id}\n${report}`;
-							return { workerId: worker.id, task, report, bounded: boundAgentReport(fullText) };
+							return {
+								workerId: worker.id,
+								task,
+								toolTimeoutSeconds,
+								report,
+								bounded: boundAgentReport(fullText),
+							};
 						}),
 					);
 					const aggregate = boundAggregateReport(reports.map(({ bounded }) => bounded.content).join("\n\n"));
 					return {
 						content: [{ type: "text", text: aggregate.content }],
 						details: {
-							reports: reports.map(({ workerId, task, report, bounded }) => ({
+							reports: reports.map(({ workerId, task, toolTimeoutSeconds, report, bounded }) => ({
 								workerId,
 								task,
+								toolTimeoutSeconds,
 								report,
 								truncated: bounded.truncated,
 							})),
@@ -664,6 +882,8 @@ export async function spawnSwarm(
 						config.workersPerLead,
 						config.leadTurnTimeoutSeconds,
 						config.modelResponseTimeoutSeconds,
+						config.workerToolTimeoutSeconds,
+						config.workerToolTimeoutMaxSeconds,
 					),
 					extensionPaths,
 					bashTimeoutSeconds: config.workerBashTimeoutSeconds,
