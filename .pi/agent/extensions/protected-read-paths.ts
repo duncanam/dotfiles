@@ -11,7 +11,7 @@
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { homedir } from "node:os";
-import { resolve, dirname } from "node:path";
+import { basename, dirname, resolve } from "node:path";
 
 export default function (pi: ExtensionAPI) {
 	const home = homedir();
@@ -21,9 +21,9 @@ export default function (pi: ExtensionAPI) {
 			return undefined;
 		}
 
-		const path = resolve(event.input.path as string);
+		const path = resolve(ctx.cwd, event.input.path as string);
 		const isEnvInHomeRoot =
-			dirname(path) === home && path.includes(".env");
+			dirname(path) === home && basename(path).includes(".env");
 
 		if (isEnvInHomeRoot) {
 			if (ctx.hasUI) {

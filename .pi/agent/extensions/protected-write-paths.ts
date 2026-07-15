@@ -12,24 +12,24 @@
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { homedir } from "node:os";
-import { resolve, dirname } from "node:path";
+import { basename, dirname, resolve, sep } from "node:path";
 
 export default function (pi: ExtensionAPI) {
 	const home = homedir();
-	const globalProtectedPaths = [".git/", "node_modules/"];
+	const globalProtectedComponents = new Set([".git", "node_modules"]);
 
 	pi.on("tool_call", async (event, ctx) => {
 		if (event.toolName !== "write" && event.toolName !== "edit") {
 			return undefined;
 		}
 
-		const path = resolve(event.input.path as string);
-		const isGloballyProtected = globalProtectedPaths.some((p) =>
-			path.includes(p),
-		);
+		const path = resolve(ctx.cwd, event.input.path as string);
+		const isGloballyProtected = path
+			.split(sep)
+			.some((component) => globalProtectedComponents.has(component));
 
 		const isEnvInHomeRoot =
-			dirname(path) === home && path.includes(".env");
+			dirname(path) === home && basename(path).includes(".env");
 
 		if (isGloballyProtected || isEnvInHomeRoot) {
 			if (ctx.hasUI) {
