@@ -51,8 +51,11 @@ function glyph(status: AgentStatus): string {
 /** Strip ANSI/control characters and clip to terminal display width. */
 function clipPlain(s: string, width: number): string {
 	// eslint-disable-next-line no-control-regex
-	const clean = s.replace(/\x1b\[[0-9;]*m/g, "").replace(/[\x00-\x08\x0b-\x1f]/g, "");
-	return width > 0 ? truncateToWidth(clean, width, "…") : "";
+	const stripControls = (value: string) => value.replace(/\x1b\[[0-9;]*m/g, "").replace(/[\x00-\x08\x0b-\x1f]/g, "");
+	const clean = stripControls(s);
+	// truncateToWidth appends ANSI resets even for plain input. Strip those so
+	// callers can apply self-contained styles without affecting adjacent boxes.
+	return width > 0 ? stripControls(truncateToWidth(clean, width, "…")) : "";
 }
 
 function topBorder(title: string, cost: string, width: number): string {
@@ -106,15 +109,16 @@ function workerBoxLines(worker: AgentHandle, boxWidth: number, logLines: number)
 	const short = (worker.id.split(".")[1] ?? worker.id).replace(/^worker/, "w");
 	const contentWidth = boxWidth - 4;
 	const lines = [
-		topBorder(`${short} ${glyph(worker.status)}${timingLabel(worker, true)}`, fmtCost(worker.cost), boxWidth),
+		`${YELLOW}${topBorder(`${short} ${glyph(worker.status)}${timingLabel(worker, true)}`, fmtCost(worker.cost), boxWidth)}${RESET}`,
 	];
 	const tail = worker.tail(logLines);
 	for (let index = 0; index < logLines; index += 1) {
 		const raw = tail[index] ?? (index === 0 && worker.status === "idle" ? "(idle)" : "");
 		const text = clipPlain(raw, contentWidth);
-		lines.push(`│ ${text}${" ".repeat(Math.max(0, contentWidth - visibleWidth(text)))} │`);
+		const pad = " ".repeat(Math.max(0, contentWidth - visibleWidth(text)));
+		lines.push(`${YELLOW}│${RESET} ${DIM}${text}${RESET}${pad} ${YELLOW}│${RESET}`);
 	}
-	lines.push(bottomBorder(boxWidth));
+	lines.push(`${YELLOW}${bottomBorder(boxWidth)}${RESET}`);
 	return lines;
 }
 
@@ -145,11 +149,12 @@ class LeadBox {
 			for (const worker of this.group) {
 				const short = (worker.id.split(".")[1] ?? worker.id).replace(/^worker/, "w");
 				const latest = worker.latest() || (worker.status === "idle" ? "(idle)" : "");
-				const text = clipPlain(
-					`${short} ${glyph(worker.status)} ${fmtCost(worker.cost)}${latest ? ` · ${latest}` : ""}`,
-					innerWidth,
-				);
-				output.push(this.frame(`${YELLOW}${text}${RESET}`, visibleWidth(text), panelWidth));
+				const prefix = `${short} ${glyph(worker.status)} ${fmtCost(worker.cost)}`;
+				const prefixText = clipPlain(prefix, innerWidth);
+				const remaining = Math.max(0, innerWidth - visibleWidth(prefixText));
+				const latestText = latest && remaining > 0 ? clipPlain(` · ${latest}`, remaining) : "";
+				const text = `${YELLOW}${prefixText}${RESET}${DIM}${latestText}${RESET}`;
+				output.push(this.frame(text, visibleWidth(prefixText) + visibleWidth(latestText), panelWidth));
 			}
 		} else {
 			const perRow = Math.max(
@@ -162,7 +167,7 @@ class LeadBox {
 				const boxes = chunk.map((worker) => workerBoxLines(worker, boxWidth, this.config.workerLogLines));
 				for (let row = 0; row < boxes[0].length; row += 1) {
 					const joined = boxes.map((box) => box[row]).join(" ");
-					output.push(this.frame(`${YELLOW}${joined}${RESET}`, visibleWidth(joined), panelWidth));
+					output.push(this.frame(joined, visibleWidth(joined), panelWidth));
 				}
 			}
 		}

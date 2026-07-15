@@ -88,19 +88,8 @@ export default function agentManagerExtension(pi: ExtensionAPI): void {
 	pi.on("input", (event) => {
 		if (!active) return;
 
-		// Pi normally delivers steering after the current tool batch. Abort active
-		// delegation first so the steering message reaches the manager promptly.
-		if (
-			event.source !== "extension" &&
-			event.streamingBehavior === "steer" &&
-			active.delegationControllers.size > 0
-		) {
-			for (const lead of active.swarm.leads) {
-				if (lead.status === "working") lead.push("↪ cancelling for manager steering");
-			}
-			for (const controller of active.delegationControllers) controller.abort("manager steering");
-		}
-
+		// Leave interactive steering to Pi's normal queue. It will be delivered
+		// after the current delegation finishes instead of aborting child agents.
 		if (event.source !== "extension" || !event.text.startsWith("Continue with the next open todo:")) {
 			return;
 		}
@@ -545,7 +534,7 @@ export default function agentManagerExtension(pi: ExtensionAPI): void {
 				workersPerLead: config.workersPerLead,
 			});
 			context.ui.notify(
-				"agent-manager active. Manager tools are read-only; steer mid-flight with Enter. /agent-manager-kill to stop.",
+				"agent-manager active. Manager tools are read-only; steering queues until the current delegation finishes. /agent-manager-kill to stop.",
 				"info",
 			);
 			if (args.trim()) pi.sendUserMessage(args.trim());
