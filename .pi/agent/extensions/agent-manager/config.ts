@@ -3,8 +3,18 @@
  *
  * Users can override any field in ~/.pi/agent/agent-manager.json.
  */
-import { chmodSync, existsSync, readFileSync, renameSync, unlinkSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import {
+	chmodSync,
+	existsSync,
+	lstatSync,
+	readFileSync,
+	readlinkSync,
+	realpathSync,
+	renameSync,
+	unlinkSync,
+	writeFileSync,
+} from "node:fs";
+import { dirname, join, resolve } from "node:path";
 import { getAgentDir } from "@earendil-works/pi-coding-agent";
 
 export interface TierModelConfig {
@@ -167,9 +177,20 @@ export function loadConfigEditorText(): string {
 		: `${JSON.stringify(validateConfig(DEFAULT_CONFIG), null, 2)}\n`;
 }
 
+function getConfigStoragePath(): string {
+	const path = getConfigPath();
+	if (existsSync(path)) return realpathSync(path);
+	try {
+		return resolve(dirname(path), readlinkSync(path));
+	} catch (error) {
+		if ((error as { code?: string }).code !== "ENOENT") throw error;
+		return path;
+	}
+}
+
 export function saveConfig(value: unknown): AgentManagerConfig {
 	const config = validateConfig(value);
-	const path = getConfigPath();
+	const path = getConfigStoragePath();
 	const temporary = `${path}.tmp-${process.pid}`;
 	writeFileSync(temporary, `${JSON.stringify(config, null, 2)}\n`, { encoding: "utf8", mode: 0o600 });
 	renameSync(temporary, path);
@@ -179,7 +200,15 @@ export function saveConfig(value: unknown): AgentManagerConfig {
 
 export function resetConfig(): void {
 	const path = getConfigPath();
-	if (existsSync(path)) unlinkSync(path);
+	try {
+		if (lstatSync(path).isSymbolicLink()) {
+			saveConfig(DEFAULT_CONFIG);
+			return;
+		}
+		unlinkSync(path);
+	} catch (error) {
+		if ((error as { code?: string }).code !== "ENOENT") throw error;
+	}
 }
 
 export function resolveChildExtensionPaths(names: string[]): string[] {
