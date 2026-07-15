@@ -1,5 +1,5 @@
 /**
- * ralph — an autonomous "Ralph Wiggum" loop with a SMART manager, run inside pi.
+ * goalseek — an iterative, manager-supervised goal-seeking loop, run inside pi.
  *
  * The top-level pi session is the MANAGER/ORCHESTRATOR. Each iteration it spawns an
  * EPHEMERAL child `pi` process (a "worker") that runs a fixed prompt with a completely
@@ -12,23 +12,23 @@
  * and decide whether to keep going or stop. Before the first worker it does an initial
  * planning pass.
  *
- * Faithful-to-Ralph guardrails: a *worker* can never self-declare "done" and stop the loop.
- * The loop stops only on: the manager's review verdict, /ralph-stop, the iteration cap,
- * consecutive worker failures, or git-based convergence (no real changes for several runs).
+ * A worker can never self-declare "done" and stop the loop. The loop stops only on the
+ * manager's review verdict, /goalseek-stop, the iteration cap, consecutive worker failures,
+ * or git-based convergence (no real changes for several runs).
  *
  * Durable state (files, not conversation):
- *   .ralph/GOAL.md       the objective (human-set)
- *   .ralph/plan.md       the manager's living, prioritized plan
- *   .ralph/progress.md   the workers' running log
- *   .ralph/manager.md    the manager's review/audit trail
- *   .ralph/steering.md   a one-off note the manager leaves for the next worker
- *   .ralph/logs/         raw per-iteration worker event streams
+ *   .goalseek/GOAL.md       the objective (human-set)
+ *   .goalseek/plan.md       the manager's living, prioritized plan
+ *   .goalseek/progress.md   the workers' running log
+ *   .goalseek/manager.md    the manager's review/audit trail
+ *   .goalseek/steering.md   a one-off note the manager leaves for the next worker
+ *   .goalseek/logs/         raw per-iteration worker event streams
  *
  * Commands:
- *   /ralph <goal>       start (or /ralph with no args to resume the existing goal)
- *   /ralph-stop         stop the loop and kill the current worker
- *   /ralph-pause        pause the loop (save state, kill worker, resume later)
- *   /ralph-resume       resume a paused loop
+ *   /goalseek <goal>       start (or /goalseek with no args to resume the existing goal)
+ *   /goalseek-stop         stop the loop and kill the current worker
+ *   /goalseek-pause        pause the loop (save state, kill worker, resume later)
+ *   /goalseek-resume       resume a paused loop
  */
 
 import { type ChildProcess, execSync, spawn } from "node:child_process";
@@ -39,11 +39,11 @@ import * as readline from "node:readline";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 
 // ---------------------------------------------------------------------------
-// Settings — loaded from .ralph/settings.json; all fields are live-mutable via
-// /ralph-set while the loop runs (no restart needed).
+// Settings — loaded from .goalseek/settings.json; all fields are live-mutable via
+// /goalseek-set while the loop runs (no restart needed).
 // ---------------------------------------------------------------------------
 
-interface RalphSettings {
+interface GoalseekSettings {
 	maxIterations: number;
 	maxConsecutiveFails: number;
 	noProgressLimit: number;
@@ -61,7 +61,7 @@ interface RalphSettings {
 	progressTailBytes: number;
 }
 
-const DEFAULT_SETTINGS: RalphSettings = {
+const DEFAULT_SETTINGS: GoalseekSettings = {
 	maxIterations: 1000,
 	maxConsecutiveFails: 5,
 	noProgressLimit: 3,
@@ -74,45 +74,45 @@ const DEFAULT_SETTINGS: RalphSettings = {
 	workerPrompt: [
 		"You are ONE iteration of an autonomous build loop working toward a fixed GOAL.",
 		"You have a FRESH context and remember NOTHING from previous iterations. All durable",
-		"state lives in files under .ralph/ and in the repository itself.",
+		"state lives in files under .goalseek/ and in the repository itself.",
 		"",
 		"Do this, in order:",
-		"1. Read .ralph/GOAL.md (the objective), .ralph/plan.md (the manager's current prioritized",
-		"   plan — follow it), .ralph/steering.md (a directive for THIS run, if present), and",
-		"   .ralph/progress.md (what past iterations did). Inspect the repo (`git status`, run the",
+		"1. Read .goalseek/GOAL.md (the objective), .goalseek/plan.md (the manager's current prioritized",
+		"   plan — follow it), .goalseek/steering.md (a directive for THIS run, if present), and",
+		"   .goalseek/progress.md (what past iterations did). Inspect the repo (`git status`, run the",
 		"   build/tests) to see what is done and what is next.",
 		"2. Choose the SINGLE most valuable next unit of work toward the GOAL (respect the plan).",
 		"3. Implement it — make real changes to the code.",
 		"4. VERIFY: run the build and tests (or otherwise prove it works). If you broke something,",
 		"   fix it before finishing this iteration.",
-		"5. Append a short, dated entry to .ralph/progress.md EARLY and keep it updated as you go — it",
+		"5. Append a short, dated entry to .goalseek/progress.md EARLY and keep it updated as you go — it",
 		"   is your ONLY durable memory across iterations (fresh context each run). Record what you did,",
 		"   the key results/numbers, assumptions, and what the next iteration should do. You may keep",
-		"   scratch artifacts under .ralph/, but progress.md is the canonical log. Commit code with git",
+		"   scratch artifacts under .goalseek/, but progress.md is the canonical log. Commit code with git",
 		"   if the repo uses it.",
 		"",
 		"If — after inspecting the state — you believe the GOAL is already fully complete, do NOT",
 		"invent unnecessary work: make NO code changes and note 'nothing to do — <reason>' in",
-		".ralph/progress.md. (A separate manager decides when the loop actually ends.)",
+		".goalseek/progress.md. (A separate manager decides when the loop actually ends.)",
 		"",
 		"Rules:",
 		"- Never ask questions — you are unsupervised. Make the most reasonable assumption, note it,",
 		"  and proceed.",
 		"- Do exactly ONE focused unit of work this run, then stop. The loop restarts you fresh.",
-		"- Prefer small, safe, verifiable steps. Do not delete .ralph/GOAL.md.",
+		"- Prefer small, safe, verifiable steps. Do not delete .goalseek/GOAL.md.",
 	].join("\n"),
 	managerInitSys: [
-		"You are the MANAGER of an autonomous build loop (a 'Ralph' loop). You do NOT write code.",
+		"You are the MANAGER of Goalseek, an autonomous goal-seeking build loop. You do NOT write code.",
 		"Ephemeral worker agents each do one unit of work toward a fixed GOAL in a fresh context.",
 		"Given the GOAL and the current repository state, produce an initial PLAN: a short,",
 		"prioritized checklist of concrete steps for the workers.",
 		"",
 		"Respond with STRICT JSON only (no prose, no code fences):",
 		'{ "status": "advancing", "analysis": "1-2 sentences", "decision": "continue",',
-		'  "plan": "<contents for .ralph/plan.md>", "steering": "optional note for the first worker" }',
+		'  "plan": "<contents for .goalseek/plan.md>", "steering": "optional note for the first worker" }',
 	].join("\n"),
 	managerReviewSys: [
-		"You are the MANAGER of an autonomous build loop (a 'Ralph' loop). You do NOT write code.",
+		"You are the MANAGER of Goalseek, an autonomous goal-seeking build loop. You do NOT write code.",
 		"Ephemeral worker agents each do one unit of work toward a fixed GOAL in a fresh context;",
 		"you review what just happened and steer the next one.",
 		"",
@@ -123,7 +123,7 @@ const DEFAULT_SETTINGS: RalphSettings = {
 		'  "status": "advancing" | "thrashing" | "stuck" | "complete",',
 		'  "analysis": "1-3 sentence assessment of the last worker and overall trajectory",',
 		'  "decision": "continue" | "stop",',
-		'  "plan": "the FULL updated contents for .ralph/plan.md: a short prioritized checklist of',
+		'  "plan": "the FULL updated contents for .goalseek/plan.md: a short prioritized checklist of',
 		'           the next concrete steps; remove done items, add newly discovered work",',
 		'  "steering": "optional 1-2 sentence directive for the NEXT worker, or empty"',
 		"}",
@@ -140,11 +140,11 @@ const DEFAULT_SETTINGS: RalphSettings = {
 		"  pair advancing with stop. If you judge the goal met, say complete, not advancing.",
 	].join("\n"),
 	requiredGuards: ["protected-write-paths.ts"],
-	excludedExtensionNames: ["ralph", "work-plan", "todo-queue.ts"],
+	excludedExtensionNames: ["goalseek", "work-plan", "todo-queue.ts"],
 	progressTailBytes: 16_000,
 };
 
-let currentSettings: RalphSettings = { ...DEFAULT_SETTINGS };
+let currentSettings: GoalseekSettings = { ...DEFAULT_SETTINGS };
 
 // ---------------------------------------------------------------------------
 // State
@@ -152,9 +152,9 @@ let currentSettings: RalphSettings = { ...DEFAULT_SETTINGS };
 
 type Phase = "idle" | "planning" | "working" | "reviewing";
 
-interface RalphState {
+interface GoalseekState {
 	active: boolean;
-	sessionId: number; // incremented on every /ralph invocation; lets stale runLoop coroutines detect they've been superseded
+	sessionId: number; // incremented on every /goalseek invocation; lets stale runLoop coroutines detect they've been superseded
 	goal: string;
 	iteration: number;
 	startedAt: number;
@@ -168,7 +168,7 @@ interface RalphState {
 
 let _nextSessionId = 1;
 
-function idleState(): RalphState {
+function idleState(): GoalseekState {
 	return {
 		active: false,
 		sessionId: 0,
@@ -184,7 +184,7 @@ function idleState(): RalphState {
 	};
 }
 
-let state: RalphState = idleState();
+let state: GoalseekState = idleState();
 let pi!: ExtensionAPI;
 
 let monitorTimer: ReturnType<typeof setInterval> | null = null;
@@ -209,13 +209,15 @@ async function getComplete(): Promise<typeof import("@earendil-works/pi-ai/compa
 // Filesystem helpers
 // ---------------------------------------------------------------------------
 
-const ralphDir = (cwd: string) => path.join(cwd, ".ralph");
-const rf = (cwd: string, name: string) => path.join(ralphDir(cwd), name);
+const goalseekDir = (cwd: string) => path.join(cwd, ".goalseek");
+const stateFile = (cwd: string, name: string) => path.join(goalseekDir(cwd), name);
 
-function setupRalphDir(cwd: string, goal: string | undefined): void {
-	fs.mkdirSync(path.join(ralphDir(cwd), "logs"), { recursive: true });
-	if (goal !== undefined) fs.writeFileSync(rf(cwd, "GOAL.md"), `${goal}\n`);
-	if (!fs.existsSync(rf(cwd, "progress.md"))) fs.writeFileSync(rf(cwd, "progress.md"), "# Ralph progress log\n\n");
+function setupGoalseekDir(cwd: string, goal: string | undefined): void {
+	fs.mkdirSync(path.join(goalseekDir(cwd), "logs"), { recursive: true });
+	if (goal !== undefined) fs.writeFileSync(stateFile(cwd, "GOAL.md"), `${goal}\n`);
+	if (!fs.existsSync(stateFile(cwd, "progress.md"))) {
+		fs.writeFileSync(stateFile(cwd, "progress.md"), "# Goalseek progress log\n\n");
+	}
 }
 
 function readFileSafe(p: string): string {
@@ -225,11 +227,11 @@ function readFileSafe(p: string): string {
 		return "";
 	}
 }
-const readGoal = (cwd: string) => readFileSafe(rf(cwd, "GOAL.md"));
-const readPlan = (cwd: string) => readFileSafe(rf(cwd, "plan.md"));
+const readGoal = (cwd: string) => readFileSafe(stateFile(cwd, "GOAL.md"));
+const readPlan = (cwd: string) => readFileSafe(stateFile(cwd, "plan.md"));
 
 function readProgressTail(cwd: string, lines: number): string {
-	const p = rf(cwd, "progress.md");
+	const p = stateFile(cwd, "progress.md");
 	try {
 		const size = fs.statSync(p).size;
 		if (size === 0) return "";
@@ -254,7 +256,7 @@ function readProgressTail(cwd: string, lines: number): string {
 
 function progressSize(cwd: string): number {
 	try {
-		return fs.statSync(rf(cwd, "progress.md")).size;
+		return fs.statSync(stateFile(cwd, "progress.md")).size;
 	} catch {
 		return 0;
 	}
@@ -264,7 +266,7 @@ function progressSize(cwd: string): number {
 function appendProgress(cwd: string, iteration: number, text: string): void {
 	try {
 		fs.appendFileSync(
-			rf(cwd, "progress.md"),
+			stateFile(cwd, "progress.md"),
 			`\n## iteration ${iteration} (worker summary, auto-captured) — ${new Date().toISOString()}\n${truncate(text.trim(), 4000)}\n`,
 		);
 	} catch {
@@ -272,10 +274,10 @@ function appendProgress(cwd: string, iteration: number, text: string): void {
 	}
 }
 function writePlan(cwd: string, text: string): void {
-	if (text.trim()) fs.writeFileSync(rf(cwd, "plan.md"), `${text.trim()}\n`);
+	if (text.trim()) fs.writeFileSync(stateFile(cwd, "plan.md"), `${text.trim()}\n`);
 }
 function writeSteering(cwd: string, text: string): void {
-	const p = rf(cwd, "steering.md");
+	const p = stateFile(cwd, "steering.md");
 	if (text.trim()) fs.writeFileSync(p, `${text.trim()}\n`);
 	else {
 		try {
@@ -288,7 +290,7 @@ function writeSteering(cwd: string, text: string): void {
 function recordManagerNote(cwd: string, iteration: number, v: Verdict): void {
 	try {
 		fs.appendFileSync(
-			rf(cwd, "manager.md"),
+			stateFile(cwd, "manager.md"),
 			`\n## iteration ${iteration} — ${new Date().toISOString()}\nstatus: ${v.status}; decision: ${v.decision}\n${v.analysis}\n`,
 		);
 	} catch {
@@ -300,24 +302,24 @@ function recordManagerNote(cwd: string, iteration: number, v: Verdict): void {
 // Settings persistence
 // ---------------------------------------------------------------------------
 
-function loadSettings(cwd: string): RalphSettings {
-	const p = rf(cwd, "settings.json");
+function loadSettings(cwd: string): GoalseekSettings {
+	const p = stateFile(cwd, "settings.json");
 	try {
-		const raw = JSON.parse(fs.readFileSync(p, "utf8")) as Partial<RalphSettings>;
+		const raw = JSON.parse(fs.readFileSync(p, "utf8")) as Partial<GoalseekSettings>;
 		return { ...DEFAULT_SETTINGS, ...raw };
 	} catch {
 		return { ...DEFAULT_SETTINGS };
 	}
 }
 
-function saveSettings(cwd: string, s: RalphSettings): void {
-	const p = rf(cwd, "settings.json");
+function saveSettings(cwd: string, s: GoalseekSettings): void {
+	const p = stateFile(cwd, "settings.json");
 	fs.writeFileSync(p, JSON.stringify(s, null, 2) + "\n");
 }
 
 /** Parse a string value for a settings key, returning the typed value or undefined. */
 function coerceSetting(key: string, raw: string): unknown {
-	const def = DEFAULT_SETTINGS[key as keyof RalphSettings];
+	const def = DEFAULT_SETTINGS[key as keyof GoalseekSettings];
 	if (def === undefined) return undefined;
 
 	// Try JSON parse first (for arrays, numbers that should be strings, etc.)
@@ -365,7 +367,7 @@ function coerceSetting(key: string, raw: string): unknown {
 }
 
 // ---------------------------------------------------------------------------
-// Pause / Resume state — saved to .ralph/pause.json
+// Pause / Resume state — saved to .goalseek/pause.json
 // ---------------------------------------------------------------------------
 
 interface PauseState {
@@ -380,12 +382,12 @@ function savePauseState(cwd: string, iteration: number, goal: string): void {
 		iteration,
 		goal,
 	};
-	fs.writeFileSync(rf(cwd, "pause.json"), JSON.stringify(s, null, 2) + "\n");
+	fs.writeFileSync(stateFile(cwd, "pause.json"), JSON.stringify(s, null, 2) + "\n");
 }
 
 function readPauseState(cwd: string): PauseState | null {
 	try {
-		const raw = fs.readFileSync(rf(cwd, "pause.json"), "utf8");
+		const raw = fs.readFileSync(stateFile(cwd, "pause.json"), "utf8");
 		const p = JSON.parse(raw) as PauseState;
 		if (typeof p.pausedAt === "string" && typeof p.iteration === "number" && typeof p.goal === "string") {
 			return p;
@@ -398,7 +400,7 @@ function readPauseState(cwd: string): PauseState | null {
 
 function clearPauseState(cwd: string): void {
 	try {
-		fs.rmSync(rf(cwd, "pause.json"));
+		fs.rmSync(stateFile(cwd, "pause.json"));
 	} catch {
 		/* file didn't exist */
 	}
@@ -412,7 +414,7 @@ function runGit(cwd: string, cmd: string): string {
 	}
 }
 
-// Snapshot of git state ignoring .ralph/. null when not a usable git repo.
+// Snapshot of git state ignoring .goalseek/. null when not a usable git repo.
 function repoSnapshot(cwd: string): string | null {
 	try {
 		const head = execSync("git rev-parse HEAD", {
@@ -422,7 +424,7 @@ function repoSnapshot(cwd: string): string | null {
 		}).trim();
 		const status = runGit(cwd, "git status --porcelain")
 			.split("\n")
-			.filter((l) => l.trim() && !l.includes(".ralph/"))
+			.filter((l) => l.trim() && !l.includes(".goalseek/"))
 			.sort()
 			.join("\n");
 		return `${head}\n${status}`;
@@ -565,10 +567,10 @@ function initUser(cwd: string): string {
 function reviewUser(cwd: string, diff: string, summary: string): string {
 	return [
 		`GOAL:\n${readGoal(cwd)}`,
-		`CURRENT PLAN (.ralph/plan.md):\n${readPlan(cwd) || "(none yet)"}`,
-		`RECENT PROGRESS (.ralph/progress.md):\n${readProgressTail(cwd, 25) || "(none yet)"}`,
-		`LAST WORKER SUMMARY (its own words — real work may live in .ralph/, excluded from the diff):\n${truncate(summary || "(worker produced no summary text)", 2500)}`,
-		`LAST WORKER CHANGES (git diff, excludes .ralph/):\n${diff}`,
+		`CURRENT PLAN (.goalseek/plan.md):\n${readPlan(cwd) || "(none yet)"}`,
+		`RECENT PROGRESS (.goalseek/progress.md):\n${readProgressTail(cwd, 25) || "(none yet)"}`,
+		`LAST WORKER SUMMARY (its own words — real work may live in .goalseek/, excluded from the diff):\n${truncate(summary || "(worker produced no summary text)", 2500)}`,
+		`LAST WORKER CHANGES (git diff, excludes .goalseek/):\n${diff}`,
 	].join("\n\n");
 }
 
@@ -582,18 +584,13 @@ function resolvePiInvocation(): { cmd: string; baseArgs: string[] } {
 	return { cmd: "pi", baseArgs: [] };
 }
 
-// Workers run with --no-extensions but we load all project + global extensions
-// explicitly, skipping only ralph and ralph-adjacent extensions.
-// REQUIRED_GUARDS are checked for presence and warned about if missing.
-// (Defined in currentSettings.requiredGuards)
+// Workers disable automatic extension discovery, then explicitly load eligible
+// project and global extensions. requiredGuards are checked and warned about when
+// missing; excludedExtensionNames are omitted from worker processes.
 
-// Extension names (directory or file) to skip — ralph itself plus any ralph-
-// adjacent extensions that should not run inside workers.
-// (Defined in currentSettings.excludedExtensionNames)
-
-// Resolved path of the ralph extension's own directory — used to exclude itself
-// even via the path-based check (belt-and-suspenders with the name check above).
-const RALPH_OWN_DIR = typeof __dirname === "string" ? path.resolve(__dirname) : null;
+// Resolved path of Goalseek's own directory, used to exclude itself even when a
+// saved excludedExtensionNames setting omits "goalseek".
+const GOALSEEK_OWN_DIR = typeof __dirname === "string" ? path.resolve(__dirname) : null;
 
 function resolveWorkerExtensions(cwd: string): string[] {
 	const found: string[] = [];
@@ -609,7 +606,7 @@ function resolveWorkerExtensions(cwd: string): string[] {
 
 	const searchDirs = [
 		path.join(os.homedir(), ".pi", "agent", "extensions"),
-		path.join(cwd, ".ralph"), // project-local ralph extensions
+		path.join(cwd, ".goalseek"), // project-local Goalseek extensions
 		path.join(cwd, ".pi", "extensions"),
 	];
 
@@ -622,7 +619,7 @@ function resolveWorkerExtensions(cwd: string): string[] {
 
 				if (entry.isDirectory()) {
 					// Extension packaged as a subdirectory with index.ts
-					if (RALPH_OWN_DIR && fullPath === RALPH_OWN_DIR) continue;
+					if (GOALSEEK_OWN_DIR && fullPath === GOALSEEK_OWN_DIR) continue;
 					const indexPath = path.join(fullPath, "index.ts");
 					if (fs.existsSync(indexPath)) addExt(indexPath);
 				} else if (
@@ -707,13 +704,13 @@ function runWorker(
 ): Promise<{ code: number; timedOut: boolean; summary: string }> {
 	return new Promise((resolve) => {
 		const cwd = ctx.cwd;
-		const logStream = fs.createWriteStream(rf(cwd, path.join("logs", `iter-${iteration}.jsonl`)));
-		const errStream = fs.createWriteStream(rf(cwd, path.join("logs", `iter-${iteration}.err`)));
+		const logStream = fs.createWriteStream(stateFile(cwd, path.join("logs", `iter-${iteration}.jsonl`)));
+		const errStream = fs.createWriteStream(stateFile(cwd, path.join("logs", `iter-${iteration}.err`)));
 
 		const { cmd, baseArgs } = resolvePiInvocation();
 		const args = [...baseArgs, "--mode", "json", "-a", "--no-extensions"];
-		// Explicitly load safety guards (e.g. protected-write-paths) even though
-		// discovery is off — `-e` paths still load with --no-extensions.
+		// Explicitly load eligible extensions even though automatic discovery is off;
+		// `-e` paths still load with --no-extensions.
 		for (const ext of resolveWorkerExtensions(cwd)) args.push("-e", ext);
 		if (ctx.model) args.push("--model", `${ctx.model.provider}/${ctx.model.id}`);
 		args.push(currentSettings.workerPrompt);
@@ -780,7 +777,7 @@ function runWorker(
 
 async function runLoop(ctx: ExtensionContext, sessionId: number): Promise<void> {
 	const cwd = ctx.cwd;
-	const stale = () => state.sessionId !== sessionId; // true if a newer /ralph has started
+	const stale = () => state.sessionId !== sessionId; // true if a newer /goalseek has started
 	let fails = 0;
 	let noProgress = 0;
 	try {
@@ -840,7 +837,7 @@ async function runLoop(ctx: ExtensionContext, sessionId: number): Promise<void> 
 			const changed = trackable ? before !== after : true;
 
 			// Smart manager review — also give it the worker's own summary, since real work
-			// may live in .ralph/ (excluded from the diff) or otherwise go unrecorded.
+			// may live in .goalseek/ (excluded from the diff) or otherwise go unrecorded.
 			state.phase = "reviewing";
 			state.running = true;
 			pushAction("manager: reviewing…");
@@ -926,29 +923,29 @@ function finish(ctx: ExtensionContext, reason: FinishReason, detail?: string): v
 	let headline: string;
 	switch (reason) {
 		case "complete":
-			headline = `✓ ralph complete after ${iterations} iteration(s) — manager judged the goal met and verified.`;
+			headline = `✓ goalseek complete after ${iterations} iteration(s) — manager judged the goal met and verified.`;
 			break;
 		case "halted":
-			headline = `⚠ ralph halted by manager after ${iterations} iteration(s) (stuck/thrashing).`;
+			headline = `⚠ goalseek halted by manager after ${iterations} iteration(s) (stuck/thrashing).`;
 			break;
 		case "converged":
-			headline = `✓ ralph converged after ${iterations} iteration(s) — ${currentSettings.noProgressLimit} in a row with no changes.`;
+			headline = `✓ goalseek converged after ${iterations} iteration(s) — ${currentSettings.noProgressLimit} in a row with no changes.`;
 			break;
 		case "failed":
-			headline = `⚠ ralph stopped after ${currentSettings.maxConsecutiveFails} consecutive worker failures.`;
+			headline = `⚠ goalseek stopped after ${currentSettings.maxConsecutiveFails} consecutive worker failures.`;
 			break;
 		case "max":
-			headline = `■ ralph stopped: reached the ${currentSettings.maxIterations}-iteration cap.`;
+			headline = `■ goalseek stopped: reached the ${currentSettings.maxIterations}-iteration cap.`;
 			break;
 		case "stopped":
-			headline = `■ ralph stopped after ${iterations} iteration(s).`;
+			headline = `■ goalseek stopped after ${iterations} iteration(s).`;
 			break;
 	}
 
 	const extra = detail?.trim() || (reason === "converged" ? readProgressTail(ctx.cwd, 12) : "");
 	const body = extra ? `${headline}\n\n${extra}` : headline;
 	try {
-		pi.sendMessage({ customType: "ralph", content: `[ralph] ${body}`, display: true }, { deliverAs: "nextTurn" });
+		pi.sendMessage({ customType: "goalseek", content: `[goalseek] ${body}`, display: true }, { deliverAs: "nextTurn" });
 	} catch {
 		/* best-effort */
 	}
@@ -1017,7 +1014,7 @@ function renderBox(title: string, rows: string[]): string[] {
 function renderMonitor(): void {
 	if (!monitorCtx || !monitorCtx.hasUI) return;
 	if (!state.active) {
-		monitorCtx.ui.setWidget("ralph", []);
+		monitorCtx.ui.setWidget("goalseek", []);
 		return;
 	}
 	const now = Date.now();
@@ -1028,9 +1025,9 @@ function renderMonitor(): void {
 		`${spin} ${state.phase} · iteration ${state.iteration} · total ${fmtDuration(now - state.startedAt)} · step ${step}`,
 		`goal  ${state.goal}`,
 		...(state.recentActions.length ? state.recentActions : ["(starting…)"]),
-		"stop with /ralph-stop",
+		"stop with /goalseek-stop",
 	];
-	monitorCtx.ui.setWidget("ralph", renderBox("ralph", rows));
+	monitorCtx.ui.setWidget("goalseek", renderBox("goalseek", rows));
 	spinnerFrame += 1;
 }
 
@@ -1038,8 +1035,8 @@ function updateStatus(ctx: ExtensionContext): void {
 	monitorCtx = ctx;
 	if (ctx.hasUI) {
 		ctx.ui.setStatus(
-			"ralph",
-			state.active ? `⟳ ralph ${state.phase} #${state.iteration} ${fmtDuration(Date.now() - state.startedAt)}` : "",
+			"goalseek",
+			state.active ? `⟳ goalseek ${state.phase} #${state.iteration} ${fmtDuration(Date.now() - state.startedAt)}` : "",
 		);
 	}
 	renderMonitor();
@@ -1064,8 +1061,8 @@ function stopMonitor(): void {
 		monitorTimer = null;
 	}
 	if (monitorCtx?.hasUI) {
-		monitorCtx.ui.setStatus("ralph", "");
-		monitorCtx.ui.setWidget("ralph", []);
+		monitorCtx.ui.setStatus("goalseek", "");
+		monitorCtx.ui.setWidget("goalseek", []);
 	}
 }
 
@@ -1076,13 +1073,13 @@ function stopMonitor(): void {
 export default function (api: ExtensionAPI) {
 	pi = api;
 
-	pi.registerCommand("ralph", {
+	pi.registerCommand("goalseek", {
 		description:
-			"Autonomous Ralph loop with a smart manager: ephemeral fresh-context pi workers toward a goal. " +
-			"With no arguments, resumes the goal in .ralph/GOAL.md or a previously paused loop.",
+			"Autonomous Goalseek loop with a smart manager: ephemeral fresh-context pi workers toward a goal. " +
+			"With no arguments, resumes the goal in .goalseek/GOAL.md or a previously paused loop.",
 		handler: async (args, ctx) => {
 			if (state.active) {
-				ctx.ui.notify("ralph is already running. Use /ralph-stop first.", "warning");
+				ctx.ui.notify("goalseek is already running. Use /goalseek-stop first.", "warning");
 				return;
 			}
 			const cwd = ctx.cwd;
@@ -1103,19 +1100,19 @@ export default function (api: ExtensionAPI) {
 				} else {
 					goal = readGoal(cwd);
 					if (!goal) {
-						ctx.ui.notify("Usage: /ralph <goal>   (or /ralph with no args to resume)", "warning");
+						ctx.ui.notify("Usage: /goalseek <goal>   (or /goalseek with no args to resume)", "warning");
 						return;
 					}
 				}
 			}
 
 			if (!ctx.model) {
-				ctx.ui.notify("ralph needs a model selected (the manager reviews each iteration).", "error");
+				ctx.ui.notify("goalseek needs a model selected (the manager reviews each iteration).", "error");
 				return;
 			}
 
-			// Set up the .ralph/ directory (harmless if it already exists)
-			setupRalphDir(cwd, goal);
+			// Set up the .goalseek/ directory (harmless if it already exists)
+			setupGoalseekDir(cwd, goal);
 
 			// Resume-from-pause: consume the pause bookmark
 			const isPauseResume = resumeIteration > 0;
@@ -1123,7 +1120,7 @@ export default function (api: ExtensionAPI) {
 				clearPauseState(cwd);
 				if (ctx.hasUI) {
 					ctx.ui.notify(
-						`⟳ ralph resuming from iteration ${resumeIteration}`,
+						`⟳ goalseek resuming from iteration ${resumeIteration}`,
 						"info",
 					);
 				}
@@ -1136,7 +1133,7 @@ export default function (api: ExtensionAPI) {
 			const missingGuards = currentSettings.requiredGuards.filter((name) => !foundGuards.includes(name));
 			if (missingGuards.length > 0) {
 				ctx.ui.notify(
-					`ralph: worker guard extension(s) not found — workers will run without them: ${missingGuards.join(", ")}`,
+					`goalseek: worker guard extension(s) not found — workers will run without them: ${missingGuards.join(", ")}`,
 					"warning",
 				);
 			}
@@ -1150,7 +1147,7 @@ export default function (api: ExtensionAPI) {
 
 			if (!isPauseResume && ctx.hasUI) {
 				ctx.ui.notify(
-					"⟳ ralph started — a smart manager steering ephemeral fresh-context workers. Stop with /ralph-stop or /ralph-pause.",
+					"⟳ goalseek started — a smart manager steering ephemeral fresh-context workers. Stop with /goalseek-stop or /goalseek-pause.",
 					"info",
 				);
 			}
@@ -1159,25 +1156,25 @@ export default function (api: ExtensionAPI) {
 		},
 	});
 
-	pi.registerCommand("ralph-stop", {
-		description: "Stop the running Ralph loop and kill the current worker.",
+	pi.registerCommand("goalseek-stop", {
+		description: "Stop the running Goalseek loop and kill the current worker.",
 		handler: async (_args, ctx) => {
 			if (!state.active) {
-				ctx.ui.notify("ralph is not running.", "info");
+				ctx.ui.notify("goalseek is not running.", "info");
 				return;
 			}
 			finish(ctx, "stopped");
 		},
 	});
 
-	pi.registerCommand("ralph-pause", {
+	pi.registerCommand("goalseek-pause", {
 		description:
-			"Pause the running Ralph loop. The current worker is killed, and the manager review is aborted. " +
-			"The loop state (iteration, goal) is saved to .ralph/pause.json. " +
-			"Resume later with /ralph or /ralph-resume.",
+			"Pause the running Goalseek loop. The current worker is killed, and the manager review is aborted. " +
+			"The loop state (iteration, goal) is saved to .goalseek/pause.json. " +
+			"Resume later with /goalseek or /goalseek-resume.",
 		handler: async (_args, ctx) => {
 			if (!state.active) {
-				ctx.ui.notify("ralph is not running.", "info");
+				ctx.ui.notify("goalseek is not running.", "info");
 				return;
 			}
 			const cwd = ctx.cwd;
@@ -1211,32 +1208,32 @@ export default function (api: ExtensionAPI) {
 
 			if (ctx.hasUI) {
 				ctx.ui.notify(
-					`⏸ ralph paused at iteration ${pausedIteration} (goal: ${pausedGoal}). ` +
-						`Resume with /ralph or /ralph-resume.`,
+					`⏸ goalseek paused at iteration ${pausedIteration} (goal: ${pausedGoal}). ` +
+						`Resume with /goalseek or /goalseek-resume.`,
 					"info",
 				);
 			}
 		},
 	});
 
-	pi.registerCommand("ralph-resume", {
+	pi.registerCommand("goalseek-resume", {
 		description:
-			"Resume a paused Ralph loop from .ralph/pause.json. " +
-			"Equivalent to running /ralph (with no args) when a pause state exists.",
+			"Resume a paused Goalseek loop from .goalseek/pause.json. " +
+			"Equivalent to running /goalseek (with no args) when a pause state exists.",
 		handler: async (_args, ctx) => {
 			if (state.active) {
-				ctx.ui.notify("ralph is already running. Use /ralph-pause first.", "warning");
+				ctx.ui.notify("goalseek is already running. Use /goalseek-pause first.", "warning");
 				return;
 			}
 			const cwd = ctx.cwd;
 			const pauseState = readPauseState(cwd);
 			if (!pauseState) {
-				ctx.ui.notify("No paused ralph loop found. Start one with /ralph <goal>.", "info");
+				ctx.ui.notify("No paused goalseek loop found. Start one with /goalseek <goal>.", "info");
 				return;
 			}
 
 			if (!ctx.model) {
-				ctx.ui.notify("ralph needs a model selected (the manager reviews each iteration).", "error");
+				ctx.ui.notify("goalseek needs a model selected (the manager reviews each iteration).", "error");
 				return;
 			}
 
@@ -1244,14 +1241,14 @@ export default function (api: ExtensionAPI) {
 			const resumeIteration = pauseState.iteration;
 			clearPauseState(cwd);
 
-			setupRalphDir(cwd, pauseState.goal);
+			setupGoalseekDir(cwd, pauseState.goal);
 			currentSettings = loadSettings(cwd);
 
 			const foundGuards = resolveWorkerExtensions(cwd).map((p) => path.basename(p));
 			const missingGuards = currentSettings.requiredGuards.filter((name) => !foundGuards.includes(name));
 			if (missingGuards.length > 0) {
 				ctx.ui.notify(
-					`ralph: worker guard extension(s) not found — workers will run without them: ${missingGuards.join(", ")}`,
+					`goalseek: worker guard extension(s) not found — workers will run without them: ${missingGuards.join(", ")}`,
 					"warning",
 				);
 			}
@@ -1265,7 +1262,7 @@ export default function (api: ExtensionAPI) {
 
 			if (ctx.hasUI) {
 				ctx.ui.notify(
-					`⟳ ralph resuming from iteration ${resumeIteration} (paused at ${pauseState.pausedAt})`,
+					`⟳ goalseek resuming from iteration ${resumeIteration} (paused at ${pauseState.pausedAt})`,
 					"info",
 				);
 			}
@@ -1274,14 +1271,14 @@ export default function (api: ExtensionAPI) {
 		},
 	});
 
-	pi.registerCommand("ralph-set", {
+	pi.registerCommand("goalseek-set", {
 		description:
-			"View or change ralph settings live (no restart needed). " +
-			"Usage: /ralph-set                  — show all settings\n" +
-			"       /ralph-set <key> <value>    — set a simple value\n" +
-			"       /ralph-set <key> @<file>    — load value from file (for prompts)\n" +
-			"       /ralph-set reload           — reload from .ralph/settings.json\n" +
-			"       /ralph-set save             — save current in-memory settings to disk",
+			"View or change goalseek settings live (no restart needed). " +
+			"Usage: /goalseek-set                  — show all settings\n" +
+			"       /goalseek-set <key> <value>    — set a simple value\n" +
+			"       /goalseek-set <key> @<file>    — load value from file (for prompts)\n" +
+			"       /goalseek-set reload           — reload from .goalseek/settings.json\n" +
+			"       /goalseek-set save             — save current in-memory settings to disk",
 		handler: async (args, ctx) => {
 			const cwd = ctx.cwd;
 			const trimmed = args.trim();
@@ -1299,19 +1296,19 @@ export default function (api: ExtensionAPI) {
 						return `  ${key}: ${JSON.stringify(value)}`;
 					})
 					.join("\n");
-				ctx.ui.notify(`Current ralph settings (edit .ralph/settings.json for full control):\n\n${display}`, "info");
+				ctx.ui.notify(`Current goalseek settings (edit .goalseek/settings.json for full control):\n\n${display}`, "info");
 				return;
 			}
 
 			// ── Special sub-commands ──
 			if (trimmed === "reload") {
 				currentSettings = loadSettings(cwd);
-				ctx.ui.notify("ralph settings reloaded from .ralph/settings.json", "info");
+				ctx.ui.notify("goalseek settings reloaded from .goalseek/settings.json", "info");
 				return;
 			}
 			if (trimmed === "save") {
 				saveSettings(cwd, currentSettings);
-				ctx.ui.notify("ralph settings saved to .ralph/settings.json", "info");
+				ctx.ui.notify("goalseek settings saved to .goalseek/settings.json", "info");
 				return;
 			}
 
@@ -1360,7 +1357,7 @@ export default function (api: ExtensionAPI) {
 			if (typed === undefined) {
 				ctx.ui.notify(
 					`Cannot parse "${rawValue.slice(0, 100)}" for setting "${key}". ` +
-						`Expected type: ${typeof DEFAULT_SETTINGS[key as keyof RalphSettings]}`,
+						`Expected type: ${typeof DEFAULT_SETTINGS[key as keyof GoalseekSettings]}`,
 					"error",
 				);
 				return;
@@ -1372,14 +1369,14 @@ export default function (api: ExtensionAPI) {
 			const summary = isPromptKey
 				? `<${(typed as string).length} chars>`
 				: JSON.stringify(typed);
-			ctx.ui.notify(`ralph: ${key} = ${summary} (live)`, "info");
+			ctx.ui.notify(`goalseek: ${key} = ${summary} (live)`, "info");
 
 			// Auto-persist simple (non-prompt) settings
 			if (!isPromptKey) {
 				saveSettings(cwd, currentSettings);
-				ctx.ui.notify(`  → persisted to .ralph/settings.json`, "info");
+				ctx.ui.notify(`  → persisted to .goalseek/settings.json`, "info");
 			} else {
-				ctx.ui.notify(`  → use /ralph-set save or edit .ralph/settings.json and /ralph-set reload to persist`, "info");
+				ctx.ui.notify(`  → use /goalseek-set save or edit .goalseek/settings.json and /goalseek-set reload to persist`, "info");
 			}
 		},
 	});
