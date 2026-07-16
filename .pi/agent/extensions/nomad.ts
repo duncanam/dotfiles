@@ -10,17 +10,27 @@
  *   - NOMAD_TOKEN environment variable (or pass token param per call)
  *
  * Tools:
- *   nomad_watch   — Watch a job or allocation until terminal state,
- *                   using Nomad blocking queries (no polling).
+ *   nomad_watch    — Watch a job or allocation until terminal state, using
+ *                    Nomad blocking queries (no polling).
  *   nomad_logs     — Fetch logs from a finished allocation task.
  *   nomad_dispatch — Dispatch a pre-registered parameterized job.
  *   nomad_submit   — Submit a job spec (HCL or JSON) and optionally watch it.
+ *   nomad_nodes    — List nodes or inspect one node's GPU/CPU/memory
+ *                    fingerprint.
+ *   nomad_jobs     — List jobs or read one job's full spec.
+ *   nomad_allocs   — List allocations for a node or job.
+ *   nomad_get      — Read-only generic GET for any other Nomad API endpoint.
  *
- * Workflow:
- *   1. Write job spec .hcl file     (write tool)
- *   2. nomad_submit spec=<path>     (submit and optionally watch)
- *   3. nomad_watch job=<name>       (blocks until terminal, returns immediately)
- *   4. nomad_logs alloc=<id> task=<task>  (get output)
+ * Discovery workflow (read-only, before writing a job spec):
+ *   1. nomad_nodes                       (find a node name/ID + GPU fingerprint)
+ *   2. nomad_allocs node=<name>          (see what already consumes that node)
+ *   3. nomad_jobs job=<existing-job>     (copy port/service/device conventions)
+ *
+ * Run workflow (mutating):
+ *   1. Write job spec .hcl file           (write tool)
+ *   2. nomad_submit spec=<path>          (submit and optionally watch)
+ *   3. nomad_watch job=<name>            (blocks until terminal, returns immediately)
+ *   4. nomad_logs alloc=<id> task=<task> (get output)
  *
  * Agent-manager leads use a coordinated parameterized-job dispatch interface
  * built on the exported helpers below. Direct Nomad CLI calls are intentionally
@@ -1064,6 +1074,413 @@ const toolNomadSubmit = defineTool<typeof nomadSubmitParams, Record<string, unkn
   },
 });
 
+// ─── Read tools: nodes, jobs, allocations, generic GET ───────────────────────
+//
+// The write/run/observe tools above intentionally cover only mutating and
+// long-poll operations so ownership, idempotency, and concurrency can be
+// enforced. These read-only tools close the discovery gap that otherwise sent
+// the agent to `curl` against the HTTP API (which is neither banned nor
+// blessed, and which the bash ban regex can false-positive on). All four are
+// plain GETs — they cannot submit, dispatch, stop, or mutate anything.
+
+interface NomadNodeStub {
+  ID: string;
+  Name: string;
+  Datacenter: string;
+  NodePool?: string;
+  Status: string;
+  StatusDescription?: string;
+  Address?: string;
+}
+
+interface NomadNodeDetail {
+  ID: string;
+  Name: string;
+  Datacenter: string;
+  NodePool?: string;
+  Status: string;
+  Address?: string;
+  Attributes?: Record<string, string>;
+  NodeResources?: Record<string, unknown>;
+  ReservedResources?: Record<string, unknown>;
+  Devices?: unknown;
+  Meta?: Record<string, string>;
+}
+
+interface NomadJobStub {
+  ID: string;
+  Name?: string;
+  Type?: string;
+  Status?: string;
+  StatusDescription?: string;
+  NodePool?: string;
+  Priority?: number;
+  SubmitTime?: number;
+}
+
+interface NomadJobDetail {
+  ID: string;
+  Name: string;
+  Type: string;
+  Status: string;
+  StatusDescription?: string;
+  Datacenters?: string[];
+  NodePool?: string;
+  Priority?: number;
+  TaskGroups?: Array<{
+    Name: string;
+    Count?: number;
+    Constraints?: Array<{ LTarget: string; Operand: string; RTarget: string }>;
+    Networks?: Array<{
+      ReservedPorts?: Array<{ Label: string; To: number; Value: number }>;
+      DynamicPorts?: Array<{ Label: string }>;
+    }>;
+    Services?: Array<{ Name: string; PortLabel?: string; Tags?: string[] }>;
+    Tasks?: Array<{
+      Name: string;
+      Driver: string;
+      Config?: Record<string, unknown>;
+      Resources?: {
+        CPU?: number;
+        MemoryMB?: number;
+        MemoryMaxMB?: number;
+        Devices?: Array<{ Name?: string; Count?: number }> | null;
+      };
+      Constraints?: Array<{ LTarget: string; Operand: string; RTarget: string }>;
+    }>;
+  }>;
+}
+
+const RELEVANT_ATTR_KEYS = [
+  "gpu", "cuda", "nvidia", "driver", "kernel", "os.name",
+  "cpu.arch", "memory", "nomad.version", "consul.version",
+  "vault.version", "unique.name", "unique.storage",
+];
+
+/** Resolve a node name (or ID prefix) to a full node UUID via /v1/nodes. */
+async function resolveNodeId(
+  nameOrId: string,
+  opts: NomadOpts,
+  signal?: AbortSignal,
+): Promise<string> {
+  const trimmed = nameOrId.trim();
+  if (!trimmed) throw new Error("Node ID or name is required");
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(trimmed)) {
+    return trimmed;
+  }
+  const { data: nodes } = await nomadGet<NomadNodeStub[]>("/v1/nodes", opts, { signal });
+  const match = nodes.find(n => n.Name === trimmed) ?? nodes.find(n => n.ID.startsWith(trimmed));
+  if (!match) throw new Error(`No Nomad node found matching "${trimmed}"`);
+  return match.ID;
+}
+
+function formatNodeStub(n: NomadNodeStub): string {
+  return [
+    n.ID, n.Name, n.NodePool ?? "-", n.Datacenter ?? "-", n.Status, n.Address ?? "",
+  ].join(" | ");
+}
+
+function formatNodeDetail(n: NomadNodeDetail): string {
+  const lines: string[] = [
+    `Node ${n.Name} (${n.ID})`,
+    `  pool=${n.NodePool ?? "-"} dc=${n.Datacenter ?? "-"} status=${n.Status} address=${n.Address ?? "-"}`,
+  ];
+  const attrs = n.Attributes ?? {};
+  const relevant = Object.entries(attrs)
+    .filter(([k]) => RELEVANT_ATTR_KEYS.some(s => k.toLowerCase().includes(s)))
+    .map(([k, v]) => `  ${k} = ${v}`)
+    .sort();
+  if (relevant.length) {
+    lines.push("Attributes (gpu/cuda/driver/kernel/os/cpu/memory/nomad):");
+    lines.push(...relevant);
+  }
+  if (n.NodeResources) lines.push(`NodeResources: ${JSON.stringify(n.NodeResources)}`);
+  if (n.ReservedResources) lines.push(`ReservedResources: ${JSON.stringify(n.ReservedResources)}`);
+  if (n.Devices != null) lines.push(`Devices: ${JSON.stringify(n.Devices)}`);
+  return lines.join("\n");
+}
+
+function formatJobStub(j: NomadJobStub): string {
+  return [j.ID, j.Name ?? "-", j.Type ?? "-", j.Status ?? "-", j.NodePool ?? "-"].join(" | ");
+}
+
+function formatJobSpec(j: NomadJobDetail): string {
+  const lines: string[] = [
+    `Job ${j.Name} (${j.ID}): ${j.Type} / ${j.Status}` +
+      (j.StatusDescription ? ` — ${j.StatusDescription}` : ""),
+    `  datacenters=${(j.Datacenters ?? []).join(",") || "-"} node_pool=${j.NodePool ?? "-"} priority=${j.Priority ?? "-"}`,
+  ];
+  for (const g of j.TaskGroups ?? []) {
+    lines.push(`GROUP ${g.Name} (count=${g.Count ?? 1})`);
+    for (const c of g.Constraints ?? []) {
+      lines.push(`  constraint: ${c.LTarget} ${c.Operand} ${c.RTarget}`);
+    }
+    if (g.Networks?.length) {
+      const nets = g.Networks.map(net => {
+        const reserved = (net.ReservedPorts ?? []).map(p => `${p.Label}:${p.Value}`).join(",");
+        const dyn = (net.DynamicPorts ?? []).map(p => p.Label).join(",");
+        return `reserved=[${reserved}] dynamic=[${dyn}]`;
+      });
+      lines.push(`  network: ${nets.join(" | ")}`);
+    }
+    for (const s of g.Services ?? []) {
+      lines.push(`  service: ${s.Name} (port=${s.PortLabel ?? "-"}) tags=[${(s.Tags ?? []).join(",")}]`);
+    }
+    for (const t of g.Tasks ?? []) {
+      const img = t.Config?.image;
+      const res = t.Resources;
+      const dev = res?.Devices?.map(d => `${d.Name ?? "?"}(x${d.Count ?? 1})`).join(",") ?? "none";
+      lines.push(
+        `  TASK ${t.Name} driver=${t.Driver} image=${img ?? "-"}` +
+          ` cpu=${res?.CPU ?? "-"} mem=${res?.MemoryMB ?? "-"} mem_max=${res?.MemoryMaxMB ?? "-"} devices=${dev}`,
+      );
+      for (const c of t.Constraints ?? []) {
+        lines.push(`    constraint: ${c.LTarget} ${c.Operand} ${c.RTarget}`);
+      }
+    }
+  }
+  return lines.join("\n");
+}
+
+function formatAllocStub(a: NomadAlloc): string {
+  let line = `${a.ID} | ${a.JobID} | ${a.TaskGroup} | client=${a.ClientStatus} desired=${a.DesiredStatus}`;
+  if (a.TaskStates) {
+    const tasks = Object.entries(a.TaskStates).map(
+      ([n, ts]) => `${n}:${ts.State}${ts.Failed ? "!" : ""}(r${ts.Restarts})`,
+    );
+    line += ` | ${tasks.join(",")}`;
+  }
+  return line;
+}
+
+// ─── Tool: nomad_nodes ───────────────────────────────────────────────────────
+
+const nomadNodesParams = Type.Object({
+  ...addrTokenFields,
+  node: Type.Optional(Type.String({
+    description:
+      "Node ID or name. If omitted, lists all nodes; if given, returns full detail for that node (names like 'slim-2' are resolved to UUIDs automatically).",
+  })),
+  pool: Type.Optional(Type.String({
+    description: "Filter list by node pool (e.g. 'batch-compute'). Only applies when 'node' is omitted.",
+  })),
+});
+
+const toolNomadNodes = defineTool<typeof nomadNodesParams, Record<string, unknown>>({
+  name: "nomad_nodes",
+  label: "Nomad Nodes",
+  description: [
+    "List Nomad nodes or inspect one node in detail.",
+    "With no 'node' param: compact table of all nodes (ID, name, pool, datacenter, status, address).",
+    "With 'node=<id-or-name>': full detail — attributes (GPU/CUDA/driver/kernel/os/cpu/memory), NodeResources, ReservedResources, and Devices fingerprint. Names resolve to UUIDs automatically.",
+  ].join(" "),
+  promptSnippet: "List Nomad nodes or inspect one node's GPU/CPU/memory fingerprint",
+  promptGuidelines: [
+    "Use nomad_nodes to discover nodes and their GPU resources before writing job specs or pinning with a node-name constraint.",
+    "Call the list form (no 'node' arg) first to find a node's name/ID, then nomad_nodes node=<name> to read its GPU device fingerprint and available resources.",
+    "To see what is currently consuming a node's resources, use nomad_allocs node=<name>.",
+  ],
+  parameters: nomadNodesParams,
+  async execute(
+    _toolCallId: string,
+    params: { node?: string; pool?: string; addr?: string; token?: string },
+    signal?: AbortSignal,
+  ) {
+    const opts = resolveOpts(params);
+
+    if (params.node) {
+      const id = await resolveNodeId(params.node, opts, signal);
+      const { data } = await nomadGet<unknown>(`/v1/node/${encodeURIComponent(id)}`, opts, { signal });
+      const node = ((data as { Node?: NomadNodeDetail }).Node ?? data) as NomadNodeDetail;
+      return {
+        content: [{ type: "text", text: formatNodeDetail(node) }],
+        details: {
+          id: node.ID,
+          name: node.Name,
+          pool: node.NodePool,
+          status: node.Status,
+          attributes: node.Attributes,
+          nodeResources: node.NodeResources,
+          reservedResources: node.ReservedResources,
+          devices: node.Devices,
+        },
+      };
+    }
+
+    const { data: nodes } = await nomadGet<NomadNodeStub[]>("/v1/nodes", opts, { signal });
+    const filtered = params.pool ? nodes.filter(n => n.NodePool === params.pool) : nodes;
+    const lines = filtered.map(formatNodeStub);
+    return {
+      content: [{ type: "text", text: lines.length ? lines.join("\n") : "(no nodes)" }],
+      details: { count: filtered.length, pool: params.pool ?? null },
+    };
+  },
+});
+
+// ─── Tool: nomad_jobs ────────────────────────────────────────────────────────
+
+const nomadJobsParams = Type.Object({
+  ...addrTokenFields,
+  job: Type.Optional(Type.String({
+    description:
+      "Job ID. If omitted, lists all jobs; if given, returns the full spec (task groups, tasks, driver/image, resources, devices, networks, services, constraints).",
+  })),
+  type: Type.Optional(Type.String({
+    description: "Filter list by job type: 'service', 'batch', or 'system'. Only applies when 'job' is omitted.",
+  })),
+  status: Type.Optional(Type.String({
+    description: "Filter list by status: 'running', 'pending', or 'dead'. Only applies when 'job' is omitted.",
+  })),
+});
+
+const toolNomadJobs = defineTool<typeof nomadJobsParams, Record<string, unknown>>({
+  name: "nomad_jobs",
+  label: "Nomad Jobs",
+  description: [
+    "List Nomad jobs or inspect one job's full spec.",
+    "With no 'job' param: compact list (ID, name, type, status, node pool).",
+    "With 'job=<id>': full spec — task groups, per-task driver/image/resources/devices, networks, services, and constraints — useful for copying conventions when writing a new job spec.",
+  ].join(" "),
+  promptSnippet: "List Nomad jobs or read one job's full spec",
+  promptGuidelines: [
+    "Use nomad_jobs job=<id> to read an existing job's spec (network ports, service registration, device requests, constraints) before writing a similar job, instead of curl-ing the HTTP API.",
+    "Use the list form to discover job IDs.",
+  ],
+  parameters: nomadJobsParams,
+  async execute(
+    _toolCallId: string,
+    params: { job?: string; type?: string; status?: string; addr?: string; token?: string },
+    signal?: AbortSignal,
+  ) {
+    const opts = resolveOpts(params);
+
+    if (params.job) {
+      const { data } = await nomadGet<unknown>(`/v1/job/${encodeURIComponent(params.job)}`, opts, { signal });
+      const job = ((data as { Job?: NomadJobDetail }).Job ?? data) as NomadJobDetail;
+      return {
+        content: [{ type: "text", text: formatJobSpec(job) }],
+        details: {
+          id: job.ID, name: job.Name, type: job.Type, status: job.Status,
+          spec: job as unknown as Record<string, unknown>,
+        },
+      };
+    }
+
+    const { data: jobs } = await nomadGet<NomadJobStub[]>("/v1/jobs", opts, { signal });
+    let filtered = jobs;
+    if (params.type) filtered = filtered.filter(j => j.Type === params.type);
+    if (params.status) filtered = filtered.filter(j => j.Status === params.status);
+    const lines = filtered.map(formatJobStub);
+    return {
+      content: [{ type: "text", text: lines.length ? lines.join("\n") : "(no jobs)" }],
+      details: { count: filtered.length, type: params.type ?? null, status: params.status ?? null },
+    };
+  },
+});
+
+// ─── Tool: nomad_allocs ──────────────────────────────────────────────────────
+
+const nomadAllocsParams = Type.Object({
+  ...addrTokenFields,
+  node: Type.Optional(Type.String({
+    description: "Node ID or name — list allocations placed on this node. Names resolve to UUIDs automatically.",
+  })),
+  job: Type.Optional(Type.String({
+    description: "Job ID — list allocations for this job.",
+  })),
+  status: Type.Optional(Type.String({
+    description: "Filter by client status: 'running', 'pending', 'complete', 'failed', 'lost'.",
+  })),
+});
+
+const toolNomadAllocs = defineTool<typeof nomadAllocsParams, Record<string, unknown>>({
+  name: "nomad_allocs",
+  label: "Nomad Allocations",
+  description: [
+    "List Nomad allocations for a node or a job, with per-task state.",
+    "Provide exactly one of 'node=<id-or-name>' or 'job=<id>'. Names like 'slim-2' resolve to UUIDs automatically.",
+    "Each allocation shows ID, job, task group, client/desired status, and per-task state + restarts.",
+  ].join(" "),
+  promptSnippet: "List allocations for a Nomad node or job",
+  promptGuidelines: [
+    "Use nomad_allocs node=<name> to see what is currently running on a node and consuming its resources (useful before placing a new GPU job).",
+    "Use nomad_allocs job=<id> to inspect a job's allocations and task states instead of curl-ing the HTTP API.",
+  ],
+  parameters: nomadAllocsParams,
+  async execute(
+    _toolCallId: string,
+    params: { node?: string; job?: string; status?: string; addr?: string; token?: string },
+    signal?: AbortSignal,
+  ) {
+    const opts = resolveOpts(params);
+
+    if (!params.node && !params.job) {
+      return {
+        content: [{ type: "text", text: "Provide either node=<id-or-name> or job=<id>" }],
+        details: {},
+      };
+    }
+
+    const path = params.node
+      ? `/v1/node/${encodeURIComponent(await resolveNodeId(params.node, opts, signal))}/allocations`
+      : `/v1/job/${encodeURIComponent(params.job!)}/allocations`;
+
+    const { data: allocs } = await nomadGet<NomadAlloc[]>(path, opts, { signal });
+    const filtered = params.status ? allocs.filter(a => a.ClientStatus === params.status) : allocs;
+    const lines = filtered.map(formatAllocStub);
+    return {
+      content: [{ type: "text", text: lines.length ? lines.join("\n") : "(no allocations)" }],
+      details: { count: filtered.length, status: params.status ?? null },
+    };
+  },
+});
+
+// ─── Tool: nomad_get ─────────────────────────────────────────────────────────
+
+const nomadGetToolParams = Type.Object({
+  ...addrTokenFields,
+  path: Type.String({
+    description:
+      "Nomad HTTP API path to GET, e.g. '/v1/node/<id>/devices', '/v1/job/<id>/deployments', '/v1/job/<id>/services'. Read-only, non-blocking.",
+  }),
+});
+
+const toolNomadGet = defineTool<typeof nomadGetToolParams, Record<string, unknown>>({
+  name: "nomad_get",
+  label: "Nomad GET",
+  description: [
+    "Read-only generic GET against the Nomad HTTP API, for endpoints not covered by the dedicated read tools.",
+    "Returns the raw JSON response (pretty-printed, truncated to ~50KB).",
+    "Use this instead of curl for any ad-hoc Nomad read (deployments, services, devices, scales, evaluations, etc.).",
+  ].join(" "),
+  promptSnippet: "Read any Nomad HTTP API endpoint (GET only)",
+  promptGuidelines: [
+    "Use nomad_get path=<api-path> for any Nomad read endpoint not covered by nomad_nodes/nomad_jobs/nomad_allocs (e.g. /v1/job/<id>/deployments, /v1/node/<id>/devices, /v1/job/<id>/services).",
+    "This is a read-only GET; it cannot submit, dispatch, or mutate jobs. Use nomad_submit/nomad_dispatch for writes.",
+  ],
+  parameters: nomadGetToolParams,
+  async execute(
+    _toolCallId: string,
+    params: { path: string; addr?: string; token?: string },
+    signal?: AbortSignal,
+  ) {
+    const opts = resolveOpts(params);
+    let p = params.path.trim();
+    if (!p) throw new Error("path is required");
+    if (!p.startsWith("/")) p = "/" + p;
+
+    const { data, nomadIndex } = await nomadGet<unknown>(p, opts, { signal });
+    let text = JSON.stringify(data, null, 2);
+    if (text.length > MAX_LOG_BYTES) {
+      text = `[…truncated to last ${MAX_LOG_BYTES / 1024}KB…]\n${text.slice(-MAX_LOG_BYTES)}`;
+    }
+    return {
+      content: [{ type: "text", text: text || "(empty response)" }],
+      details: { path: p, nomadIndex },
+    };
+  },
+});
+
 // ─── Extension entry point ───────────────────────────────────────────────────
 
 export default function (pi: ExtensionAPI) {
@@ -1071,6 +1488,11 @@ export default function (pi: ExtensionAPI) {
   pi.registerTool(toolNomadLogs);
   pi.registerTool(toolNomadDispatch);
   pi.registerTool(toolNomadSubmit);
+  // Read-only discovery tools (close the gap that sent the agent to curl).
+  pi.registerTool(toolNomadNodes);
+  pi.registerTool(toolNomadJobs);
+  pi.registerTool(toolNomadAllocs);
+  pi.registerTool(toolNomadGet);
 
   // (No UI chrome — tools speak for themselves)
 }
