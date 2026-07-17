@@ -3,7 +3,7 @@
  *
  * Features:
  * - /todo add <text> — Add a task to the queue
- * - /todo list       — Show all tasks with interactive TUI
+ * - /todo list       — Print all tasks as a static list
  * - /todo done <id>  — Mark a task as done
  * - /todo edit <id> <text> — Edit a task's text
  * - /todo delete <id> — Remove a task
@@ -20,14 +20,8 @@ import { StringEnum } from "@earendil-works/pi-ai";
 import type {
   ExtensionAPI,
   ExtensionContext,
-  Theme,
 } from "@earendil-works/pi-coding-agent";
-import {
-  matchesKey,
-  Key,
-  Text,
-  truncateToWidth,
-} from "@earendil-works/pi-tui";
+import { Text } from "@earendil-works/pi-tui";
 import { Type } from "typebox";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -54,277 +48,6 @@ const TodoParams = Type.Object({
   id: Type.Optional(Type.Number({ description: "Todo ID (for toggle / delete / edit)" })),
   id2: Type.Optional(Type.Number({ description: "Second todo ID (for reorder)" })),
 });
-
-// ─── Interactive TUI component ───────────────────────────────────────────────
-
-class TodoTUI {
-  private todos: Todo[];
-  private theme: Theme;
-  private onClose: () => void;
-  private selectedIndex: number = 0;
-  private mode: "view" | "delete" | "edit" = "view";
-  private editingTodo: Todo | null = null;
-  private editBuffer: string = "";
-  private cachedWidth?: number;
-  private cachedLines?: string[];
-  private message: string = "";
-  private messageTimeout: ReturnType<typeof setTimeout> | null = null;
-
-  constructor(todos: Todo[], theme: Theme, onClose: () => void) {
-    this.todos = todos;
-    this.theme = theme;
-    this.onClose = onClose;
-  }
-
-  /** Update the todo list (called externally when state changes) */
-  setTodos(todos: Todo[]): void {
-    this.todos = todos;
-    this.selectedIndex = Math.min(this.selectedIndex, Math.max(0, todos.length - 1));
-    this.invalidate();
-  }
-
-  /** Show a temporary message */
-  private flashMessage(msg: string): void {
-    this.message = msg;
-    if (this.messageTimeout) clearTimeout(this.messageTimeout);
-    this.messageTimeout = setTimeout(() => {
-      this.message = "";
-      this.invalidate();
-    }, 3000);
-    this.invalidate();
-  }
-
-  /** Callbacks set externally */
-  onToggle: ((id: number) => void) | null = null;
-  onDelete: ((id: number) => void) | null = null;
-  onEdit: ((id: number, text: string) => void) | null = null;
-  onReorder: ((id1: number, id2: number) => void) | null = null;
-  onAdd: (() => void) | null = null;
-
-  handleInput(data: string): void {
-    if (this.mode === "edit" && this.editingTodo) {
-      this.handleEditInput(data);
-      return;
-    }
-
-    if (matchesKey(data, Key.escape) || matchesKey(data, "ctrl+c")) {
-      if (this.mode === "delete") {
-        this.mode = "view";
-        this.flashMessage("Delete cancelled");
-        return;
-      }
-      this.onClose();
-      return;
-    }
-
-    // Help
-    if (data === "?") {
-      this.flashMessage(
-        "↑↓ nav | space toggle | d delete | e edit | r reorder | a add | ? help | esc close",
-      );
-      return;
-    }
-
-    switch (this.mode) {
-      case "delete":
-        if (matchesKey(data, Key.enter) || data === "y") {
-          const todo = this.todos[this.selectedIndex];
-          if (todo && this.onDelete) {
-            this.onDelete(todo.id);
-            this.flashMessage(`Deleted todo #${todo.id}`);
-          }
-          this.mode = "view";
-        } else if (data === "n" || data === "N") {
-          this.mode = "view";
-          this.flashMessage("Delete cancelled");
-        }
-        return;
-
-      case "view":
-        if (matchesKey(data, Key.up) || matchesKey(data, "k")) {
-          if (this.selectedIndex > 0) {
-            this.selectedIndex--;
-            this.invalidate();
-          }
-        } else if (matchesKey(data, Key.down) || matchesKey(data, "j")) {
-          if (this.selectedIndex < this.todos.length - 1) {
-            this.selectedIndex++;
-            this.invalidate();
-          }
-        } else if (matchesKey(data, Key.space) || matchesKey(data, Key.enter)) {
-          // Toggle done state
-          const todo = this.todos[this.selectedIndex];
-          if (todo && this.onToggle) {
-            this.onToggle(todo.id);
-          }
-        } else if (data === "d" || data === "D") {
-          // Enter delete confirm mode
-          if (this.todos.length > 0) {
-            this.mode = "delete";
-            this.flashMessage(
-              `Delete #${this.todos[this.selectedIndex].id} "${truncateToWidth(this.todos[this.selectedIndex].text, 40)}"? (y/n)`,
-            );
-          }
-        } else if (data === "e" || data === "E") {
-          // Enter edit mode
-          const todo = this.todos[this.selectedIndex];
-          if (todo) {
-            this.mode = "edit";
-            this.editingTodo = todo;
-            this.editBuffer = todo.text;
-            this.flashMessage(`Editing todo #${todo.id} — press Enter to save, Esc to cancel`);
-            this.invalidate();
-          }
-        } else if (data === "r" || data === "R") {
-          // Start reorder: pick target via number key
-          const todo = this.todos[this.selectedIndex];
-          if (todo && this.todos.length > 1) {
-            this.flashMessage(`Pick target position (1-${this.todos.length}) for #${todo.id}`);
-          }
-        } else if (data === "a" || data === "A") {
-          if (this.onAdd) this.onAdd();
-        } else if (data === "g") {
-          // gg: go to top
-          this.selectedIndex = 0;
-          this.invalidate();
-        } else if (data === "G") {
-          // G: go to bottom
-          this.selectedIndex = this.todos.length - 1;
-          this.invalidate();
-        }
-        return;
-    }
-  }
-
-  private handleEditInput(data: string): void {
-    if (matchesKey(data, Key.enter)) {
-      // Save edit
-      const trimmed = this.editBuffer.trim();
-      if (trimmed && this.editingTodo && this.onEdit) {
-        this.onEdit(this.editingTodo.id, trimmed);
-        this.flashMessage(`Updated todo #${this.editingTodo.id}`);
-      }
-      this.mode = "view";
-      this.editingTodo = null;
-      this.editBuffer = "";
-      this.invalidate();
-      return;
-    }
-
-    if (matchesKey(data, Key.escape)) {
-      this.mode = "view";
-      this.editingTodo = null;
-      this.editBuffer = "";
-      this.flashMessage("Edit cancelled");
-      this.invalidate();
-      return;
-    }
-
-    if (matchesKey(data, Key.backspace)) {
-      this.editBuffer = this.editBuffer.slice(0, -1);
-      this.invalidate();
-    } else if (matchesKey(data, Key.delete)) {
-      this.editBuffer = this.editBuffer.slice(1);
-      this.invalidate();
-    } else if (data.length === 1 && data.charCodeAt(0) >= 32) {
-      this.editBuffer += data;
-      this.invalidate();
-    }
-  }
-
-  render(width: number): string[] {
-    if (this.cachedLines && this.cachedWidth === width && this.mode !== "edit") {
-      return this.cachedLines;
-    }
-
-    const lines: string[] = [];
-    const th = this.theme;
-
-    // ── Header ──
-    lines.push("");
-    const title = th.fg("accent", " Todo Queue ");
-    const headerLine =
-      th.fg("borderMuted", "─".repeat(3)) +
-      title +
-      th.fg("borderMuted", "─".repeat(Math.max(0, width - 10 - title.length + 16)));
-    lines.push(truncateToWidth(headerLine, width));
-    lines.push("");
-
-    // ── Stats ──
-    if (this.todos.length > 0) {
-      const done = this.todos.filter((t) => t.done).length;
-      const total = this.todos.length;
-      const pending = total - done;
-      const stats =
-        th.fg("muted", `${done}/${total} completed`) +
-        (pending > 0 ? th.fg("dim", `  ·  ${pending} pending`) : th.fg("success", "  ✓ All done!"));
-      lines.push(truncateToWidth(`  ${stats}`, width));
-      lines.push("");
-    }
-
-    // ── Todo list ──
-    if (this.todos.length === 0) {
-      lines.push(truncateToWidth(`  ${th.fg("dim", "No todos yet. Use one of:")}`, width));
-      lines.push(truncateToWidth(`  ${th.fg("dim", "  • /todo add <task>  —  add via command")}`, width));
-      lines.push(truncateToWidth(`  ${th.fg("dim", "  • /todo <task>      —  shorthand")}`, width));
-      lines.push(truncateToWidth(`  ${th.fg("dim", "  • Ask the agent    —  \"add a todo\"")}`, width));
-      lines.push("");
-    } else {
-      for (let i = 0; i < this.todos.length; i++) {
-        const todo = this.todos[i];
-        const isSelected = i === this.selectedIndex && this.mode !== "edit";
-        const isEditing = this.mode === "edit" && this.editingTodo?.id === todo.id;
-
-        const prefix = isSelected ? th.fg("accent", "▸") : " ";
-        const check = todo.done ? th.fg("success", "✓") : th.fg("dim", "○");
-        const id = th.fg("accent", `#${todo.id}`);
-        let text: string;
-
-        if (isEditing) {
-          // Show edit buffer inline
-          const cursor = th.fg("accent", "█");
-          text = `${th.fg("text", this.editBuffer)}${cursor}`;
-        } else {
-          text = todo.done ? th.fg("dim", todo.text) : th.fg("text", todo.text);
-        }
-
-        const line = `  ${prefix} ${check} ${id} ${text}`;
-        lines.push(truncateToWidth(line, width));
-      }
-      lines.push("");
-    }
-
-    // ── Message bar ──
-    if (this.message) {
-      lines.push(truncateToWidth(`  ${th.fg("warning", this.message)}`, width));
-      lines.push("");
-    }
-
-    // ── Footer help ──
-    if (this.mode === "edit") {
-      lines.push(truncateToWidth(`  ${th.fg("dim", "Enter to save · Esc to cancel · Type to edit")}`, width));
-    } else if (this.mode === "delete") {
-      // Already showing confirmation in message
-    } else {
-      lines.push(
-        truncateToWidth(
-          `  ${th.fg("dim", "↑↓ nav · space toggle · d delete · e edit · a add · ? help · esc close")}`,
-          width,
-        ),
-      );
-    }
-    lines.push("");
-
-    this.cachedWidth = width;
-    this.cachedLines = lines;
-    return lines;
-  }
-
-  invalidate(): void {
-    this.cachedWidth = undefined;
-    this.cachedLines = undefined;
-  }
-}
 
 // ─── Extension ───────────────────────────────────────────────────────────────
 
@@ -627,8 +350,8 @@ export default function (pi: ExtensionAPI) {
 
     handler: async (args, ctx) => {
       if (!args || args.trim() === "") {
-        // No args: show interactive list
-        await showTodoList(ctx);
+        // No args: print the list
+        printTodoList(ctx);
         return;
       }
 
@@ -642,7 +365,7 @@ export default function (pi: ExtensionAPI) {
       const knownCommands = ["add", "list", "done", "edit", "delete", "clear", "reorder", "rm", "del", "remove"];
 
       if (subcommand === "list" || subcommand === "ls") {
-        await showTodoList(ctx);
+        printTodoList(ctx);
         return;
       }
 
@@ -767,70 +490,27 @@ export default function (pi: ExtensionAPI) {
     },
   });
 
-  // ── Interactive TUI display ──
-  async function showTodoList(ctx: {
-    mode: string;
-    ui: {
-      custom: <T>(
-        factory: (
-          tui: any,
-          theme: Theme,
-          kb: any,
-          done: (value: T) => void,
-        ) => any,
-        options?: any,
-      ) => Promise<T | undefined>;
-      notify: (msg: string, type: "info" | "warning" | "error") => void;
-    };
-  }): Promise<void> {
-    if (ctx.mode !== "tui") {
-      // Fallback: just print to notification
-      const lines = todos.length === 0
-        ? ["No todos."]
-        : todos.map((t) => `  [${t.done ? "x" : " "}] #${t.id}: ${t.text}`);
-      ctx.ui.notify(lines.join("\n"), "info");
+  // ── Static list display ──
+  // Prints the queue into the transcript via notify(). Deliberately NOT an
+  // interactive TUI: a full-screen ctx.ui.custom component gets spliced into
+  // the editor area and fights any extension that drives its own render loop
+  // (e.g. agent-manager's refreshing widgets), which corrupted the terminal
+  // and trapped input. A static print never takes over the screen or input,
+  // so it cannot conflict. Editing stays on the /todo subcommands + LLM tool.
+  function printTodoList(ctx: {
+    ui: { notify: (msg: string, type: "info" | "warning" | "error") => void };
+  }): void {
+    if (todos.length === 0) {
+      ctx.ui.notify("Todo Queue — empty.\n\n  add one with:  /todo add <task>", "info");
       return;
     }
-
-    await ctx.ui.custom<void>((tui, theme, _kb, done) => {
-      const component = new TodoTUI(todos, theme, () => done());
-
-      // Wire up callbacks
-      component.onToggle = (id: number) => {
-        const todo = todos.find((t) => t.id === id);
-        if (todo) {
-          todo.done = !todo.done;
-          component.setTodos([...todos]);
-          saveState();
-        }
-      };
-
-      component.onDelete = (id: number) => {
-        const idx = todos.findIndex((t) => t.id === id);
-        if (idx !== -1) {
-          todos.splice(idx, 1);
-          component.setTodos([...todos]);
-          saveState();
-        }
-      };
-
-      component.onEdit = (id: number, text: string) => {
-        const todo = todos.find((t) => t.id === id);
-        if (todo) {
-          todo.text = text;
-          component.setTodos([...todos]);
-          saveState();
-        }
-      };
-
-      component.onAdd = () => {
-        done();
-        // After closing, prompt for input via /todo command mechanism
-        // We use a small trick: show a notification then user can type /todo add ...
-        ctx.ui.notify("Use: /todo add <task> to add a new todo", "info");
-      };
-
-      return component;
-    });
+    const done = todos.filter((t) => t.done).length;
+    const lines: string[] = [`Todo Queue  (${done}/${todos.length} done)`, ""];
+    for (const t of todos) {
+      lines.push(`  ${t.done ? "✓" : "○"} #${t.id}  ${t.text}`);
+    }
+    lines.push("");
+    lines.push("  manage:  /todo done <id> · /todo edit <id> <text> · /todo delete <id>");
+    ctx.ui.notify(lines.join("\n"), "info");
   }
 }

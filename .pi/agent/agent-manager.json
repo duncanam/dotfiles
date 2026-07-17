@@ -1,27 +1,27 @@
 {
   "manager": {
-    "provider": "openai-codex",
-    "model": "gpt-5.6-sol",
+    "provider": "openrouter",
+    "model": "z-ai/glm-5.2",
     "thinkingLevel": "max"
   },
   "lead": {
-    "provider": "openai-codex",
-    "model": "gpt-5.6-terra",
+    "provider": "openrouter",
+    "model": "minimax/minimax-m3",
     "thinkingLevel": "medium"
   },
   "worker": {
-    "provider": "opencode-go",
-    "model": "deepseek-v4-flash",
+    "provider": "openrouter",
+    "model": "deepseek/deepseek-v4-flash",
     "thinkingLevel": "low"
   },
   "leads": 3,
   "workersPerLead": 5,
-  "maxNomadJobsPerLead": 3,
   "childExtensions": [
     "protected-read-paths.ts",
     "protected-write-paths.ts",
     "ban-commands.ts",
-    "context7.ts"
+    "context7.ts",
+    "nomad.ts"
   ],
   "managerTools": [
     "read",
@@ -47,7 +47,15 @@
     "edit",
     "write",
     "grep",
-    "find"
+    "find",
+    "nomad_nodes",
+    "nomad_jobs",
+    "nomad_allocs",
+    "nomad_get",
+    "nomad_watch",
+    "nomad_logs",
+    "nomad_dispatch",
+    "nomad_submit"
   ],
   "modelResponseTimeoutSeconds": 300,
   "leadTurnTimeoutSeconds": 1800,

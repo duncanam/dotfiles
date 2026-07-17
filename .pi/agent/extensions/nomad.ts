@@ -1023,20 +1023,48 @@ const toolNomadSubmit = defineTool<typeof nomadSubmitParams, Record<string, unkn
     const trimmed = specContent.trim();
     const isJson = trimmed.startsWith("{") || trimmed.startsWith("[");
 
-    let submitResult: NomadSubmitResult;
+    // The Nomad submit endpoint (POST /v1/jobs) accepts ONLY a parsed Job
+    // object wrapped as {"Job": {...}} — it does not parse HCL, and a bare
+    // job object yields "Job must be specified". So:
+    //   - HCL: parse via POST /v1/jobs/parse {JobHCL, Canonicalize} -> Job
+    //     JSON, then submit {"Job": parsedJob}.
+    //   - JSON: accept either {"Job": {...}} or a bare {...} job object;
+    //     wrap bare objects in {"Job": ...}.
+    // The submit response itself contains only EvalID (no Name/ID), so we
+    // capture the job ID from the parsed spec and use it for watching.
+    let jobSpec: Record<string, unknown>;
     if (isJson) {
-      // Submit as JSON job spec
-      submitResult = await nomadPost<NomadSubmitResult>(
-        "/v1/jobs", JSON.parse(specContent), opts, signal,
-      );
+      const parsed = JSON.parse(specContent);
+      if (
+        parsed &&
+        typeof parsed === "object" &&
+        !Array.isArray(parsed) &&
+        "Job" in (parsed as Record<string, unknown>)
+      ) {
+        jobSpec = (parsed as Record<string, unknown>).Job as Record<string, unknown>;
+      } else {
+        jobSpec = parsed as Record<string, unknown>;
+      }
     } else {
-      // Submit as HCL via JobHCL field
-      submitResult = await nomadPost<NomadSubmitResult>(
-        "/v1/jobs", { JobHCL: specContent, Canonicalize: true }, opts, signal,
+      // Parse HCL -> Job JSON via the dedicated parse endpoint (the submit
+      // endpoint does not parse HCL). Canonicalize matches `nomad job run`.
+      jobSpec = await nomadPost<Record<string, unknown>>(
+        "/v1/jobs/parse", { JobHCL: specContent, Canonicalize: true }, opts, signal,
       );
     }
 
-    const jobId = submitResult.Name ?? submitResult.ID ?? "(unknown)";
+    // Job ID comes from the parsed spec, not the submit response (which
+    // returns only EvalID — no Name/ID — so the old code always watched
+    // "(unknown)" and hit a 404 race).
+    const jobId =
+      (jobSpec.ID as string | undefined) ??
+      (jobSpec.Name as string | undefined) ??
+      "(unknown)";
+
+    // Submit the parsed job wrapped as {"Job": ...}.
+    const submitResult = await nomadPost<NomadSubmitResult>(
+      "/v1/jobs", { Job: jobSpec }, opts, signal,
+    );
     const evalId = submitResult.EvalID ?? "";
 
     if (!shouldWatch) {

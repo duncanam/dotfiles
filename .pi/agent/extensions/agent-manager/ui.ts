@@ -140,8 +140,15 @@ class LeadBox {
 		const title = `${this.lead.id} · ${this.lead.status} ${glyph(this.lead.status)}${timingLabel(this.lead, false)}`;
 		output.push(`${CYAN}${BOLD}${topBorder(title, fmtCost(this.lead.cost), panelWidth)}${RESET}`);
 
-		for (const line of this.lead.tail(this.config.leadLogLines)) {
-			const text = clipPlain(line, innerWidth);
+		// Always reserve exactly leadLogLines rows for the lead's log, padding
+		// with blank framed rows when fewer lines exist yet. This keeps every
+		// lead box a constant height so the widget stack never grows as leads
+		// start logging. A changing height would repeatedly shove pi's status
+		// spinner (pinned just above these widgets, and bottom-anchored) up a
+		// row and strand a frame in scrollback — the "Working…" trail.
+		const leadTail = this.lead.tail(this.config.leadLogLines);
+		for (let index = 0; index < this.config.leadLogLines; index += 1) {
+			const text = clipPlain(leadTail[index] ?? "", innerWidth);
 			output.push(this.frame(`${DIM}${text}${RESET}`, visibleWidth(text), panelWidth));
 		}
 

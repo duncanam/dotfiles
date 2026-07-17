@@ -6,8 +6,6 @@
  * UI renders into widgets.
  */
 import { realpathSync } from "node:fs";
-import { homedir, tmpdir } from "node:os";
-import { join } from "node:path";
 import {
 	createAgentSession,
 	createBashToolDefinition,
@@ -156,59 +154,12 @@ function workspaceBashLock(cwd: string): WorkspaceBashLock {
 	return lock;
 }
 
-function shellQuote(value: string): string {
-	return `'${value.replaceAll("'", `'"'"'`)}'`;
-}
-
-function sandboxString(value: string): string {
-	return value.replaceAll("\\", "\\\\").replaceAll('"', '\\"');
-}
-
 function existingRealpath(path: string): string {
 	try {
 		return realpathSync(path);
 	} catch {
 		return path;
 	}
-}
-
-function workerSandboxProfile(cwd: string, mode: WorkerBashMode): string {
-	const home = homedir();
-	const workspace = existingRealpath(cwd);
-	const writeRoots = [
-		...(mode === "write" ? [workspace] : []),
-		existingRealpath(tmpdir()),
-		existingRealpath("/tmp"),
-		existingRealpath(join(home, ".cache")),
-		existingRealpath(join(home, ".npm")),
-		existingRealpath(join(home, "Library", "Caches")),
-	];
-	const protectedWrites = [
-		...(mode === "read" ? [workspace] : []),
-		existingRealpath(join(cwd, ".git")),
-		existingRealpath(join(cwd, "node_modules")),
-	];
-	const protectedReads = [
-		join(home, ".ssh"),
-		join(home, ".aws"),
-		join(home, ".gnupg"),
-		join(home, ".env"),
-	];
-	return [
-		"(version 1)",
-		"(deny default)",
-		'(import "system.sb")',
-		"(allow process*)",
-		"(allow file-read*)",
-		"(allow file-write-data (literal \"/dev/null\"))",
-		"(allow sysctl-read)",
-		"(allow mach-lookup)",
-		"(allow network*)",
-		...writeRoots.map((path) => `(allow file-write* (subpath "${sandboxString(path)}"))`),
-		...protectedWrites.map((path) => `(deny file-write* (subpath "${sandboxString(path)}"))`),
-		'(deny file-write* (regex #"/(\\.git|node_modules)(/|$)"))',
-		...protectedReads.map((path) => `(deny file-read* (subpath "${sandboxString(path)}"))`),
-	].join("\n");
 }
 
 function createWorkerBashOperations(
@@ -220,17 +171,13 @@ function createWorkerBashOperations(
 	const lock = workspaceBashLock(cwd);
 	return {
 		async exec(command, commandCwd, options) {
-			if (process.platform !== "darwin") {
-				throw new Error("worker bash is disabled: no supported workspace sandbox is available on this platform");
-			}
-			const sandboxedCommand = `/usr/bin/sandbox-exec -p ${shellQuote(workerSandboxProfile(cwd, mode))} -- /bin/sh -lc ${shellQuote(command)}`;
 			const waiting = lock.wouldWait(mode);
 			if (waiting) phases.onWaiting();
 			const release = await lock.acquire(mode, options.signal);
 			try {
 				if (options.signal?.aborted) throw new Error("aborted while waiting for worker bash lock");
 				phases.onExecuting();
-				return await local.exec(sandboxedCommand, commandCwd, options);
+				return await local.exec(command, commandCwd, options);
 			} finally {
 				release();
 			}
@@ -588,7 +535,7 @@ You are a LEAD agent in a manager→lead→worker tree, coordinating ${workerCou
 const workerBashSchema = Type.Object({
 	command: Type.String({ description: "Bash command to execute" }),
 	mode: Type.Union([Type.Literal("read"), Type.Literal("write")], {
-		description: "Use read for commands that must not modify the workspace; use write when workspace mutation is required",
+		description: "Use read for commands that do not modify the workspace (concurrent with other reads); use write when workspace mutation is required (exclusive access)",
 	}),
 	timeout: Type.Optional(Type.Number({ description: "Timeout in seconds" })),
 });
@@ -609,7 +556,7 @@ function createWorkerBashToolDefinition(
 	});
 	return {
 		...writeDefinition,
-		description: `${writeDefinition.description}\nThe mode field is required: read commands run concurrently in a workspace-write-denied sandbox; write commands receive exclusive workspace access.`,
+		description: `${writeDefinition.description}\nThe mode field is required: read commands run concurrently with other reads; write commands receive exclusive workspace access.`,
 		parameters: workerBashSchema,
 		execute: (toolCallId, { mode, ...input }, signal, onUpdate, context) => {
 			if (mode !== "read" && mode !== "write") throw new Error('bash mode must be "read" or "write"');
@@ -637,7 +584,7 @@ You are a WORKER agent. Complete each self-contained task end-to-end and verify 
 - Stay strictly within the assigned scope.
 - Each model phase has a ${modelTimeout}s watchdog and the complete task has a ${turnTimeout}s watchdog.
 - Each tool defaults to ${defaultToolTimeout}s; the lead may raise that task's tool limit to at most ${maxToolTimeout}s.
-- Bash requires mode: "read" or mode: "write". Read mode runs in parallel and cannot write the workspace; use write mode only when workspace mutation is required.
+- Bash requires mode: "read" or mode: "write". Read mode runs concurrently with other reads; write mode gets exclusive workspace access. Use write only when workspace mutation is required.
 - If blocked, stop and report the blocker.
 - Your final message briefly reports work, changed files, verification, and remaining issues.`;
 
@@ -648,7 +595,6 @@ async function makeChildLoader(options: {
 	rolePrompt: string;
 	extensionPaths: string[];
 	bashTimeoutSeconds: number;
-	sandboxWorkerBash?: boolean;
 	workerHandle?: AgentHandle;
 	extraTools?: ToolDefinition[];
 }): Promise<DefaultResourceLoader> {
@@ -661,8 +607,7 @@ async function makeChildLoader(options: {
 			{
 				name: `agent-manager-child:${options.cwd}`,
 				factory: (childPi) => {
-					if (options.sandboxWorkerBash) {
-						if (!options.workerHandle) throw new Error("sandboxed worker bash requires a worker handle");
+					if (options.workerHandle) {
 						childPi.registerTool(createWorkerBashToolDefinition(options.cwd, options.workerHandle));
 					}
 					for (const tool of options.extraTools ?? []) childPi.registerTool(tool);
@@ -781,7 +726,6 @@ export async function spawnSwarm(
 						),
 						extensionPaths,
 						bashTimeoutSeconds: config.workerBashTimeoutSeconds,
-						sandboxWorkerBash: true,
 						workerHandle: worker,
 					}),
 					sessionManager: SessionManager.inMemory(cwd),
