@@ -19,9 +19,7 @@
   "childExtensions": [
     "protected-read-paths.ts",
     "protected-write-paths.ts",
-    "ban-commands.ts",
-    "context7.ts",
-    "nomad.ts"
+    "context7.ts"
   ],
   "managerTools": [
     "read",
@@ -47,15 +45,7 @@
     "edit",
     "write",
     "grep",
-    "find",
-    "nomad_nodes",
-    "nomad_jobs",
-    "nomad_allocs",
-    "nomad_get",
-    "nomad_watch",
-    "nomad_logs",
-    "nomad_dispatch",
-    "nomad_submit"
+    "find"
   ],
   "modelResponseTimeoutSeconds": 300,
   "leadTurnTimeoutSeconds": 1800,

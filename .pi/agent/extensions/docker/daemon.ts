@@ -88,13 +88,12 @@ const dockerInfoTool = defineTool<typeof dockerInfoParams, Record<string, unknow
   description: [
     "Show Docker daemon summary: server version, container/image counts,",
     "storage driver, CPU/memory, and Swarm status.",
-    "The Docker analog of nomad_nodes — use it to discover what's available",
-    "before planning container work.",
+    "Use it to discover available daemon resources before planning container work.",
   ].join(" "),
   promptSnippet: "Daemon info: containers, images, storage, swarm",
   promptGuidelines: [
     "Use docker_info to see the Docker daemon's state (container/image counts, storage driver, swarm status) before planning work.",
-    "It's the Docker analog of nomad_nodes — use it to discover what resources are available.",
+    "Use docker_info to discover what daemon resources are available.",
   ],
   parameters: dockerInfoParams,
   async execute(
@@ -166,7 +165,7 @@ const dockerInspectTool = defineTool<typeof dockerInspectParams, Record<string, 
   promptGuidelines: [
     "Use docker_inspect for the complete JSON of a container, image, network, or volume — it subsumes per-type detail tools.",
     "Pass type= to disambiguate when a name could match multiple kinds (e.g. 'container' vs 'image').",
-    "This is the read-only analog of nomad_get for ad-hoc Docker object detail.",
+    "Use docker_inspect for ad-hoc, read-only Docker object detail.",
     "For containers specifically, prefer docker_inspect over parsing docker ps output.",
   ],
   parameters: dockerInspectParams,

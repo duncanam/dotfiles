@@ -122,7 +122,7 @@ const dockerComposeTool = defineTool<typeof dockerComposeParams, Record<string, 
   ].join(" "),
   promptSnippet: "Run Docker Compose (up/down/ps/logs/config)",
   promptGuidelines: [
-    "Use docker_compose action=up to start a stack from a compose file — it blocks until healthy by default (the nomad_submit analog).",
+    "Use docker_compose action=up to start a stack from a compose file — it blocks until healthy by default.",
     "Pass file= for a non-default compose file path, or file=[...] for multiple.",
     "Use action=down removeVolumes=true to tear down and clean up volumes.",
     "Use action=config to validate the compose file before action=up.",

@@ -2,10 +2,10 @@
   "skills": [
     "/Users/duncan/git/parasolid_llm/skills"
   ],
-  "lastChangelogVersion": "0.80.7",
-  "defaultProvider": "deepseek-atmc",
-  "defaultModel": "DeepSeek-V4-Flash",
-  "defaultThinkingLevel": "high",
+  "lastChangelogVersion": "0.80.10",
+  "defaultProvider": "openai-codex",
+  "defaultModel": "gpt-5.6-sol",
+  "defaultThinkingLevel": "max",
   "editorPaddingX": 1,
   "showHardwareCursor": true,
   "theme": "light/dark",

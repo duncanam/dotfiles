@@ -466,7 +466,7 @@ const dockerWaitTool = defineTool<typeof dockerWaitParams, Record<string, unknow
   promptGuidelines: [
     "Use docker_wait after docker_run (with detach=true) to block until it finishes.",
     "Pass logs=true to fetch the container's stdout+stderr once it stops.",
-    "This is the Docker analog of nomad_watch — it blocks until terminal state.",
+    "docker_wait blocks efficiently until the container reaches a terminal state.",
   ],
   parameters: dockerWaitParams,
   async execute(
