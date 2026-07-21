@@ -32,6 +32,19 @@ After resolving, the relevant files live at:
 - `$PI_PKG/docs/` — full docs directory
 - `$PI_PKG/examples/` — extensions, custom tools, SDK examples
 
+## Where this user's own skills and extensions live
+
+Distinct from `$PI_PKG` (the pi package itself). Pi loads *this user's* skills and
+extensions from:
+- Skills: `~/.pi/agent/skills/<name>/SKILL.md`
+- Extensions: `~/.pi/agent/extensions/*.ts` or `~/.pi/agent/extensions/<name>/index.ts`
+
+Just read/edit them at those `~/.pi/agent/...` paths. If an entry is a symlink (e.g.
+into a dotfiles repo) the read/edit resolves through it to the real file
+transparently — no need to locate or hard-code the target. Loaded skills also show
+their full path in context as `location=…`. See `docs/skills.md` / `docs/extensions.md`
+for project-level and other load locations.
+
 ## Topic → file map
 
 When the user asks about a pi subsystem, read the corresponding file under `$PI_PKG/docs/`:
