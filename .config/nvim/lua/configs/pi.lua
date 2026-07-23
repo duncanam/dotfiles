@@ -485,6 +485,13 @@ local function attach_terminal(buf, win, generation)
   end
 
   state.job = job_id
+
+  -- Neovim converts CSI-u Shift+Enter to LF for terminal jobs, and tmux then
+  -- canonicalizes it to CR (which Pi treats as submit). Preserve the key.
+  vim.keymap.set("t", "<S-CR>", function()
+    pcall(vim.api.nvim_chan_send, job_id, "\27[13;2u")
+  end, { buffer = buf, desc = "Send Shift+Enter to Pi", noremap = true })
+
   if vim.api.nvim_get_current_win() == win then
     vim.cmd "startinsert"
   end
