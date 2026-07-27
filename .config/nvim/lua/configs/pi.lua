@@ -20,6 +20,7 @@ local state = {
   win = nil,
   job = nil,
   generation = 0,
+  job_generation = 0,
   session_generation = 0,
   stopped = false,
 }
@@ -30,6 +31,16 @@ end
 
 local function valid_win(win)
   return win and vim.api.nvim_win_is_valid(win)
+end
+
+-- The float and the tmux window must agree on a size before a client attaches.
+-- Otherwise tmux serves the pane at one size, learns the real client size a
+-- moment later, and reflows the whole scrollback -- which is the burst of
+-- rapid scrolling seen when Pi is opened or unhidden.
+local function float_geometry()
+  local width = math.max(1, math.floor(vim.o.columns * 0.9))
+  local height = math.max(1, math.floor(vim.o.lines * 0.9))
+  return width, height
 end
 
 local function tmux_command(args)
@@ -100,21 +111,23 @@ local function run_tmux(args, callback)
   end
 end
 
-local function configure_tmux_clipboard(callback)
-  local command = clipboard_copy_command()
-  if not command then
-    callback(true)
-    return
-  end
-
+local function configure_tmux_server(callback)
   -- This server belongs exclusively to the Pi float, so these server-wide
-  -- bindings do not affect any ordinary tmux session. Bind both tables in
-  -- case the user switches between emacs and vi copy-mode keys.
+  -- settings do not affect any ordinary tmux session.
   local commands = {
     { "set-option", "-s", "set-clipboard", "off" },
-    { "bind-key", "-T", "copy-mode", "MouseDragEnd1Pane", "send-keys", "-X", "copy-pipe-and-cancel", command },
-    { "bind-key", "-T", "copy-mode-vi", "MouseDragEnd1Pane", "send-keys", "-X", "copy-pipe-and-cancel", command },
   }
+
+  local copy_command = clipboard_copy_command()
+  if copy_command then
+    -- Bind both tables in case the user switches between emacs and vi
+    -- copy-mode keys. OSC 52 would cross the nested terminal boundary and can
+    -- truncate large copies, so pipe selections to the host clipboard instead.
+    vim.list_extend(commands, {
+      { "bind-key", "-T", "copy-mode", "MouseDragEnd1Pane", "send-keys", "-X", "copy-pipe-and-cancel", copy_command },
+      { "bind-key", "-T", "copy-mode-vi", "MouseDragEnd1Pane", "send-keys", "-X", "copy-pipe-and-cancel", copy_command },
+    })
+  end
 
   local function run_next(index)
     local args = commands[index]
@@ -133,6 +146,17 @@ local function configure_tmux_clipboard(callback)
   end
 
   run_next(1)
+end
+
+-- Leave copy mode and jump to the live bottom of the scrollback, so a hidden
+-- float never reopens scrolled up. -q makes it a no-op when the pane is not
+-- in a mode, so it is safe to run unconditionally.
+local function snap_to_bottom(callback)
+  run_tmux({ "copy-mode", "-q", "-t", SESSION_TARGET }, function()
+    if callback then
+      callback()
+    end
+  end)
 end
 
 local function run_tmux_sync(args)
@@ -328,11 +352,13 @@ local function ensure_session(callback)
       return
     end
 
-    configure_tmux_clipboard(function(clipboard_ok, clipboard_err)
-      if not clipboard_ok then
-        vim.notify(("Pi clipboard integration unavailable: %s"):format(clipboard_err), vim.log.levels.WARN)
+    configure_tmux_server(function(server_ok, server_err)
+      if not server_ok then
+        vim.notify(("Pi tmux integration unavailable: %s"):format(server_err), vim.log.levels.WARN)
       end
-      callback(true)
+      snap_to_bottom(function()
+        callback(true)
+      end)
     end)
   end
 
@@ -402,8 +428,10 @@ local function set_status(buf, lines)
   vim.bo[buf].modifiable = false
 end
 
-local function close_view(stop_insert)
+-- Full teardown: buffer, window and tmux client all go away.
+local function destroy_view(stop_insert)
   state.generation = state.generation + 1
+  state.job_generation = state.job_generation + 1
 
   local buf = state.buf
   local win = state.win
@@ -430,11 +458,26 @@ local function close_view(stop_insert)
   end
 end
 
+-- Soft hide: close only the float window. The terminal buffer and the tmux
+-- client it owns stay alive, so unhiding is instant and resize-free -- no
+-- reattach, hence no scrollback reflow or rapid scrolling.
+local function hide_view(stop_insert)
+  state.generation = state.generation + 1
+  local win = state.win
+  state.win = nil
+  if valid_win(win) then
+    pcall(vim.api.nvim_win_hide, win)
+  end
+  if stop_insert then
+    vim.cmd "stopinsert"
+  end
+end
+
 local function is_current_view(buf, win, generation)
   return state.buf == buf and state.win == win and state.generation == generation and valid_buf(buf) and valid_win(win)
 end
 
-local function attach_terminal(buf, win, generation)
+local function attach_terminal(buf, win, generation, job_generation)
   if not is_current_view(buf, win, generation) then
     return
   end
@@ -462,11 +505,13 @@ local function attach_terminal(buf, win, generation)
     }, {
       on_exit = function(_, code)
         vim.schedule(function()
-          if not is_current_view(buf, win, generation) then
+          -- The job_generation guard lets this fire even while the buffer is
+          -- hidden (state.win == nil), which is_current_view would reject.
+          if state.job_generation ~= job_generation then
             return
           end
           state.job = nil
-          close_view(false)
+          destroy_view(false)
           if code ~= 0 then
             vim.notify(("Pi tmux attachment exited with code %d"):format(code), vim.log.levels.WARN)
           end
@@ -497,10 +542,58 @@ local function attach_terminal(buf, win, generation)
   end
 end
 
-local function open()
-  if state.buf or state.win or state.job then
-    close_view(false)
+-- Window options applied to every float we open for the Pi buffer. nvim
+-- auto-disables the sign column for terminal buffers, but only AFTER sizing
+-- the pty on the first termopen -- so the initial pty is too narrow (sign
+-- column still on) while a re-shown window's pty is full-width. That width
+-- delta reflows every wrapped line on unhide, so clamp the gutter to zero up
+-- front. These also mirror the TermOpen autocmd (which does not re-fire when
+-- an existing terminal buffer is reopened in a fresh window).
+local function apply_float_winopts(win)
+  vim.wo[win].number = false
+  vim.wo[win].relativenumber = false
+  vim.wo[win].signcolumn = "no"
+  vim.wo[win].foldcolumn = "0"
+  vim.wo[win].winhighlight = "NormalFloat:Normal"
+end
+
+local function open_float_window(buf)
+  local width, height = float_geometry()
+  local win = vim.api.nvim_open_win(buf, true, {
+    relative = "editor",
+    width = width,
+    height = height,
+    row = math.floor((vim.o.lines - height) / 2),
+    col = math.floor((vim.o.columns - width) / 2),
+    border = "double",
+  })
+  apply_float_winopts(win)
+  return win
+end
+
+-- Reopen the existing terminal buffer in a fresh float. The tmux client never
+-- detached, so there is no resize and no scrollback reflow on unhide.
+local function show_view()
+  if not (valid_buf(state.buf) and state.job) then
+    return false
   end
+
+  state.generation = state.generation + 1
+  local win = open_float_window(state.buf)
+  state.win = win
+
+  -- The pane may have been left scrolled up in copy mode; snap back to the
+  -- live bottom so the float always opens at the latest output.
+  snap_to_bottom()
+
+  if vim.api.nvim_get_current_win() == win then
+    vim.cmd "startinsert"
+  end
+  return true
+end
+
+local function open()
+  destroy_view(false)
 
   if state.stopped then
     state.stopped = false
@@ -508,26 +601,17 @@ local function open()
   end
 
   state.generation = state.generation + 1
+  state.job_generation = state.job_generation + 1
   local generation = state.generation
+  local job_generation = state.job_generation
   local session_generation = state.session_generation
+
   local buf = vim.api.nvim_create_buf(false, true)
-  vim.bo[buf].bufhidden = "wipe"
+  vim.bo[buf].bufhidden = "hide"
   vim.bo[buf].swapfile = false
   set_status(buf, { "Connecting to Pi..." })
 
-  local width = math.max(1, math.floor(vim.o.columns * 0.9))
-  local height = math.max(1, math.floor(vim.o.lines * 0.9))
-  local row = math.floor((vim.o.lines - height) / 2)
-  local col = math.floor((vim.o.columns - width) / 2)
-  local win = vim.api.nvim_open_win(buf, true, {
-    relative = "editor",
-    width = width,
-    height = height,
-    row = row,
-    col = col,
-    border = "double",
-  })
-
+  local win = open_float_window(buf)
   state.buf = buf
   state.win = win
 
@@ -555,7 +639,7 @@ local function open()
       })
       return
     end
-    attach_terminal(buf, win, generation)
+    attach_terminal(buf, win, generation, job_generation)
   end)
 end
 
@@ -565,8 +649,8 @@ end
 
 function M.toggle()
   if valid_win(state.win) then
-    close_view(true)
-  else
+    hide_view(true)
+  elseif not show_view() then
     open()
   end
 end
@@ -582,7 +666,7 @@ end
 function M.stop()
   state.stopped = true
   state.session_generation = state.session_generation + 1
-  close_view(true)
+  destroy_view(true)
   kill_session(SESSION_NAME, function(ok, result)
     if ok then
       vim.notify "Stopped Pi tmux session"
@@ -597,7 +681,7 @@ vim.api.nvim_create_autocmd("WinClosed", {
   group = group,
   callback = function(event)
     if tonumber(event.match) == state.win then
-      close_view(false)
+      hide_view(false)
     end
   end,
 })
