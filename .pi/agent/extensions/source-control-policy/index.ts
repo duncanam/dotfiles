@@ -20,7 +20,8 @@ export default function sourceControlPolicyExtension(pi: ExtensionAPI): void {
 			reason:
 				`Blocked source-control command: ${violation.command}. ${violation.reason} ` +
 				"Direct Git and GitHub CLI access is limited to audited read-only commands; " +
-				"use an approved structured tool or report the missing capability.",
+				"use an approved structured tool or report the missing capability. " +
+				"Load the `source-control` skill for the allowed command list and PR-comment mappings.",
 		};
 	});
 }

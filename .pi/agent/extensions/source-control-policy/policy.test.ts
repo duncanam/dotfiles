@@ -22,6 +22,19 @@ const ALLOWED_COMMANDS = [
 	"rg 'git push|gh api' .",
 	"echo ok # git reset --hard",
 	"command -v git",
+	"gh api repos/NVlabs/cuda-oxide/commits/abc123",
+	"gh api repos/NVlabs/cuda-oxide/commits/abc123?per_page=1",
+	"gh api repos/NVlabs/cuda-oxide/tags",
+	"gh api repos/NVlabs/cuda-oxide/tags --paginate",
+	"gh api repos/NVlabs/cuda-oxide/tags --jq '.[].name'",
+	"gh api repos/NVlabs/cuda-oxide/tags -i",
+	"gh api --help",
+	"gh -R NVlabs/cuda-oxide api repos/NVlabs/cuda-oxide/tags",
+	"gh api -R NVlabs/cuda-oxide repos/NVlabs/cuda-oxide/tags",
+	"gh api repos/Atomic-Industries/crab-rave/pulls/201/comments",
+	"gh api repos/o/r/pulls/201/comments?per_page=100",
+	"gh api repos/o/r/pulls/201/comments --jq '.[].body'",
+	"gh api repos/o/r/pulls/201/comments --paginate",
 ];
 
 const BLOCKED_COMMANDS: Array<[string, "git" | "gh", string]> = [
@@ -45,6 +58,21 @@ const BLOCKED_COMMANDS: Array<[string, "git" | "gh", string]> = [
 	["gh co 123", "gh", "gh co 123"],
 	["git status && gh issue close 123", "gh", "gh issue close"],
 	["find . -exec git reset --hard {} \\;", "git", "git reset"],
+	["gh api -X POST repos/o/r/tags", "gh", "gh api -X"],
+	["gh api repos/o/r/tags -X POST", "gh", "gh api -X"],
+	["gh api --method=DELETE repos/o/r/tags", "gh", "gh api --method=DELETE"],
+	["gh api repos/o/r/tags -f key=val", "gh", "gh api -f"],
+	["gh api repos/o/r/tags -F key=val", "gh", "gh api -F"],
+	["gh api repos/o/r/tags --input body.json", "gh", "gh api --input"],
+	["gh api repos/o/r/tags --raw-field=x=1", "gh", "gh api --raw-field=x=1"],
+	["gh api repos/o/r/tags --field=x=1", "gh", "gh api --field=x=1"],
+	["gh api repos/o/r/tags -XPOST", "gh", "gh api -XPOST"],
+	["gh api repos/o/r/contents/secret", "gh", "gh api repos/o/r/contents/secret"],
+	["gh api repos/o/r", "gh", "gh api repos/o/r"],
+	["gh api repos/o/r/commits/$SHA", "gh", "gh api <dynamic>"],
+	["gh api graphql -f query=q", "gh", "gh api -f"],
+	["gh api repos/o/r/pulls/201/comments/5/replies", "gh", "gh api repos/o/r/pulls/201/comments/5/replies"],
+	["gh api repos/o/r/issues/201/comments", "gh", "gh api repos/o/r/issues/201/comments"],
 ];
 
 test("allows audited read-only source-control commands without matching quoted prose", async (t) => {

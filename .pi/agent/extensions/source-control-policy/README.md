@@ -17,9 +17,14 @@ Notable defaults:
 
 - `git fetch`, `branch`, `config`, `remote`, `reflog`, `tag`, and `worktree` are
   blocked because they have mutating behavior.
-- `gh api` is blocked even though it can perform GET requests. Its method,
-  field-driven POST behavior, and GraphQL mutations make a command-level
-  read-only classification unreliable.
+- `gh api` is permitted only for read-only GET requests against an explicit
+  endpoint allowlist (`repos/:owner/:repo/commits/:ref`,
+  `repos/:owner/:repo/tags`, and `repos/:owner/:repo/pulls/:pull/comments` for
+  line-level review comments, which are not exposed by `gh pr view`). Flags
+  that change the HTTP method (`-X`/`--method`) or attach a body or parameters
+  (`-f`/`--raw-field`, `-F`/`--field`, `--input`) are blocked, since `gh api`
+  auto-switches to POST when parameters are added; unrecognized endpoints,
+  dynamic endpoint segments, and unknown flags are blocked.
 - `gh auth status` is allowed, but `--show-token` / `-t` is blocked.
 - Unknown commands and command lines whose subcommand cannot be identified
   statically fail closed.
