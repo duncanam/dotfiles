@@ -198,12 +198,56 @@ function buildReminder(parsed: ParsedTodo, disp: string): string | null {
 	);
 }
 
+/**
+ * Fingerprint an assistant message from its text and tool calls (thinking
+ * excluded: it may vary between identical acts). Null if nothing to judge.
+ */
+function assistantFingerprint(message: { content?: unknown }): string | null {
+	const content = message.content;
+	if (!Array.isArray(content)) return null;
+	const parts: string[] = [];
+	for (const part of content as Array<{
+		type?: string;
+		text?: string;
+		name?: string;
+		arguments?: unknown;
+	}>) {
+		if (part?.type === "text" && typeof part.text === "string") {
+			parts.push(`t:${part.text.replace(/\s+/g, " ").trim()}`);
+		} else if (part?.type === "toolCall") {
+			let args = "";
+			try {
+				args = JSON.stringify(part.arguments ?? null);
+			} catch {
+				args = "?";
+			}
+			parts.push(`c:${part.name}:${args}`);
+		}
+	}
+	return parts.length ? parts.join("\n") : null;
+}
+
 // ---------------------------------------------------------------------------
 // Session configuration
 // ---------------------------------------------------------------------------
 
 const DEFAULT_IDLE_MS = 30_000;
 const MAX_IDLE_MS = 24 * 60 * 60 * 1000;
+
+// Stall guard: break unattended repeat loops instead of cycling forever.
+// A cycle that ends with no checkbox progress AND a byte-identical assistant
+// reply (or no tool activity at all) means the automation is spinning, not
+// working — auto-disable rather than burn tokens (see repeat_issue sessions).
+const MAX_REPEAT_CYCLES = 2; // identical reply + no progress, this many in a row
+const MAX_IDLE_CYCLES = 3; // no tool calls + no progress, this many in a row
+
+// Error guard: if cycles keep ENDING in provider errors (out of credits, rate
+// limits, ...), do not re-prompt on the normal cadence — back off
+// exponentially and give up after a few consecutive failures. Otherwise an
+// unattended session re-prompts a dead provider all night.
+const MAX_ERROR_CYCLES = 3; // auto-disable after this many consecutive errored cycles
+const ERROR_BACKOFF_BASE_MS = 60_000; // 1m, doubled per consecutive error...
+const ERROR_BACKOFF_MAX_MS = 30 * 60_000; // ...capped at 30m
 
 function defaultConfig(cwd: string): TodoConfig {
 	return { enabled: false, path: join(cwd, "TODO.md"), idleMs: DEFAULT_IDLE_MS };
@@ -242,6 +286,27 @@ export default function (pi: ExtensionAPI) {
 	let tickInterval: NodeJS.Timeout | null = null;
 	let cache: { path: string; mtimeMs: number; parsed: ParsedTodo } | null = null;
 	let lastParsed: ParsedTodo | null = null;
+
+	// ---- stall-guard state --------------------------------------------------
+	let lastAssistantFp: string | null = null;
+	let lastTurnHadToolCalls = false;
+	let lastProgressSig: string | null = null;
+	let prevCycleKey: string | null = null;
+	let repeatStreak = 0;
+	let idleStreak = 0;
+	let errorStreak = 0;
+	let lastErrorMessage: string | null = null;
+
+	function resetStallState(): void {
+		lastAssistantFp = null;
+		lastTurnHadToolCalls = false;
+		lastProgressSig = null;
+		prevCycleKey = null;
+		repeatStreak = 0;
+		idleStreak = 0;
+		errorStreak = 0;
+		lastErrorMessage = null;
+	}
 
 	// ---- helpers -----------------------------------------------------------
 
@@ -421,6 +486,34 @@ export default function (pi: ExtensionAPI) {
 	pi.on("agent_start", () => clearGrace());
 	pi.on("input", () => clearGrace());
 
+	// Track the latest assistant turn so the stall guard can distinguish
+	// "model did real work but hasn't checked a box yet" from "model is
+	// spinning": repeating itself verbatim, or settling without any tool use.
+	pi.on("turn_end", (event) => {
+		const msg = event.message as
+			| { role?: string; stopReason?: string; content?: unknown }
+			| undefined;
+		if (!msg || msg.role !== "assistant") return;
+		if (msg.stopReason === "aborted") return; // user pressed Esc; not a signal
+		if (msg.stopReason === "error") {
+			// A mid-run error that pi auto-retries past is followed by a
+			// successful turn (which resets this below), so only runs that
+			// actually END on an error carry a non-zero streak into settle.
+			errorStreak++;
+			lastErrorMessage =
+				typeof (msg as { errorMessage?: unknown }).errorMessage === "string"
+					? ((msg as { errorMessage?: string }).errorMessage as string)
+					: null;
+			return;
+		}
+		errorStreak = 0;
+		lastErrorMessage = null;
+		lastAssistantFp = assistantFingerprint(msg);
+		lastTurnHadToolCalls =
+			Array.isArray(msg.content) &&
+			(msg.content as Array<{ type?: string }>).some((p) => p?.type === "toolCall");
+	});
+
 	pi.on("agent_settled", async (_event, ctx) => {
 		clearGrace();
 		const c = cfg;
@@ -432,6 +525,62 @@ export default function (pi: ExtensionAPI) {
 		if (remainingCount(parsed) === 0) {
 			// Nothing left: auto-disable promptly (no grace needed).
 			await disableAutomatically(ctx, "all items complete");
+			return;
+		}
+
+		// ---- error guard ----------------------------------------------------
+		if (errorStreak > 0) {
+			if (errorStreak >= MAX_ERROR_CYCLES) {
+				const why = lastErrorMessage ? `: ${lastErrorMessage.slice(0, 120)}` : "";
+				await disableAutomatically(
+					ctx,
+					`provider errors on ${errorStreak} consecutive cycles${why} — re-enable with /todo-enable`,
+				);
+				return;
+			}
+			const backoffMs = Math.min(
+				ERROR_BACKOFF_MAX_MS,
+				ERROR_BACKOFF_BASE_MS * 2 ** (errorStreak - 1),
+			);
+			if (ctx.hasUI) {
+				ctx.ui.notify(
+					`TODO cycle ended in a provider error (${errorStreak}/${MAX_ERROR_CYCLES} before auto-disable); retrying in ${Math.round(backoffMs / 1000)}s`,
+					"warning",
+				);
+			}
+			startGrace(ctx, c, backoffMs);
+			return;
+		}
+
+		// ---- stall guard ----------------------------------------------------
+		const next = findNextUnchecked(parsed.items);
+		const progressSig = `${remainingCount(parsed)}|${parsed.done}|${next?.item.text ?? ""}`;
+		const madeProgress = progressSig !== lastProgressSig;
+		const cycleKey = `${progressSig}||${lastAssistantFp ?? ""}`;
+		const repeatedCycle = !madeProgress && cycleKey === prevCycleKey;
+		prevCycleKey = cycleKey;
+		lastProgressSig = progressSig;
+
+		if (madeProgress) {
+			repeatStreak = 0;
+			idleStreak = 0;
+		} else {
+			repeatStreak = repeatedCycle ? repeatStreak + 1 : 0;
+			idleStreak = lastTurnHadToolCalls ? 0 : idleStreak + 1;
+		}
+
+		if (repeatStreak >= MAX_REPEAT_CYCLES) {
+			await disableAutomatically(
+				ctx,
+				`repeat loop detected (${repeatStreak + 1} identical cycles with no TODO progress) — re-enable with /todo-enable`,
+			);
+			return;
+		}
+		if (idleStreak >= MAX_IDLE_CYCLES) {
+			await disableAutomatically(
+				ctx,
+				`no TODO progress and no tool activity for ${idleStreak} cycles — re-enable with /todo-enable`,
+			);
 			return;
 		}
 
@@ -472,6 +621,7 @@ export default function (pi: ExtensionAPI) {
 			cfg = next;
 			cwdRef = ctx.cwd;
 			active = true;
+			resetStallState();
 
 			const parsed = await readTodo(abs);
 			if (parsed) updateStatus(ctx, next, parsed);
