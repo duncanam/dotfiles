@@ -3,7 +3,7 @@
  *
  * Blocks write and edit operations to protected paths.
  *
- * - .git/ and node_modules/ are globally protected (anywhere on disk).
+ * - .git/, node_modules/, and CHANGELOG.md are globally protected (anywhere on disk).
  * - Any file matching *.env* (*.env, .env.local, .env.example, etc.)
  *   is ONLY protected when it lives DIRECTLY in the home directory
  *   (e.g. ~/.env, ~/.env.local). Subdirectories under ~ are not affected,
@@ -18,7 +18,7 @@ import { basename, dirname, resolve, sep } from "node:path";
 export default function (pi: ExtensionAPI) {
 	const home = homedir();
 	const sshDir = resolve(home, ".ssh");
-	const globalProtectedComponents = new Set([".git", "node_modules"]);
+	const globalProtectedComponents = new Set([".git", "node_modules", "CHANGELOG.md"]);
 	const resolveInputPath = (input: string, cwd: string) => {
 		const normalized = input.startsWith("@") ? input.slice(1) : input;
 		if (normalized === "~") return home;
