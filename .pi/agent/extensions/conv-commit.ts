@@ -192,8 +192,23 @@ async function generateCommitMessage(
 		}
 	}
 
-	// 3. Find the merge-base.
-	const mb: ExecResult = await pi.exec("git", ["merge-base", baseRef, "HEAD"], opts);
+	// 3. Resolve refs once. Subsequent commands use immutable commit IDs so a
+	// concurrent fetch, checkout, or branch update cannot mix repository states.
+	const [headResult, baseResult, worktreeResult, branchResult] = await Promise.all([
+		pi.exec("git", ["rev-parse", "--verify", "HEAD"], opts),
+		pi.exec("git", ["rev-parse", "--verify", `${baseRef}^{commit}`], opts),
+		pi.exec("git", ["rev-parse", "--show-toplevel"], opts),
+		pi.exec("git", ["branch", "--show-current"], opts),
+	]);
+	const headSha = headResult.stdout.trim();
+	const baseSha = baseResult.stdout.trim();
+	if (headResult.code !== 0 || !headSha || baseResult.code !== 0 || !baseSha) {
+		ctx.ui.notify(`/conv-commit: could not resolve HEAD and ${baseRef}`, "error");
+		return;
+	}
+
+	// 4. Find and count the immutable range to summarize.
+	const mb: ExecResult = await pi.exec("git", ["merge-base", baseSha, headSha], opts);
 	if (mb.code !== 0 || !mb.stdout.trim()) {
 		ctx.ui.notify(
 			`/conv-commit: could not compute merge-base with ${baseRef}`,
@@ -202,26 +217,35 @@ async function generateCommitMessage(
 		return;
 	}
 	const base = mb.stdout.trim();
-
-	// 4. Anything to summarize?
-	const headSha = (await pi.exec("git", ["rev-parse", "HEAD"], opts)).stdout.trim();
-	if (headSha === base) {
+	const range = `${base}..${headSha}`;
+	const count = await pi.exec("git", ["rev-list", "--count", range], opts);
+	if (count.code !== 0 || !count.stdout.trim()) {
+		ctx.ui.notify(`/conv-commit: could not count commits from ${baseRef} to HEAD`, "error");
+		return;
+	}
+	if (count.stdout.trim() === "0") {
+		const worktree = worktreeResult.stdout.trim() || cwd;
+		const branch = branchResult.stdout.trim() || "detached HEAD";
 		ctx.ui.notify(
-			`/conv-commit: HEAD is at the branch point (${baseRef}); nothing to summarize`,
+			`/conv-commit: no commits from ${baseRef} to ${branch} ` +
+			`(worktree: ${worktree}; merge-base: ${base.slice(0, 7)}; HEAD: ${headSha.slice(0, 7)})`,
 			"warning",
 		);
 		return;
 	}
 
-	// 5. Gather context (commits, diffstat, full diff).
+	// 5. Gather context (commits, diffstat, full diff) from the same snapshot.
 	const [commits, diffstat, diff] = await Promise.all([
-		pi.exec("git", ["log", "--no-merges", "--pretty=%s%n%b%n---", `${base}..HEAD`], opts),
-		pi.exec("git", ["diff", "--stat", `${base}...HEAD`], opts),
-		pi.exec("git", ["diff", `${base}...HEAD`], opts),
+		pi.exec("git", ["log", "--no-merges", "--pretty=%s%n%b%n---", range], opts),
+		pi.exec("git", ["diff", "--stat", `${base}...${headSha}`], opts),
+		pi.exec("git", ["diff", `${base}...${headSha}`], opts),
 	]);
 
 	if (!diff.stdout.trim() && !commits.stdout.trim()) {
-		ctx.ui.notify(`/conv-commit: no diff vs ${baseRef}`, "warning");
+		ctx.ui.notify(
+			`/conv-commit: ${count.stdout.trim()} commit(s) from ${baseRef} to HEAD had no diff`,
+			"warning",
+		);
 		return;
 	}
 
