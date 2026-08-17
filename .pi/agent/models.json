@@ -35,11 +35,11 @@
       "apiKey": "sk-noauth",
       "models": [
         {
-          "id": "Qwen3.6-27B-FP8",
-          "name": "Qwen 3.6 27B FP8",
+          "id": "Qwen3.8-27B-BF16",
+          "name": "Qwen 3.8 27B BF16",
           "reasoning": true,
           "input": ["text"],
-          "contextWindow": 131072,
+          "contextWindow": 262144,
           "maxTokens": 32768,
           "cost": { "input": 0, "output": 0, "cacheRead": 0, "cacheWrite": 0 },
           "compat": {
