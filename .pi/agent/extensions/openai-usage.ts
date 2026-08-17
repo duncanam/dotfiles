@@ -109,6 +109,10 @@ function asPercent(value: unknown): number | undefined {
 	return Number.isFinite(percent) && percent >= 0 && percent <= 100 ? percent : undefined;
 }
 
+function isUsingOpenAiCodex(ctx: ExtensionContext): boolean {
+	return ctx.model?.provider === OPENAI_CODEX_PROVIDER;
+}
+
 function parseUsagePercent(payload: unknown): number | undefined {
 	const rateLimit = asRecord(asRecord(payload)?.rate_limit);
 	if (!rateLimit) return undefined;
@@ -191,7 +195,7 @@ function renderFooter(
 		statsParts.push(`CH${totals.latestCacheHitRate.toFixed(1)}%`);
 	}
 
-	const usingSubscription = ctx.model?.provider === OPENAI_CODEX_PROVIDER;
+	const usingSubscription = isUsingOpenAiCodex(ctx);
 	if (totals.cost || usingSubscription) {
 		statsParts.push(`$${totals.cost.toFixed(3)}${usingSubscription ? " (sub)" : ""}`);
 	}
@@ -287,8 +291,8 @@ export default function (pi: ExtensionAPI) {
 
 		try {
 			const result = await fetchSubscriptionUsage(ctx, controller.signal);
-			if (result.configured) openAiPercent = result.percent;
-			else openAiPercent = undefined;
+			// The active model may have changed while the request was in flight.
+			openAiPercent = isUsingOpenAiCodex(ctx) && result.configured ? result.percent : undefined;
 		} catch {
 			// Keep the last successful value during transient network/auth failures.
 		} finally {
@@ -322,16 +326,27 @@ export default function (pi: ExtensionAPI) {
 			};
 		});
 
-		refreshTimer = setInterval(() => void refreshUsage(ctx), REFRESH_INTERVAL_MS);
-		void refreshUsage(ctx, true);
+		refreshTimer = setInterval(() => {
+			if (isUsingOpenAiCodex(ctx)) void refreshUsage(ctx);
+		}, REFRESH_INTERVAL_MS);
+		if (isUsingOpenAiCodex(ctx)) void refreshUsage(ctx, true);
 	});
 
 	pi.on("agent_settled", async (_event, ctx) => {
-		if (ctx.mode === "tui") void refreshUsage(ctx);
+		if (ctx.mode === "tui" && isUsingOpenAiCodex(ctx)) void refreshUsage(ctx);
 	});
 
 	pi.on("model_select", async (_event, ctx) => {
-		if (ctx.mode === "tui") void refreshUsage(ctx, true);
+		if (ctx.mode !== "tui") return;
+
+		// Hide stale subscription data immediately when switching away.
+		if (!isUsingOpenAiCodex(ctx)) {
+			openAiPercent = undefined;
+			requestRender();
+			return;
+		}
+
+		void refreshUsage(ctx, true);
 	});
 
 	pi.on("session_shutdown", async () => {
