@@ -16,6 +16,8 @@ const OPENAI_CODEX_PROVIDER = "openai-codex";
 const USAGE_URL = "https://chatgpt.com/backend-api/wham/usage";
 const REFRESH_INTERVAL_MS = 5 * 60 * 1000;
 const REQUEST_TIMEOUT_MS = 10 * 1000;
+const HOUR_SECONDS = 60 * 60;
+const DAY_SECONDS = 24 * HOUR_SECONDS;
 const JWT_AUTH_CLAIM = "https://api.openai.com/auth";
 
 type FooterTheme = ExtensionContext["ui"]["theme"];
@@ -30,6 +32,7 @@ type FooterData = {
 type UsageResult = {
 	configured: boolean;
 	percent?: number;
+	resetAt?: number;
 };
 
 type UsageTotals = {
@@ -104,26 +107,68 @@ function asRecord(value: unknown): Record<string, unknown> | undefined {
 	return value !== null && typeof value === "object" ? (value as Record<string, unknown>) : undefined;
 }
 
+function asNumber(value: unknown): number | undefined {
+	const number = typeof value === "number" ? value : typeof value === "string" ? Number(value) : Number.NaN;
+	return Number.isFinite(number) ? number : undefined;
+}
+
 function asPercent(value: unknown): number | undefined {
-	const percent = typeof value === "number" ? value : typeof value === "string" ? Number(value) : Number.NaN;
-	return Number.isFinite(percent) && percent >= 0 && percent <= 100 ? percent : undefined;
+	const percent = asNumber(value);
+	return percent !== undefined && percent >= 0 && percent <= 100 ? percent : undefined;
+}
+
+function asTimestamp(value: unknown): number | undefined {
+	const timestamp = asNumber(value);
+	if (timestamp === undefined || timestamp <= 0) return undefined;
+
+	// The API uses Unix seconds, but accept milliseconds for compatibility with
+	// other OpenAI usage payloads.
+	return timestamp > 1_000_000_000_000 ? timestamp / 1000 : timestamp;
+}
+
+function parseWindowResetAt(window: Record<string, unknown>): number | undefined {
+	for (const key of ["reset_at", "resets_at", "resetAt", "resetsAt"]) {
+		const resetAt = asTimestamp(window[key]);
+		if (resetAt !== undefined) return resetAt;
+	}
+
+	for (const key of ["reset_after_seconds", "resetAfterSeconds"]) {
+		const resetAfterSeconds = asNumber(window[key]);
+		if (resetAfterSeconds !== undefined && resetAfterSeconds >= 0) {
+			return Date.now() / 1000 + resetAfterSeconds;
+		}
+	}
+
+	return undefined;
 }
 
 function isUsingOpenAiCodex(ctx: ExtensionContext): boolean {
 	return ctx.model?.provider === OPENAI_CODEX_PROVIDER;
 }
 
-function parseUsagePercent(payload: unknown): number | undefined {
+function parseUsage(payload: unknown): Pick<UsageResult, "percent" | "resetAt"> {
 	const rateLimit = asRecord(asRecord(payload)?.rate_limit);
-	if (!rateLimit) return undefined;
+	if (!rateLimit) return {};
 
 	for (const windowName of ["primary_window", "secondary_window"]) {
 		const window = asRecord(rateLimit[windowName]);
-		const percent = asPercent(window?.used_percent);
-		if (percent !== undefined) return percent;
+		if (!window) continue;
+
+		const percent = asPercent(window.used_percent) ?? asPercent(window.usedPercent);
+		if (percent !== undefined) return { percent, resetAt: parseWindowResetAt(window) };
 	}
 
-	return undefined;
+	return {};
+}
+
+function formatResetTime(resetAt: number | undefined): string | undefined {
+	if (resetAt === undefined) return undefined;
+
+	const remainingSeconds = Math.max(0, resetAt - Date.now() / 1000);
+	if (remainingSeconds < DAY_SECONDS) {
+		return `${Math.ceil(remainingSeconds / HOUR_SECONDS)}h`;
+	}
+	return `${Math.floor(remainingSeconds / DAY_SECONDS)}d`;
 }
 
 function getAccountId(accessToken: string): string | undefined {
@@ -164,7 +209,8 @@ async function fetchSubscriptionUsage(ctx: ExtensionContext, signal: AbortSignal
 		throw new Error(`OpenAI usage request failed (${response.status})`);
 	}
 
-	return { configured: true, percent: parseUsagePercent(await response.json()) };
+	const payload = await response.json();
+	return { configured: true, ...parseUsage(payload) };
 }
 
 function renderFooter(
@@ -173,6 +219,7 @@ function renderFooter(
 	footerData: FooterData,
 	width: number,
 	openAiPercent: number | undefined,
+	openAiResetAt: number | undefined,
 ): string[] {
 	const totals = getUsageTotals(ctx);
 	const contextUsage = ctx.getContextUsage();
@@ -211,7 +258,9 @@ function renderFooter(
 
 	if (openAiPercent !== undefined) {
 		const usageColor = openAiPercent > 90 ? "error" : openAiPercent > 70 ? "warning" : "success";
-		statsParts.push(theme.fg("dim", "•"), theme.fg(usageColor, `OpenAI ${Math.round(openAiPercent)}%`));
+		const resetTime = formatResetTime(openAiResetAt);
+		const resetSuffix = resetTime ? ` (${resetTime})` : "";
+		statsParts.push(theme.fg("dim", "•"), theme.fg(usageColor, `OpenAI ${Math.round(openAiPercent)}%${resetSuffix}`));
 	}
 
 	let statsLeft = statsParts.join(" ");
@@ -272,6 +321,7 @@ function renderFooter(
 
 export default function (pi: ExtensionAPI) {
 	let openAiPercent: number | undefined;
+	let openAiResetAt: number | undefined;
 	let refreshTimer: ReturnType<typeof setInterval> | undefined;
 	let requestController: AbortController | undefined;
 	let lastAttempt = 0;
@@ -292,7 +342,13 @@ export default function (pi: ExtensionAPI) {
 		try {
 			const result = await fetchSubscriptionUsage(ctx, controller.signal);
 			// The active model may have changed while the request was in flight.
-			openAiPercent = isUsingOpenAiCodex(ctx) && result.configured ? result.percent : undefined;
+			if (isUsingOpenAiCodex(ctx) && result.configured) {
+				openAiPercent = result.percent;
+				openAiResetAt = result.resetAt;
+			} else {
+				openAiPercent = undefined;
+				openAiResetAt = undefined;
+			}
 		} catch {
 			// Keep the last successful value during transient network/auth failures.
 		} finally {
@@ -307,6 +363,7 @@ export default function (pi: ExtensionAPI) {
 
 		disposed = false;
 		openAiPercent = undefined;
+		openAiResetAt = undefined;
 		lastAttempt = 0;
 		if (refreshTimer) clearInterval(refreshTimer);
 
@@ -321,7 +378,7 @@ export default function (pi: ExtensionAPI) {
 				},
 				invalidate() {},
 				render(width: number) {
-					return renderFooter(ctx, theme, footerData, width, openAiPercent);
+					return renderFooter(ctx, theme, footerData, width, openAiPercent, openAiResetAt);
 				},
 			};
 		});
@@ -342,6 +399,7 @@ export default function (pi: ExtensionAPI) {
 		// Hide stale subscription data immediately when switching away.
 		if (!isUsingOpenAiCodex(ctx)) {
 			openAiPercent = undefined;
+			openAiResetAt = undefined;
 			requestRender();
 			return;
 		}
