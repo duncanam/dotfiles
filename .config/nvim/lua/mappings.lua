@@ -79,6 +79,22 @@ vim.keymap.set("t", "<C-,>", function()
   require("configs.pi").toggle()
 end, { desc = "Toggle pi" })
 
+-- Integrated terminal clipboard
+local function paste_system_clipboard()
+  vim.api.nvim_paste(vim.fn.getreg "+", true, -1)
+end
+
+-- Enter Terminal-Normal mode, then select text and use the matching copy key.
+map("t", "<D-c>", [[<C-\><C-n>]], { desc = "Terminal copy mode" })
+map("t", "<C-S-c>", [[<C-\><C-n>]], { desc = "Terminal copy mode" })
+map("t", "<C-g>c", [[<C-\><C-n>]], { desc = "Terminal copy mode" })
+map("x", "<D-c>", '"+y', { desc = "Copy selection to system clipboard" })
+map("x", "<C-S-c>", '"+y', { desc = "Copy selection to system clipboard" })
+map("x", "<C-g>c", '"+y', { desc = "Copy selection to system clipboard" })
+map("t", "<D-v>", paste_system_clipboard, { desc = "Paste system clipboard into terminal" })
+map("t", "<C-S-v>", paste_system_clipboard, { desc = "Paste system clipboard into terminal" })
+map("t", "<C-g>v", paste_system_clipboard, { desc = "Paste system clipboard into terminal" })
+
 -- Refresh theme cache (fixes stale dark/light highlights)
 map("n", "<leader>tr", function()
   require("base46").load_all_highlights()
