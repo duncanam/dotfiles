@@ -1,0 +1,9 @@
+{
+  "compilerOptions": {
+    "target": "ES2023", "module": "NodeNext", "moduleResolution": "NodeNext",
+    "allowImportingTsExtensions": true, "allowJs": true, "checkJs": false,
+    "strict": true, "noImplicitAny": false, "skipLibCheck": true, "noEmit": true,
+    "types": ["node"]
+  },
+  "include": ["*.ts", "*.mjs"], "exclude": ["node_modules", "test"]
+}
