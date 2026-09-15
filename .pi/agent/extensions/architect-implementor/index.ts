@@ -75,7 +75,7 @@ export default function architectImplementor(pi: ExtensionAPI) {
       if (mode !== 'active' || !pair) return;
       log(item.role, `[${item.mode}] ${item.text}`);
       if (item.mode === 'accepted') {
-        ctx.ui.notify('Architect accepted the changes after independent inspection. Pair remains enabled.', 'info');
+        ctx.ui.notify('Architect accepted the work. Pair remains enabled.', 'info');
       } else if (['assign', 'guide', 'ping', 'note'].includes(item.mode)) {
         const encoded = Buffer.from(JSON.stringify(item)).toString('base64url');
         await pair.prompt(item.role, `/ai-control ${encoded}`);
@@ -107,7 +107,6 @@ export default function architectImplementor(pi: ExtensionAPI) {
       const text = e.result?.content?.filter((c: any) => c.type === 'text').map((c: any) => c.text).join('\n') ?? '';
       log(role, `${e.isError ? 'ERROR' : '←'} ${e.toolName}: ${text.slice(-4000)}`);
       if (!e.isError) {
-        if (role === 'architect' && e.toolName === 'ai_inspect') engine.inspected(e.result?.details?.inspection);
         const data = e.result?.details?.ai;
         if (data && ((role === 'architect' && e.toolName === 'ai_directive') || (role === 'implementor' && e.toolName === 'ai_report'))) {
           // Terminal handoffs wait for agent_settled, never race an in-flight edit/tool batch.
@@ -187,7 +186,6 @@ export default function architectImplementor(pi: ExtensionAPI) {
       show();
       previousEditor = ctx.ui.getEditorComponent();
       ctx.ui.setEditorComponent((tui, theme, keys) => routeEditor(previousEditor?.(tui, theme, keys) ?? new CustomEditor(tui, theme, keys), (text) => input(text)));
-      if (config.architect.allowUnsafeTools || Object.keys(config.checks).length) ctx.ui.notify('Configured extra tools/check commands can execute code. This is not an OS sandbox.', 'warning');
       pair = new WorkerPair(config, ctx.cwd, ctx.sessionManager.getSessionId(), event, fail);
       render();
       if (args.trim()) feedback.push({ text: args.trim() });

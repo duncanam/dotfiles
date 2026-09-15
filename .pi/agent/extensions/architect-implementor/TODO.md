@@ -5,7 +5,7 @@ Goal: An opt-in Pi extension with independently configured tmux agents and a par
 Constraints:
 - Parent model, conversation, tools and existing settings remain unchanged.
 - Architect plans/reviews, implementor codes; only bounded explicit communications cross roles.
-- Architect independently inspects artifacts after completion; no worker transcript tool.
+- Architect independently reviews work using its judgment and normal tools; delegation is a role instruction, not a read-only sandbox.
 - Default timer is 600 seconds per assignment cycle, not per tool/turn/status.
 - Explicit role extension/skill allowlists; no automatic child extension discovery.
 - Independent provider/model/reasoning effort per role; unsupported effort fails clearly.
@@ -59,3 +59,23 @@ Constraints:
 - [x] Verify command routing, cancellation, override lifecycle, busy-worker ordering and rollback with tests; run typecheck and zero-prompt real Pi smoke; document usage.
   - Typecheck and all 28 tests passed. Real Pi switched each existing worker to the other model/effort and back, with unchanged session IDs and zero messages/model calls.
   - Smoke verified extension JSON and Pi settings.json remained byte-for-byte unchanged. README documents syntax, temporary scope, waiting, validation and rollback.
+
+- [x] Add a dedicated architect-only read-only GitHub tool with structured actions, bounded output/time, and no arbitrary commands, flags or endpoints.
+  - Added ai_github for repository/PR/issue/CI/code-search reads, all three PR-comment surfaces, commits and tags. Shell/editing privileges and local review evidence gates remain unchanged; no config changes required.
+- [x] Test the GitHub allowlist, injection rejection, worker tool activation/isolation and real authenticated reads; run typecheck/tests/zero-prompt startup and document activation/limits.
+  - Typecheck and all 33 tests passed; zero-prompt real worker startup/model-switch smoke passed with unchanged JSON settings.
+  - Actual gh reads succeeded for this checkout's repository and cli/cli PR metadata, all three comment surfaces, CI run details, and tags. No model calls or GitHub mutations.
+  - README documents fixed read-only actions, auth/error reporting, limits, and reload/context-loss behavior.
+
+- [x] Give the architect normal read/write/edit/Bash capabilities and the same configured policy/Context7 resources as the implementor; remove the unsafe-tools opt-in requirement.
+  - Updated installed/example JSON, shared role tool definitions, startup activation and config validation. Existing user policies remain; allowUnsafeTools is compatibility-only.
+- [x] Replace architect-specific prohibitions and mandatory inspection-tool sequences with delegation/review guidance; retain handoff ordering, separate contexts, timers and cleanup.
+  - Removed inspection-token bookkeeping and acceptance claims the runtime cannot verify. Architect judges review sufficiency; acceptance still waits for completion. ai_inspect/ai_github remain optional conveniences.
+- [x] Update docs/regressions and verify typecheck, tests and zero-prompt real worker startup with unchanged model/effort selections.
+  - Typecheck and all 32 tests passed, including normal architect tools/extras and two-task review using ordinary Bash/read instead of ai_inspect. Real startup/switch/restore smoke passed for Sol/high and Luna/max without model calls.
+
+- [x] Delete inspection/GitHub wrappers, named-check configuration, legacy unsafe-tools compatibility and wrapper-only tests; use Pi's normal tools and activation rules.
+  - Deleted github.mjs, inspect.mjs and test/github.test.mjs, removed tool registrations/output truncation and duplicate per-call tool allowlist, and updated installed/example JSON.
+- [x] Trim obsolete prompts/docs; verify remaining orchestration with typecheck/tests/real startup and measure net source deletion against the pre-change baseline.
+  - Net deletion: 193 runtime lines, 118 test lines and 83 README lines. Worker reduced from 140 to 88 lines; no replacement wrapper modules.
+  - Typecheck and all 27 remaining tests passed. Real startup/model-switch smoke passed with zero prompts and unchanged Sol/high, Luna/max and Pi settings.

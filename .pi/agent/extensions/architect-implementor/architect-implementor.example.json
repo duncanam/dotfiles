@@ -6,10 +6,15 @@
     "provider": "openai-codex",
     "model": "gpt-5.6-sol",
     "thinking": "high",
-    "extensions": [],
-    "skills": [],
-    "extraTools": [],
-    "allowUnsafeTools": false
+    "extensions": [
+      "extensions/source-control-policy/index.ts",
+      "extensions/prefer-rg-fd.ts",
+      "extensions/protected-read-paths.ts",
+      "extensions/protected-write-paths.ts",
+      "extensions/context7.ts"
+    ],
+    "skills": ["skills/source-control"],
+    "extraTools": ["context7_resolve_library_id", "context7_get_library_docs"]
   },
   "implementor": {
     "provider": "openai-codex",
@@ -24,6 +29,5 @@
     ],
     "skills": ["skills/source-control"],
     "extraTools": ["context7_resolve_library_id", "context7_get_library_docs"]
-  },
-  "checks": {}
+  }
 }

@@ -3,6 +3,7 @@ import { homedir } from 'node:os';
 import { resolve, join } from 'node:path';
 
 export const roles = ['architect', 'implementor'];
+export const roleTools = (role) => ['read', 'write', 'edit', 'bash', role === 'architect' ? 'ai_directive' : 'ai_report'];
 export const levels = ['off', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'];
 export const agentDir = () => process.env.PI_CODING_AGENT_DIR || join(homedir(), '.pi', 'agent');
 export const configPath = () => join(agentDir(), 'architect-implementor.json');
@@ -31,36 +32,24 @@ function paths(value, base, name) {
   });
 }
 export function validateConfig(raw, base = agentDir()) {
-  keys(raw, [...roles, 'checkinSeconds', 'paneLines', 'piCommand', 'checks'], 'config');
+  keys(raw, [...roles, 'checkinSeconds', 'paneLines', 'piCommand'], 'config');
   const result = {
     checkinSeconds: integer(raw.checkinSeconds, 600, 1, 86400, 'checkinSeconds'),
     paneLines: integer(raw.paneLines, 18, 5, 60, 'paneLines'),
     piCommand: text(raw.piCommand ?? 'pi', 'piCommand'),
-    checks: {},
   };
   for (const role of roles) {
     const r = raw[role];
-    keys(r, ['provider', 'model', 'thinking', 'extensions', 'skills', 'extraTools', 'allowUnsafeTools'], role);
+    keys(r, ['provider', 'model', 'thinking', 'extensions', 'skills', 'extraTools'], role);
     const thinking = r.thinking ?? 'high';
     if (!levels.includes(thinking)) throw new Error(`${role}.thinking must be one of ${levels.join(', ')}`);
     const extraTools = r.extraTools ?? [];
     if (!Array.isArray(extraTools) || extraTools.some((t) => typeof t !== 'string' || !/^[a-zA-Z0-9_-]+$/.test(t))) throw new Error(`${role}.extraTools must contain tool names`);
-    if (r.allowUnsafeTools !== undefined && typeof r.allowUnsafeTools !== 'boolean') throw new Error(`${role}.allowUnsafeTools must be boolean`);
-    if (role === 'architect' && extraTools.length && r.allowUnsafeTools !== true) throw new Error('Architect extraTools require allowUnsafeTools: true (can bypass no-edit/no-transcript restrictions)');
     result[role] = {
       provider: text(r.provider, `${role}.provider`), model: text(r.model, `${role}.model`), thinking,
       extensions: paths(r.extensions, base, `${role}.extensions`),
       skills: paths(r.skills, base, `${role}.skills`), extraTools,
-      allowUnsafeTools: r.allowUnsafeTools === true,
     };
-  }
-  if (raw.checks !== undefined) {
-    if (!object(raw.checks)) throw new Error('checks must be a mapping of names to fixed commands');
-    for (const [name, check] of Object.entries(raw.checks)) {
-      if (!/^[a-zA-Z0-9_-]+$/.test(name)) throw new Error(`Invalid check name: ${name}`);
-      keys(check, ['command', 'timeoutSeconds'], `checks.${name}`);
-      result.checks[name] = { command: text(check.command, `checks.${name}.command`), timeoutSeconds: integer(check.timeoutSeconds, 60, 1, 3600, 'timeoutSeconds') };
-    }
   }
   return result;
 }
@@ -75,11 +64,11 @@ export function loadConfig(path = configPath()) {
 }
 export function workerArgs(config, role, extension) {
   const r = config[role];
-  const tools = role === 'architect' ? ['ai_inspect', 'ai_directive'] : ['read', 'write', 'edit', 'bash', 'ai_report'];
+  const tools = roleTools(role);
   // --no-session disables disk persistence, NOT conversation continuity: each process
   // stays alive for the entire enabled workflow and receives all its role's tasks.
   return ['--mode', 'rpc', '--no-session', '--no-approve', '--no-extensions', '--no-skills', '--no-prompt-templates', '--no-themes',
     '--provider', r.provider, '--model', r.model, '--thinking', r.thinking,
     ...r.extensions.flatMap((p) => ['-e', p]), '-e', extension,
-    ...r.skills.flatMap((p) => ['--skill', p]), '--tools', [...tools, ...r.extraTools].join(',')];
+    ...r.skills.flatMap((p) => ['--skill', p]), '--tools', [...new Set([...tools, ...r.extraTools])].join(',')];
 }

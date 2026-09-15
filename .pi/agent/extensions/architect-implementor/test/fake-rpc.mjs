@@ -65,8 +65,8 @@ jsonLines(process.stdin, (c) => {
   } else if (role === 'implementor' && control?.mode === 'assign') {
     tool('ai_report', { ai: { kind: 'done', cycle, text: 'Changed src/a.ts. Tests passed.' } });
   } else if (role === 'architect' && c.message.includes('Implementor done')) {
-    tool('ai_inspect', { inspection: 'changes' });
-    tool('ai_inspect', { inspection: 'read' });
+    tool('bash', {}); // Review can use ordinary tools rather than special inspection helpers.
+    tool('read', {});
     tool('ai_directive', { ai: { kind: 'accept', cycle, text: 'Independently verified.' } });
   }
   output({ type: 'agent_settled' });

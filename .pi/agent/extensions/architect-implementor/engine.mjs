@@ -11,7 +11,6 @@ export class Engine {
   phase = 'planning';
   startedAt = 0;
   nextPing = 0;
-  evidence = new Set();
   constructor(intervalMs = 600000) { this.intervalMs = intervalMs; }
   directive(raw, now = Date.now()) {
     const d = communication(raw, ['assign', 'guide', 'ping', 'accept']);
@@ -22,11 +21,10 @@ export class Engine {
       this.phase = 'implementing';
       this.startedAt = now;
       this.nextPing = now + this.intervalMs;
-      this.evidence.clear();
       return [{ role: 'implementor', mode: 'assign', cycle: this.cycle, text: d.text }, { role: 'architect', mode: 'note', cycle: this.cycle, text: `Assignment cycle ${this.cycle} started. Await report or user feedback.` }];
     }
     if (d.kind === 'accept') {
-      if (this.phase !== 'reviewing' || !this.evidence.has('changes') || !(this.evidence.has('read') || this.evidence.has('check'))) throw new Error('Before accepting, independently run ai_inspect changes and read or check after the completion report.');
+      if (this.phase !== 'reviewing') throw new Error('Wait for the implementor completion report before accepting.');
       this.phase = 'accepted';
       return [{ role: 'architect', mode: 'accepted', text: d.text }];
     }
@@ -38,13 +36,12 @@ export class Engine {
     const r = communication(raw, ['status', 'blocked', 'done']);
     if (r.cycle !== this.cycle || !['implementing', 'blocked'].includes(this.phase)) throw new Error('Stale or unexpected implementor report');
     if (r.kind === 'blocked') this.phase = 'blocked';
-    if (r.kind === 'done') { this.phase = 'reviewing'; this.evidence.clear(); }
+    if (r.kind === 'done') this.phase = 'reviewing';
     const instruction = r.kind === 'done'
-      ? 'Worker is paused. Independently inspect ai_inspect changes AND read files or run checks. Do not infer correctness from the summary. Then accept or assign corrections.'
+      ? 'Worker is paused. Independently review the work using appropriate files, diffs, tests or CI. Use your judgment rather than a prescribed tool sequence. Then accept or assign corrections, explaining what you verified and any limitations.'
       : r.kind === 'blocked' ? 'Worker is paused. Diagnose the blocker and send guide (same cycle) or assign a revised plan (new cycle).' : 'Assess progress; intervene with guide if needed. Do not request a transcript.';
     return [{ role: 'architect', mode: 'message', text: `Implementor ${r.kind}, cycle ${r.cycle}:\n${r.text}\n\n${instruction}` }];
   }
-  inspected(kind) { if (this.phase === 'reviewing') this.evidence.add(kind); }
   tick(now = Date.now()) {
     if (this.phase !== 'implementing' || now < this.nextPing) return [];
     // Anchor all checks to assignment start. Status, feedback, and tool activity never reset it.

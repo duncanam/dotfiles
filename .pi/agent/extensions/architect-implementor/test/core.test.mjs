@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, mkdir, writeFile, symlink, rm, readFile } from 'node:fs/promises';
+import { mkdtemp, mkdir, writeFile, rm, readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { Theme } from '@earendil-works/pi-coding-agent';
 import { tmpdir } from 'node:os';
@@ -9,13 +9,12 @@ import { PassThrough } from 'node:stream';
 import { validateConfig, workerArgs, loadConfig, configPath } from '../config.mjs';
 import { Engine } from '../engine.mjs';
 import { jsonLines } from '../wire.mjs';
-import { inspectFile, inspectPath } from '../inspect.mjs';
 import { Log, renderPanes, clean, workflowSummary, roleStatus, renderWorkflowStatus, workflowFooter } from '../ui.ts';
 import { visibleWidth } from '@earendil-works/pi-tui';
 
 export const config = () => validateConfig({ architect: { provider: 'mock', model: 'frontier', thinking: 'high' }, implementor: { provider: 'mock', model: 'small', thinking: 'low' } });
 
-test('config validates independent models/effort, defaults, and rejects unsafe tools/typos', () => {
+test('config validates models/effort and normal worker tools', () => {
   const c = config();
   assert.equal(c.checkinSeconds, 600);
   assert.equal(c.architect.thinking, 'high');
@@ -23,11 +22,16 @@ test('config validates independent models/effort, defaults, and rejects unsafe t
   assert.throws(() => validateConfig({ ...c, checkinSeconds: 0 }), /integer/);
   assert.throws(() => validateConfig({ ...c, checkinSecond: 10 }), /Unknown/);
   assert.throws(() => validateConfig({ ...c, architect: { ...c.architect, thinking: 'extreme' } }), /thinking/);
-  assert.throws(() => validateConfig({ ...c, architect: { ...c.architect, extraTools: ['bash'] } }), /UnsafeTools/);
+  const extended = validateConfig({ ...c, architect: { ...c.architect, extraTools: ['bash', 'context7_get_library_docs'] } });
+  assert.throws(() => validateConfig({ ...c, checks: {} }), /Unknown config.checks/);
+  assert.throws(() => validateConfig({ ...c, architect: { ...c.architect, allowUnsafeTools: true } }), /Unknown architect.allowUnsafeTools/);
+  const extendedTools = workerArgs(extended, 'architect', '/worker.ts').at(-1).split(',');
+  assert.equal(extendedTools.filter((name) => name === 'bash').length, 1);
+  assert.ok(extendedTools.includes('context7_get_library_docs'));
   const args = workerArgs(c, 'architect', '/worker.ts');
   for (const flag of ['--no-session', '--no-approve', '--no-extensions', '--no-skills', '--no-prompt-templates']) assert.ok(args.includes(flag));
   assert.equal(args[args.indexOf('--thinking') + 1], 'high');
-  assert.equal(args.at(-1), 'ai_inspect,ai_directive');
+  assert.equal(args.at(-1), 'read,write,edit,bash,ai_directive');
 });
 
 test('JSON settings preserve role options and resolve paths relative to the settings file', async () => {
@@ -37,14 +41,12 @@ test('JSON settings preserve role options and resolve paths relative to the sett
   try {
     const path = join(root, 'architect-implementor.json');
     assert.equal(configPath(), path);
-    await writeFile(join(root, 'architect-implementor.yaml'), 'legacy: ignored');
     assert.throws(() => loadConfig(), /architect-implementor\.example\.json/);
     await writeFile(join(root, 'guard.ts'), 'export default () => {};');
     await mkdir(join(root, 'skill'));
     const raw = config();
     raw.architect.extensions = ['./guard.ts'];
     raw.implementor.skills = ['./skill'];
-    raw.checks = { tests: { command: 'npm test', timeoutSeconds: 7 } };
     await writeFile(path, JSON.stringify(raw, null, 2));
     const loaded = loadConfig();
     assert.equal(loaded.architect.thinking, 'high');
@@ -52,7 +54,6 @@ test('JSON settings preserve role options and resolve paths relative to the sett
     assert.equal(loaded.checkinSeconds, 600);
     assert.deepEqual(loaded.architect.extensions, [join(root, 'guard.ts')]);
     assert.deepEqual(loaded.implementor.skills, [join(root, 'skill')]);
-    assert.deepEqual(loaded.checks, raw.checks);
     await writeFile(path, '{"architect": {},}');
     assert.throws(() => loadConfig(), /Invalid JSON in .*architect-implementor\.json/);
     await writeFile(path, JSON.stringify({ ...raw, unexpected: true }));
@@ -97,19 +98,19 @@ test('short cycles never accumulate into long-turn check-ins; stale and overlapp
   assert.throws(() => e.directive({ kind: 'assign', cycle: 1, text: 'late' }), /Stale/);
 });
 
-test('completion requires fresh independent evidence; logs never form an effect', () => {
+test('architect chooses review methods; acceptance requires completion but no prescribed tool sequence', () => {
   const e = new Engine();
-  e.inspected('changes'); e.inspected('read');
+  assert.throws(() => e.directive({ kind: 'accept', cycle: 0, text: 'Too early' }), /completion report/);
   e.directive({ kind: 'assign', cycle: 0, text: 'task' });
+  const accept = { kind: 'accept', cycle: 1, text: 'Reviewed with normal read/Bash and CI' };
+  assert.throws(() => e.directive(accept), /completion report/);
+  e.report({ kind: 'blocked', cycle: 1, text: 'Need a decision' });
+  assert.throws(() => e.directive(accept), /completion report/);
   const effects = e.report({ kind: 'done', cycle: 1, text: 'src/a.ts changed' });
-  assert.match(effects[0].text, /Independently/);
-  const accept = { kind: 'accept', cycle: 1, text: 'Verified' };
-  assert.throws(() => e.directive(accept), /independently/);
-  e.inspected('changes');
-  assert.throws(() => e.directive(accept), /independently/);
-  e.inspected('read');
+  assert.match(effects[0].text, /Independently review/);
   e.directive(accept);
   assert.equal(e.phase, 'accepted');
+  assert.throws(() => e.directive(accept), /completion report/);
 });
 
 test('live status shows phase/cycle and countdown without changing the anchored timer', () => {
@@ -143,21 +144,6 @@ test('JSONL preserves Unicode line separators and fragmented UTF8', () => {
   assert.deepEqual(result, [{ text: 'hello\u2028world\u2029💡' }]);
 });
 
-test('read policy blocks traversal, symlink escape and raw git internals', async () => {
-  const dir = await mkdtemp(join(tmpdir(), 'ai-inspect-'));
-  try {
-    await mkdir(join(dir, 'project'));
-    await mkdir(join(dir, 'project', '.git'));
-    await writeFile(join(dir, 'private'), 'outside');
-    await writeFile(join(dir, 'project', 'code.ts'), 'one\ntwo\nthree');
-    await symlink(join(dir, 'private'), join(dir, 'project', 'escape'));
-    assert.equal(await inspectFile(join(dir, 'project'), 'code.ts', 2, 1), '2: two');
-    await assert.rejects(inspectPath(join(dir, 'project'), '../private'), /restricted/);
-    await assert.rejects(inspectPath(join(dir, 'project'), 'escape'), /restricted/);
-    await assert.rejects(inspectPath(join(dir, 'project'), '.git'), /internals/);
-  } finally { await rm(dir, { recursive: true, force: true }); }
-});
-
 test('transparent panes recolor across themes, style log categories, and respect width/height budgets', async () => {
   const root = dirname(fileURLToPath(import.meta.resolve('@earendil-works/pi-coding-agent')));
   const themes = await Promise.all(['dark', 'light'].map(async (name) => {
@@ -168,8 +154,8 @@ test('transparent panes recolor across themes, style log categories, and respect
   const log = new Log();
   log.add('[user feedback] Please check the API.');
   log.add('[thinking] Reviewing the response contract.');
-  log.add('→ ai_inspect {"kind":"read"}');
-  log.add('← ai_inspect: interface Result {}');
+  log.add('→ read {"path":"src/types.ts"}');
+  log.add('← read: interface Result {}');
   log.add('[guide] Keep the interface stable.');
   log.add('ERROR: retry required');
   log.add('Wide 世界 💡 and combining e\u0301\x1b]0;untrusted\x07');

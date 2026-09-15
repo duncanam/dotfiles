@@ -57,19 +57,29 @@ test('implementor context survives cycles and done/blocked gates subsequent code
     const system = pi.events.get('before_agent_start')({ systemPrompt: 'base' }).systemPrompt;
     assert.match(system, /cycle: 2/);
     assert.match(system, /do not redesign architecture/);
-    assert.equal(pi.events.get('tool_call')({ toolName: 'ai_directive' }, ctx).block, true);
+    assert.deepEqual([...pi.tools.keys()], ['ai_report']);
   } finally { if (previous === undefined) delete process.env.PI_AI_WORKER; else process.env.PI_AI_WORKER = previous; }
 });
 
-test('architect has no editing/bash/transcript tools and communication must be alone', () => {
+test('architect has normal coding tools and extensions, delegates by instruction, and keeps ordered handoffs', () => {
   const previous = process.env.PI_AI_WORKER;
-  process.env.PI_AI_WORKER = JSON.stringify({ role: 'architect', cwd: '/tmp', config: { architect: { extraTools: [] }, checks: {} } });
+  process.env.PI_AI_WORKER = JSON.stringify({ role: 'architect', cwd: '/tmp', config: { architect: { extraTools: ['context7_get_library_docs'] } } });
   try {
     const pi = api(); worker(pi);
     const ctx = { sessionManager: { getBranch: () => [{ type: 'message', message: { role: 'assistant', content: [{ type: 'toolCall' }, { type: 'toolCall' }] } }] } };
-    for (const toolName of ['write', 'edit', 'bash', 'read', 'get_messages']) assert.equal(pi.events.get('tool_call')({ toolName }, ctx).block, true);
+    for (const toolName of ['write', 'edit', 'bash', 'read', 'context7_get_library_docs']) assert.equal(pi.events.get('tool_call')({ toolName }, ctx), undefined);
+    assert.equal(pi.events.get('tool_call')({ toolName: 'dynamic_extension_tool' }, ctx), undefined, 'Pi owns tool availability, not a second pair allowlist');
     assert.match(pi.events.get('tool_call')({ toolName: 'ai_directive' }, ctx).reason, /alone/);
-    assert.deepEqual([...pi.tools.keys()], ['ai_directive', 'ai_inspect']);
+    assert.deepEqual([...pi.tools.keys()], ['ai_directive']);
+    let active;
+    const getAll = pi.getAllTools;
+    pi.getAllTools = () => [...getAll(), { name: 'context7_get_library_docs' }];
+    pi.setActiveTools = (tools) => { active = tools; };
+    pi.events.get('session_start')({}, ctx);
+    for (const name of ['read', 'write', 'edit', 'bash', 'ai_directive', 'context7_get_library_docs']) assert.ok(active.includes(name));
+    const policy = pi.events.get('before_agent_start')({ systemPrompt: 'base' }).systemPrompt;
+    assert.match(policy, /Delegate substantive implementation/);
+    assert.doesNotMatch(policy, /NEVER implement|restricted to the working directory|Bash is unavailable/);
   } finally { if (previous === undefined) delete process.env.PI_AI_WORKER; else process.env.PI_AI_WORKER = previous; }
 });
 
