@@ -6,7 +6,7 @@ Constraints:
 - Parent model, conversation, tools and existing settings remain unchanged.
 - Architect plans/reviews, implementor codes; only bounded explicit communications cross roles.
 - Architect independently reviews work using its judgment and normal tools; delegation is a role instruction, not a read-only sandbox.
-- Default timer is 600 seconds per assignment cycle, not per tool/turn/status.
+- Default check-in is 600 seconds of uninterrupted implementation; reset/pause while awaiting review or blocker feedback, never on routine activity.
 - Explicit role extension/skill allowlists; no automatic child extension discovery.
 - Independent provider/model/reasoning effort per role; unsupported effort fails clearly.
 - One conversation per role across all tasks while enabled; disable kills tmux/workers, and re-enable starts fresh.
@@ -79,3 +79,14 @@ Constraints:
 - [x] Trim obsolete prompts/docs; verify remaining orchestration with typecheck/tests/real startup and measure net source deletion against the pre-change baseline.
   - Net deletion: 193 runtime lines, 118 test lines and 83 README lines. Worker reduced from 140 to 88 lines; no replacement wrapper modules.
   - Typecheck and all 27 remaining tests passed. Real startup/model-switch smoke passed with zero prompts and unchanged Sol/high, Luna/max and Pi settings.
+
+- [x] Allow same-cycle review corrections and status pings; preserve the assignment clock and improve actionable protocol feedback.
+  - Guide resumes review/accepted work without a new cycle; ping/status leave coding paused. Updated role/tool instructions and rejection messages; fresh completion still precedes acceptance.
+- [x] Order racing completion/directive handoffs without rejecting valid feedback; distinguish transport delivery failures from protocol errors and expose exhausted model retries without replaying jobs.
+  - Settled reports precede queued directives; multiple pending directives retain order. Delivery failures stop instead of being returned as model mistakes. Pi owns retries; exhaustion warns while retaining context.
+- [x] Add focused review/race/retry/delivery regressions, run typecheck/tests/zero-prompt smoke, and document the recovery behavior.
+  - Typecheck and 32 tests passed, including retry gaps, racing completion with an in-flight RPC, queued feedback ordering, paused pings, and no replay after uncertain delivery. Real worker startup/model-switch smoke passed with zero prompts and unchanged JSON settings.
+
+- [x] Reset/pause check-in timing during review or blocker waits; resume with a fresh interval in the same cycle, leaving active status/ping/guidance cadence unchanged.
+  - Done/blocked clear the clock; guide from a paused phase starts a full interval and resets displayed elapsed time without changing the cycle.
+  - Timer/UI regressions cover long waits, paused status queries, fresh countdowns and unchanged active cadence. Typecheck, all 32 tests and zero-prompt real startup/model-switch smoke passed.

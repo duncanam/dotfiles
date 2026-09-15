@@ -21,7 +21,7 @@ export default function architectImplementor(pi: ExtensionAPI) {
   let requestRender: (() => void) | undefined;
   let previousEditor: ReturnType<ExtensionContext['ui']['getEditorComponent']>;
   let chain = Promise.resolve();
-  let pending: Partial<Record<Role, any>> = {};
+  let pending: Record<Role, any[]> = { architect: [], implementor: [] };
   let feedback: { text: string; images?: any[] }[] = [];
   let logs = { architect: new Log(), implementor: new Log() };
   let busy = { architect: false, implementor: false };
@@ -84,14 +84,28 @@ export default function architectImplementor(pi: ExtensionAPI) {
     render();
   }
   async function protocol(role: Role, data: any) {
+    let items;
     try {
-      if (role === 'architect' && pending.implementor && ['assign', 'guide', 'accept'].includes(data.kind)) throw new Error('Implementor is settling a terminal report; wait for that report before dispatching.');
-      await effects(role === 'architect' ? engine.directive(data) : engine.report(data));
+      items = role === 'architect' ? engine.directive(data) : engine.report(data);
     } catch (error) {
-      const text = `Protocol rejected: ${error instanceof Error ? error.message : String(error)}. Current cycle ${engine.cycle}, phase ${engine.phase}.`;
+      const text = `Protocol rejected (cycle ${engine.cycle}, ${engine.phase}): ${error instanceof Error ? error.message : String(error)}`;
       log(role, text);
       await pair?.prompt(role, text);
+      return;
     }
+    // Delivery failures are not model mistakes. Stop rather than invite a replay
+    // after the state transition (the recipient may already have received it).
+    await effects(items);
+  }
+  async function handoffs() {
+    const ready: [Role, any][] = [];
+    // Snapshot settled reports before directives, including ones queued while
+    // another RPC was in flight. Never discard feedback just because done races it.
+    for (const role of ['implementor', 'architect'] as const) {
+      if (busy[role] || (role === 'architect' && pending.implementor.length)) continue;
+      for (const data of pending[role].splice(0)) ready.push([role, data]);
+    }
+    for (const [role, data] of ready) await protocol(role, data);
   }
   function event(role: Role, e: any) {
     if (mode === 'off' || mode === 'stopping' || mode === 'failed') return;
@@ -110,16 +124,14 @@ export default function architectImplementor(pi: ExtensionAPI) {
         const data = e.result?.details?.ai;
         if (data && ((role === 'architect' && e.toolName === 'ai_directive') || (role === 'implementor' && e.toolName === 'ai_report'))) {
           // Terminal handoffs wait for agent_settled, never race an in-flight edit/tool batch.
-          if (role === 'architect' || data.kind !== 'status') pending[role] = data;
+          if (role === 'architect' || data.kind !== 'status') pending[role].push(data);
           else enqueue(() => protocol(role, data));
         }
       }
     }
     if (e.type === 'agent_settled') {
       busy[role] = false;
-      const data = pending[role];
-      delete pending[role];
-      if (data) enqueue(() => protocol(role, data));
+      if (pending[role].length) enqueue(handoffs);
       else if (role === 'implementor' && engine.phase === 'implementing') enqueue(async () => {
         await effects([{ role: 'architect', mode: 'message', text: `Implementor is idle in cycle ${engine.cycle} without a terminal report. Do not infer completion. Ping for status or guide it to continue/report a blocker.` }]);
       });
@@ -127,6 +139,7 @@ export default function architectImplementor(pi: ExtensionAPI) {
     if (e.type === 'message_end' && e.message?.role === 'assistant' && ['error', 'aborted'].includes(e.message.stopReason)) log(role, `Model ${e.message.stopReason}: ${e.message.errorMessage ?? 'no details'}`);
     if (e.type === 'bridge_stderr') log(role, `[stderr] ${e.text}`);
     if (e.type === 'auto_retry_start' || e.type === 'compaction_start') log(role, `[${e.type}] ${e.errorMessage ?? ''}`);
+    if (e.type === 'auto_retry_end' && e.success === false) ctx.ui.notify(`${role}: model retries exhausted (${String(e.finalError ?? 'connection error').slice(0, 1000)}). Pair context retained; send feedback or use /pair-models to continue.`, 'warning');
     if (e.type === 'extension_ui_request') {
       log(role, `[extension UI: ${e.method}] ${e.message ?? e.title ?? ''}`);
       if (['select', 'confirm', 'input', 'editor'].includes(e.method)) {
@@ -157,7 +170,7 @@ export default function architectImplementor(pi: ExtensionAPI) {
     clearInterval(timer); clearTimeout(repaint); repaint = undefined;
     updateStatus(); requestRender?.();
     await pair?.stop();
-    pair = undefined; pending = {}; feedback = []; busy = { architect: false, implementor: false };
+    pair = undefined; pending = { architect: [], implementor: [] }; feedback = []; busy = { architect: false, implementor: false };
     ctx.ui.setEditorComponent(previousEditor);
     previousEditor = undefined;
     ctx.ui.setWidget('architect-implementor', undefined);

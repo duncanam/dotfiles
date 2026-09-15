@@ -47,8 +47,9 @@ Live changes wait for that worker to fully settle, including retries/compaction.
 ## Workflow and UI
 
 - Architect assigns jobs with constraints and acceptance criteria; implementor reports status, blockers or completion.
-- Blocked/done pauses implementation until guidance or a new assignment. Communication calls run alone; handoffs wait for `agent_settled` so they cannot race unfinished tools. Acceptance requires completion, not a prescribed review-tool sequence.
-- Check-ins default to 600 seconds from assignment start. Activity, feedback and same-cycle guidance do not reset the clock; only a new assignment does. Blocked/review/accepted phases do not generate reminders.
+- Blocked/done pauses implementation until guidance or a new assignment. `guide` resumes the same job for review corrections (even after acceptance); `ping` only requests status and leaves coding paused. Acceptance requires a fresh completion, not a prescribed review-tool sequence.
+- Communication calls run alone; handoffs wait for `agent_settled`, including model retries. Feedback racing a completion report is queued rather than rejected: the report is applied before feedback resumes work. Multiple queued directives retain their order.
+- Check-ins default to 600 seconds of uninterrupted implementation. Completion or a blocker resets and pauses the clock while the implementor awaits architect feedback; acceptance keeps it paused. Resuming with `guide` starts a fresh interval in the same cycle, and a new assignment starts a new cycle. Routine activity, status, pings and guidance while already working do not reset it. The UI's elapsed time/countdown describe the current implementation stretch, not time spent waiting for review.
 - Only structured assignments/reports (up to 6,000 characters) cross roles. Display logs are never forwarded wholesale. Separate model contexts are orchestration behavior, not a filesystem security boundary.
 - The UI shows phase/cycle/countdown, model/effort, role activity and muted tmux session names in the pane borders. Panes retain full-width 50/50 geometry when idle, stack below 60 columns, and adapt to terminal height. Logs are bounded and sanitized; the countdown measures time to check-in, not task completion.
 
@@ -56,7 +57,7 @@ Live changes wait for that worker to fully settle, including retries/compaction.
 
 Workers use the dedicated `pi-ai` tmux server. `tmux -L pi-ai list-sessions` lists full session names. Disable, quit, reload and session replacement stop owned workers and their process trees, never unrelated sessions. Bridge heartbeat leases, a worker bridge-death watchdog and selective orphan cleanup cover parent/bridge failures. Runtime state lives under `/tmp/pi-ai-<uid>/` with private permissions.
 
-Transport errors leave input intercepted until `/pair-disable`. Cleanup is best-effort under OS failure or deliberately escaped processes. Both workers and configured extensions have normal user privileges; this is not an OS sandbox.
+Model-connection retries belong to Pi. If they are exhausted, the UI warns without discarding worker context; send feedback or use `/pair-models` to continue. The pair does not automatically replay a recorded job. Transport/delivery errors stop the pair and leave input intercepted until `/pair-disable`: a missing acknowledgement does not prove the job was undelivered. Cleanup is best-effort under OS failure or deliberately escaped processes. Both workers and configured extensions have normal user privileges; this is not an OS sandbox.
 
 ## Development
 
@@ -67,4 +68,4 @@ npm test        # mock models, real tmux/process lifecycle; no API/model calls
 npm run smoke   # real Pi startup and live model switch/restore; zero prompts
 ```
 
-Tests cover config, delegation/review, timers, context continuity, input routing, UI layouts, temporary model overrides, rollback and process cleanup. Paid-model end-to-end reasoning quality has not been tested.
+Tests cover config, delegation/review, completion/feedback races, retry boundaries, uncertain delivery, timers, context continuity, input routing, UI layouts, temporary model overrides, rollback and process cleanup. Paid-model end-to-end reasoning quality has not been tested.

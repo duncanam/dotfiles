@@ -67,23 +67,67 @@ test('JSON settings preserve role options and resolve paths relative to the sett
   }
 });
 
-test('cycle timer stays anchored through status, feedback and guidance; only assignment resets', () => {
+test('active check-in cadence ignores routine activity; blocker waits reset it until implementation resumes', () => {
   const e = new Engine(600000);
   e.directive({ kind: 'assign', cycle: 0, text: 'Plan' }, 1000);
   assert.deepEqual(e.tick(600999), []);
   e.report({ kind: 'status', cycle: 1, text: 'Working' });
   e.directive({ kind: 'guide', cycle: 1, text: 'Clarification' }, 550000);
+  e.directive({ kind: 'ping', cycle: 1, text: 'Status?' }, 590000);
+  assert.equal(e.startedAt, 1000);
+  assert.equal(e.nextPing, 601000);
   assert.equal(e.tick(601000).length, 1);
   assert.equal(e.nextPing, 1201000);
   assert.deepEqual(e.tick(601001), []);
   e.report({ kind: 'blocked', cycle: 1, text: 'Obstacle' });
+  e.report({ kind: 'status', cycle: 1, text: 'Awaiting guidance' });
+  assert.equal(e.startedAt, 0);
+  assert.equal(e.nextPing, 0);
   assert.deepEqual(e.tick(2000000), []);
   e.directive({ kind: 'guide', cycle: 1, text: 'Resolution' }, 2000000);
-  assert.equal(e.startedAt, 1000);
-  assert.equal(e.tick(2000000).length, 1);
+  assert.equal(e.startedAt, 2000000);
+  assert.equal(e.nextPing, 2600000);
+  assert.equal(e.cycle, 1);
+  assert.deepEqual(e.tick(2599999), []);
+  assert.equal(e.tick(2600000).length, 1);
   e.report({ kind: 'done', cycle: 1, text: 'Finished' });
-  e.directive({ kind: 'assign', cycle: 1, text: 'Correction' }, 2100000);
-  assert.equal(e.nextPing, 2700000);
+  e.directive({ kind: 'assign', cycle: 1, text: 'Correction' }, 2700000);
+  assert.equal(e.nextPing, 3300000);
+});
+
+test('long review/accepted waits stay reset and paused; corrections restart the full interval and UI in the same cycle', () => {
+  const e = new Engine(10000);
+  assert.throws(() => e.directive({ kind: 'guide', cycle: 0, text: 'Too early' }), /Use assign/);
+  assert.throws(() => e.directive({ kind: 'ping', cycle: 0, text: 'Status?' }), /Use assign/);
+  e.directive({ kind: 'assign', cycle: 0, text: 'task' }, 1000);
+  e.report({ kind: 'done', cycle: 1, text: 'done' });
+  let now = 1000000;
+  for (const phase of ['reviewing', 'accepted']) {
+    assert.equal(e.startedAt, 0);
+    assert.equal(e.nextPing, 0);
+    assert.deepEqual(e.tick(now - 1), []);
+    const ping = e.directive({ kind: 'ping', cycle: 1, text: 'Clarify the test result' }, now - 1);
+    assert.equal(ping[0].mode, 'ping');
+    e.report({ kind: 'status', cycle: 1, text: 'Tests pass; still paused' });
+    assert.equal(e.phase, phase);
+    assert.equal(e.nextPing, 0, 'paused pings/status must not restart the timer');
+    assert.doesNotMatch(renderWorkflowStatus(120, { mode: 'active', ...e }, now - 1).join('\n'), /CHECK-IN|elapsed|remaining|due now/);
+    const correction = e.directive({ kind: 'guide', cycle: 1, text: 'Fix this review finding' }, now);
+    assert.deepEqual(correction, [{ role: 'implementor', mode: 'guide', cycle: 1, text: 'Fix this review finding' }]);
+    assert.equal(e.phase, 'implementing');
+    assert.equal(e.startedAt, now);
+    assert.equal(e.nextPing, now + 10000);
+    assert.match(workflowSummary({ mode: 'active', ...e }, now), /elapsed 0:00.*next check-in 0:10/);
+    const bar = renderWorkflowStatus(120, { mode: 'active', ...e, checkinMs: e.intervalMs }, now).at(-1);
+    assert.match(bar, /CHECK-IN\s+─+\s+0:10 remaining/);
+    assert.doesNotMatch(bar, /━|due now/);
+    assert.deepEqual(e.tick(now + 9999), []);
+    assert.equal(e.tick(now + 10000).length, 1);
+    assert.throws(() => e.directive({ kind: 'accept', cycle: 1, text: 'Premature' }), /completion report/);
+    e.report({ kind: 'done', cycle: 1, text: 'Correction verified' });
+    e.directive({ kind: 'accept', cycle: 1, text: 'Accepted' });
+    now += 1000000;
+  }
 });
 
 test('short cycles never accumulate into long-turn check-ins; stale and overlapping handoffs fail', () => {
