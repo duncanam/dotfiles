@@ -1,6 +1,6 @@
 {
   "checkinSeconds": 600,
-  "paneLines": 18,
+  "paneLines": 22,
   "piCommand": "pi",
   "architect": {
     "provider": "openai-codex",

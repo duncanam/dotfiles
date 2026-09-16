@@ -24,7 +24,7 @@ Use `~/.pi/agent/architect-implementor.json` (or `$PI_CODING_AGENT_DIR/architect
 | Architect | `openai-codex/gpt-5.6-sol` | `high` |
 | Implementor | `openai-codex/gpt-5.6-luna` | `max` |
 
-Top-level settings: `checkinSeconds` (600), `paneLines` (18), `piCommand` (`pi`), `architect` and `implementor`. Each role has independent `provider`, `model`, `thinking`, `extensions`, `skills` and `extraTools`. Resource paths are relative to the config file; absolute paths and `~/` work. Unsupported model/effort selections fail rather than silently downgrade. Old `checks` and `allowUnsafeTools` settings have been removed.
+Top-level settings: `checkinSeconds` (600), `paneLines` (22), `piCommand` (`pi`), `architect` and `implementor`. Each role has independent `provider`, `model`, `thinking`, `extensions`, `skills` and `extraTools`. Resource paths are relative to the config file; absolute paths and `~/` work. Unsupported model/effort selections fail rather than silently downgrade. Old `checks` and `allowUnsafeTools` settings have been removed.
 
 Both workers have normal **read, write, edit and Bash** tools. Their only custom tools are `ai_directive` (architect) and `ai_report` (implementor). Use ordinary tools for file inspection, tests, GitHub and research—not pair-specific wrappers. Delegation and review are role instructions, not a read-only sandbox or mandatory inspection sequence.
 

@@ -246,6 +246,7 @@ test('full parent workflow completes two tasks using the same pair, keeps transc
   process.env.PI_CODING_AGENT_DIR = root;
   process.env.MOCK_AUDIT = join(root, 'audit.jsonl');
   const notices = [], statuses = [];
+  const terminal = { rows: 40 };
   let widget;
   const pi = api();
   for (const name of ['setActiveTools', 'setModel', 'sendUserMessage', 'sendMessage', 'appendEntry']) pi[name] = () => { throw new Error(`Parent must not call ${name}`); };
@@ -263,7 +264,7 @@ test('full parent workflow completes two tasks using the same pair, keeps transc
       getEditorComponent: () => factory, setEditorComponent: (f) => { factory = f; },
       setWidget(_id, component) {
         if (component) {
-          widget = component({ terminal: { rows: 40 }, requestRender() {} });
+          widget = component({ terminal, requestRender() {} });
           assert.ok(widget.render(100).join('\n').includes('Architect'));
         } else widget = undefined;
       },
@@ -282,7 +283,10 @@ test('full parent workflow completes two tasks using the same pair, keeps transc
     await pi.commands.get('pair-models').handler('architect medium', context);
     await pi.commands.get('pair-enable').handler('Build task one', context);
     assert.match(statuses.at(-1), /starting/);
-    assert.equal(widget.render(380).length, 19, 'startup retains 18-row panes plus status');
+    assert.equal(widget.render(380).length, 23, 'startup retains 22-row panes plus status');
+    terminal.rows = 28;
+    assert.equal(widget.render(380).length, 16, 'short terminals retain 12 rows for the editor and other UI');
+    terminal.rows = 40;
     assert.doesNotMatch(widget.render(380).slice(0, -1).join('\n'), /tmux:|Config:|Parent model\/conversation/);
     const sessionFooter = widget.render(380).at(-1);
     const architectSession = sessionFooter.match(/ai-[a-f0-9]{24}-architect/)?.[0];

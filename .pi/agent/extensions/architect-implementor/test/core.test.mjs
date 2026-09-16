@@ -17,6 +17,7 @@ export const config = () => validateConfig({ architect: { provider: 'mock', mode
 test('config validates models/effort and normal worker tools', () => {
   const c = config();
   assert.equal(c.checkinSeconds, 600);
+  assert.equal(c.paneLines, 22);
   assert.equal(c.architect.thinking, 'high');
   assert.equal(c.implementor.thinking, 'low');
   assert.throws(() => validateConfig({ ...c, checkinSeconds: 0 }), /integer/);

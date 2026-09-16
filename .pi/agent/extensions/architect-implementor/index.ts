@@ -47,7 +47,7 @@ export default function architectImplementor(pi: ExtensionAPI) {
         render: (width: number) => {
           const state = status();
           const header = renderWorkflowStatus(width, state, Date.now(), theme);
-          const height = Math.max(3, Math.min(config?.paneLines ?? 18, (tui.terminal.rows || 30) - 12 - header.length));
+          const height = Math.max(3, Math.min(config?.paneLines ?? 22, (tui.terminal.rows || 30) - 12 - header.length));
           return [...header, ...renderPanes(width, height, roles.map((r, i) => {
             const role = r as Role;
             return { title: role === 'architect' ? 'Architect' : 'Implementor', role, status: roleStatus(state, role, busy[role]) + (modelChanges.has(role) ? ' • model queued' : ''), model: config?.[role].model, thinking: config?.[role].thinking, sessionName: pair ? sessionNames(pair.key)[i] : undefined, log: logs[role], emptyMessage: mode === 'starting' ? 'Starting worker…' : mode === 'stopping' ? 'Stopping worker…' : mode === 'failed' ? 'Worker stopped. Use /pair-disable to return.' : undefined };
