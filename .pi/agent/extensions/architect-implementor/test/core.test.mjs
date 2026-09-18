@@ -17,7 +17,7 @@ export const config = () => validateConfig({ architect: { provider: 'mock', mode
 test('config validates models/effort and normal worker tools', () => {
   const c = config();
   assert.equal(c.checkinSeconds, 600);
-  assert.equal(c.paneLines, 22);
+  assert.equal(c.paneLines, 26);
   assert.equal(c.architect.thinking, 'high');
   assert.equal(c.implementor.thinking, 'low');
   assert.throws(() => validateConfig({ ...c, checkinSeconds: 0 }), /integer/);
@@ -77,7 +77,10 @@ test('active check-in cadence ignores routine activity; blocker waits reset it u
   e.directive({ kind: 'ping', cycle: 1, text: 'Status?' }, 590000);
   assert.equal(e.startedAt, 1000);
   assert.equal(e.nextPing, 601000);
-  assert.equal(e.tick(601000).length, 1);
+  const reminder = e.tick(601000);
+  assert.equal(reminder.length, 1);
+  assert.match(reminder[0].text, /Assess whether an update is needed/);
+  assert.match(reminder[0].text, /Do not immediately duplicate recent guidance/);
   assert.equal(e.nextPing, 1201000);
   assert.deepEqual(e.tick(601001), []);
   e.report({ kind: 'blocked', cycle: 1, text: 'Obstacle' });
@@ -175,6 +178,11 @@ test('live status shows phase/cycle and countdown without changing the anchored 
   assert.equal(roleStatus(blocked, 'implementor', true), 'paused: blocker');
   assert.doesNotMatch(workflowSummary(blocked), /next check-in|elapsed/);
   assert.equal(roleStatus({ ...state, phase: 'reviewing' }, 'implementor', true), 'paused: review');
+  for (const [seconds, elapsed] of [[3599, '59:59'], [3600, '1:00:00'], [17449, '4:50:49'], [90000, '25:00:00']]) {
+    const now = state.startedAt + seconds * 1000;
+    assert.ok(workflowSummary(state, now).includes(`elapsed ${elapsed}`));
+    assert.ok(renderWorkflowStatus(120, state, now).join('\n').includes(`elapsed ${elapsed}`));
+  }
   for (const width of [0, 1, 20, 60, 100]) {
     for (const line of renderWorkflowStatus(width, state, 121000)) assert.ok(visibleWidth(line) <= width);
   }
@@ -202,6 +210,7 @@ test('transparent panes recolor across themes, style log categories, and respect
   log.add('→ read {"path":"src/types.ts"}');
   log.add('← read: interface Result {}');
   log.add('[guide] Keep the interface stable.');
+  log.add('[queued guide] Preserve the API.');
   log.add('ERROR: retry required');
   log.add('Wide 世界 💡 and combining e\u0301\x1b]0;untrusted\x07');
   const panes = [
@@ -211,7 +220,7 @@ test('transparent panes recolor across themes, style log categories, and respect
   const rendered = themes.map((theme) => renderPanes(130, 18, panes, theme).join('\n'));
   assert.notEqual(rendered[0], rendered[1]);
   assert.equal(clean(rendered[0]), clean(rendered[1]));
-  for (const word of ['╭', '╯', 'Architect', 'Implementor', 'effort max', 'paused: blocker', 'YOU', 'THINK', 'TOOL', 'RESULT', 'HANDOFF']) assert.ok(clean(rendered[0]).includes(word), word);
+  for (const word of ['╭', '╯', 'Architect', 'Implementor', 'effort max', 'paused: blocker', 'YOU', 'THINK', 'TOOL', 'RESULT', 'HANDOFF', 'QUEUED guide']) assert.ok(clean(rendered[0]).includes(word), word);
   assert.ok(!rendered[0].includes('\x1b]'));
   assert.ok(!rendered[0].includes('\x1b[48;'), 'must not paint filled backgrounds');
   assert.match(clean(rendered[0]).split('\n')[0], /Architect · working/);
@@ -223,6 +232,17 @@ test('transparent panes recolor across themes, style log categories, and respect
     for (const line of lines) assert.ok(visibleWidth(line) <= width, `width ${width}: ${visibleWidth(line)}`);
     for (const line of renderWorkflowStatus(width, state, 301000, theme)) assert.ok(visibleWidth(line) <= width);
   }
+});
+
+test('empty thinking markers are invisible without losing later streamed thinking', () => {
+  const log = new Log();
+  const panes = [{ title: 'Architect', role: 'architect', log }, { title: 'Implementor', role: 'implementor', log: new Log() }];
+  log.add('[thinking] \n');
+  assert.doesNotMatch(renderPanes(160, 22, panes).join('\n'), /THINK/);
+  log.delta('Checking the queue.');
+  assert.match(renderPanes(160, 22, panes).join('\n'), /THINK\s+Checking the queue\./);
+  log.add('[thinking] ');
+  assert.equal(renderPanes(160, 22, panes).join('\n').match(/THINK/g).length, 1);
 });
 
 test('idle and active panes retain tall full-width 50/50 geometry without background paint or clutter', () => {

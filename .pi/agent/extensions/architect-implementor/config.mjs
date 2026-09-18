@@ -35,7 +35,7 @@ export function validateConfig(raw, base = agentDir()) {
   keys(raw, [...roles, 'checkinSeconds', 'paneLines', 'piCommand'], 'config');
   const result = {
     checkinSeconds: integer(raw.checkinSeconds, 600, 1, 86400, 'checkinSeconds'),
-    paneLines: integer(raw.paneLines, 22, 5, 60, 'paneLines'),
+    paneLines: integer(raw.paneLines, 26, 5, 60, 'paneLines'),
     piCommand: text(raw.piCommand ?? 'pi', 'piCommand'),
   };
   for (const role of roles) {

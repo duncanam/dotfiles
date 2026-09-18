@@ -45,13 +45,13 @@ export class Engine {
     if (r.kind !== 'status') this.startedAt = this.nextPing = 0;
     const instruction = r.kind === 'done'
       ? 'Worker is paused. Independently review the work using appropriate files, diffs, tests or CI. Use your judgment rather than a prescribed tool sequence. Then accept, guide corrections in this cycle, or assign a new job, explaining what you verified and any limitations.'
-      : r.kind === 'blocked' ? 'Worker is paused. Diagnose the blocker and send guide (same cycle) or assign a revised plan (new cycle).' : 'Assess progress; intervene with guide if needed. Do not request a transcript.';
+      : r.kind === 'blocked' ? 'Worker is paused. Diagnose the blocker and send guide (same cycle) or assign a revised plan (new cycle).' : 'Assess progress; intervene with guide if needed. If awaiting external progress with nothing actionable, wait for the next check-in. Do not request a transcript.';
     return [{ role: 'architect', mode: 'message', text: `Implementor ${r.kind}, cycle ${r.cycle}:\n${r.text}\n\n${instruction}` }];
   }
   tick(now = Date.now()) {
     if (this.phase !== 'implementing' || now < this.nextPing) return [];
     // Anchor checks to the current implementation stretch, excluding review/blocker waits.
     this.nextPing = this.startedAt + (Math.floor((now - this.startedAt) / this.intervalMs) + 1) * this.intervalMs;
-    return [{ role: 'architect', mode: 'message', text: `Cycle ${this.cycle} has been implementing for ${Math.floor((now - this.startedAt) / 1000)}s since starting/resuming. Use ai_directive ping for a concise status/blocker report, or guide if intervention is needed. This check does not reset the cycle timer.` }];
+    return [{ role: 'architect', mode: 'message', text: `Cycle ${this.cycle} has been implementing for ${Math.floor((now - this.startedAt) / 1000)}s since starting/resuming. Assess whether an update is needed using the latest report. Do not immediately duplicate recent guidance or a recent status request. Ping for a concise update only if needed, or guide if intervention is warranted. This reminder does not reset the check-in schedule.` }];
   }
 }

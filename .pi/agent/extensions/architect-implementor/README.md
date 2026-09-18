@@ -11,7 +11,7 @@ Two long-lived Pi workers in tmux, with live side-by-side panes. The architect l
 /pair-disable
 ```
 
-Enable without a task starts workers without a model call. While enabled, submitted text, `!shell` and other slash commands route to the architect. Pair commands, `/reload` and `/quit` remain host commands; application keyboard shortcuts still belong to Pi. Disable other autonomous parent extensions before enabling.
+`/pair-enable` with no arguments starts workers without a model call. While enabled, submitted text, `!shell` and other slash commands route to the architect. Pair commands, `/reload` and `/quit` remain host commands; application keyboard shortcuts still belong to Pi. Disable other autonomous parent extensions before enabling.
 
 Each worker keeps its conversation across tasks until disable. **Disable/reload/session replacement kills the pair and discards worker context and temporary overrides.** Re-enable starts fresh; code changes are not undone.
 
@@ -24,7 +24,7 @@ Use `~/.pi/agent/architect-implementor.json` (or `$PI_CODING_AGENT_DIR/architect
 | Architect | `openai-codex/gpt-5.6-sol` | `high` |
 | Implementor | `openai-codex/gpt-5.6-luna` | `max` |
 
-Top-level settings: `checkinSeconds` (600), `paneLines` (22), `piCommand` (`pi`), `architect` and `implementor`. Each role has independent `provider`, `model`, `thinking`, `extensions`, `skills` and `extraTools`. Resource paths are relative to the config file; absolute paths and `~/` work. Unsupported model/effort selections fail rather than silently downgrade. Old `checks` and `allowUnsafeTools` settings have been removed.
+Top-level settings: `checkinSeconds` (600), `paneLines` (26), `piCommand` (`pi`), `architect` and `implementor`. Each role has independent `provider`, `model`, `thinking`, `extensions`, `skills` and `extraTools`. Resource paths are relative to the config file; absolute paths and `~/` work. Unsupported model/effort selections fail rather than silently downgrade. Old `checks` and `allowUnsafeTools` settings have been removed.
 
 Both workers have normal **read, write, edit and Bash** tools. Their only custom tools are `ai_directive` (architect) and `ai_report` (implementor). Use ordinary tools for file inspection, tests, GitHub and research—not pair-specific wrappers. Delegation and review are role instructions, not a read-only sandbox or mandatory inspection sequence.
 
@@ -46,12 +46,14 @@ Live changes wait for that worker to fully settle, including retries/compaction.
 
 ## Workflow and UI
 
-- Architect assigns jobs with constraints and acceptance criteria; implementor reports status, blockers or completion.
+- Architect assigns jobs with constraints and acceptance criteria; implementor reports status, blockers or completion. After review, the architect can assign the next job or accept and wait. No required plan file or automatic backlog continuation.
 - Blocked/done pauses implementation until guidance or a new assignment. `guide` resumes the same job for review corrections (even after acceptance); `ping` only requests status and leaves coding paused. Acceptance requires a fresh completion, not a prescribed review-tool sequence.
+- For external jobs, workers are instructed to use short, bounded status queries rather than long foreground watchers or sleep loops. Steering waits for running tools to return. An implementor can report status and yield until feedback or the next check-in without an immediate idle warning; an unreported exit still alerts the architect. This is guidance, not a tool ban or automatic cancellation. Local command failure does not prove remote job failure.
+- Architect guidance should specify observable readiness/capacity conditions rather than just “when appropriate.” Timer reminders invite judgment, not mandatory pings after recent guidance or a recent status request. Neither adjustment resets the check-in clock.
 - Communication calls run alone; handoffs wait for `agent_settled`, including model retries. Feedback racing a completion report is queued rather than rejected: the report is applied before feedback resumes work. Multiple queued directives retain their order.
 - Check-ins default to 600 seconds of uninterrupted implementation. Completion or a blocker resets and pauses the clock while the implementor awaits architect feedback; acceptance keeps it paused. Resuming with `guide` starts a fresh interval in the same cycle, and a new assignment starts a new cycle. Routine activity, status, pings and guidance while already working do not reset it. The UI's elapsed time/countdown describe the current implementation stretch, not time spent waiting for review.
 - Only structured assignments/reports (up to 6,000 characters) cross roles. Display logs are never forwarded wholesale. Separate model contexts are orchestration behavior, not a filesystem security boundary.
-- The UI shows phase/cycle/countdown, model/effort, role activity and muted tmux session names in the pane borders. Panes retain full-width 50/50 geometry when idle, stack below 60 columns, and adapt to terminal height. Logs are bounded and sanitized; the countdown measures time to check-in, not task completion.
+- The UI shows phase/cycle/countdown, model/effort, role activity and muted tmux session names in the pane borders. Panes retain full-width 50/50 geometry when idle, stack below 60 columns, and adapt to terminal height. Logs are bounded and sanitized; the countdown measures time to check-in, not task completion. Elapsed times over an hour use `H:MM:SS`. Successful communication appears as a readable `QUEUED` summary instead of raw tool JSON and boilerplate acknowledgements; errors remain visible. Queued does not mean the recipient has acted on it. Empty thinking markers and routine cycle-control notes are hidden.
 
 ## Cleanup
 

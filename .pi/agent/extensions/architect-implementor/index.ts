@@ -25,6 +25,7 @@ export default function architectImplementor(pi: ExtensionAPI) {
   let feedback: { text: string; images?: any[] }[] = [];
   let logs = { architect: new Log(), implementor: new Log() };
   let busy = { architect: false, implementor: false };
+  let implementorReported = false;
   let overrides: Partial<Record<Role, Selection>> = {};
   let modelPicker: AbortController | undefined;
   const modelChanges = new Set<Role>();
@@ -47,7 +48,7 @@ export default function architectImplementor(pi: ExtensionAPI) {
         render: (width: number) => {
           const state = status();
           const header = renderWorkflowStatus(width, state, Date.now(), theme);
-          const height = Math.max(3, Math.min(config?.paneLines ?? 22, (tui.terminal.rows || 30) - 12 - header.length));
+          const height = Math.max(3, Math.min(config?.paneLines ?? 26, (tui.terminal.rows || 30) - 12 - header.length));
           return [...header, ...renderPanes(width, height, roles.map((r, i) => {
             const role = r as Role;
             return { title: role === 'architect' ? 'Architect' : 'Implementor', role, status: roleStatus(state, role, busy[role]) + (modelChanges.has(role) ? ' • model queued' : ''), model: config?.[role].model, thinking: config?.[role].thinking, sessionName: pair ? sessionNames(pair.key)[i] : undefined, log: logs[role], emptyMessage: mode === 'starting' ? 'Starting worker…' : mode === 'stopping' ? 'Stopping worker…' : mode === 'failed' ? 'Worker stopped. Use /pair-disable to return.' : undefined };
@@ -68,12 +69,12 @@ export default function architectImplementor(pi: ExtensionAPI) {
   }
   function enqueue(work: () => Promise<void>) {
     const mine = generation;
-    chain = chain.then(async () => { if (mine === generation && mode === 'active') await work(); }).catch(fail);
+    chain = chain.then(async () => { if (mine === generation && mode === 'active') await work(); }).catch((error) => { if (mine === generation) fail(error); });
   }
   async function effects(items: any[]) {
     for (const item of items) {
       if (mode !== 'active' || !pair) return;
-      log(item.role, `[${item.mode}] ${item.text}`);
+      if (item.mode !== 'note') log(item.role, `[${item.mode}] ${item.text}`);
       if (item.mode === 'accepted') {
         ctx.ui.notify('Architect accepted the work. Pair remains enabled.', 'info');
       } else if (['assign', 'guide', 'ping', 'note'].includes(item.mode)) {
@@ -110,30 +111,35 @@ export default function architectImplementor(pi: ExtensionAPI) {
   function event(role: Role, e: any) {
     if (mode === 'off' || mode === 'stopping' || mode === 'failed') return;
     if (e.type === 'extension_error') { fail(`${role} extension error: ${e.error}`); return; }
-    if (e.type === 'agent_start') busy[role] = true;
+    const isCommunication = role === 'architect' ? e.toolName === 'ai_directive' : e.toolName === 'ai_report';
+    if (e.type === 'agent_start') {
+      if (role === 'implementor' && !busy.implementor) implementorReported = false;
+      busy[role] = true;
+    }
     if (e.type === 'message_update') {
       const delta = e.assistantMessageEvent;
       if (delta?.type === 'text_start' || delta?.type === 'thinking_start') logs[role].add(delta.type === 'thinking_start' ? '[thinking] ' : '');
       if (delta?.type === 'text_delta' || delta?.type === 'thinking_delta') logs[role].delta(delta.delta);
     }
-    if (e.type === 'tool_execution_start') log(role, `→ ${e.toolName} ${JSON.stringify(e.args).slice(0, 1500)}`);
+    if (e.type === 'tool_execution_start' && !isCommunication) log(role, `→ ${e.toolName} ${JSON.stringify(e.args).slice(0, 1500)}`);
     if (e.type === 'tool_execution_end') {
-      const text = e.result?.content?.filter((c: any) => c.type === 'text').map((c: any) => c.text).join('\n') ?? '';
-      log(role, `${e.isError ? 'ERROR' : '←'} ${e.toolName}: ${text.slice(-4000)}`);
-      if (!e.isError) {
-        const data = e.result?.details?.ai;
-        if (data && ((role === 'architect' && e.toolName === 'ai_directive') || (role === 'implementor' && e.toolName === 'ai_report'))) {
-          // Terminal handoffs wait for agent_settled, never race an in-flight edit/tool batch.
-          if (role === 'architect' || data.kind !== 'status') pending[role].push(data);
-          else enqueue(() => protocol(role, data));
-        }
+      const data = !e.isError && isCommunication && e.result?.details?.ai;
+      if (data) {
+        log(role, `[queued ${data.kind}] ${data.text}`);
+        if (role === 'implementor') implementorReported = true;
+        // Terminal handoffs wait for agent_settled, never race an in-flight edit/tool batch.
+        if (role === 'architect' || data.kind !== 'status') pending[role].push(data);
+        else enqueue(() => protocol(role, data));
+      } else {
+        const text = e.result?.content?.filter((c: any) => c.type === 'text').map((c: any) => c.text).join('\n') ?? '';
+        log(role, `${e.isError ? 'ERROR' : '←'} ${e.toolName}: ${text.slice(-4000)}`);
       }
     }
     if (e.type === 'agent_settled') {
       busy[role] = false;
       if (pending[role].length) enqueue(handoffs);
-      else if (role === 'implementor' && engine.phase === 'implementing') enqueue(async () => {
-        await effects([{ role: 'architect', mode: 'message', text: `Implementor is idle in cycle ${engine.cycle} without a terminal report. Do not infer completion. Ping for status or guide it to continue/report a blocker.` }]);
+      else if (role === 'implementor' && engine.phase === 'implementing' && !implementorReported) enqueue(async () => {
+        await effects([{ role: 'architect', mode: 'message', text: `Implementor is idle in cycle ${engine.cycle} without a status, blocker or completion report. Do not infer completion. Ping for status or guide it to continue/report a blocker.` }]);
       });
     }
     if (e.type === 'message_end' && e.message?.role === 'assistant' && ['error', 'aborted'].includes(e.message.stopReason)) log(role, `Model ${e.message.stopReason}: ${e.message.errorMessage ?? 'no details'}`);
@@ -170,7 +176,7 @@ export default function architectImplementor(pi: ExtensionAPI) {
     clearInterval(timer); clearTimeout(repaint); repaint = undefined;
     updateStatus(); requestRender?.();
     await pair?.stop();
-    pair = undefined; pending = { architect: [], implementor: [] }; feedback = []; busy = { architect: false, implementor: false };
+    pair = undefined; pending = { architect: [], implementor: [] }; feedback = []; busy = { architect: false, implementor: false }; implementorReported = false;
     ctx.ui.setEditorComponent(previousEditor);
     previousEditor = undefined;
     ctx.ui.setWidget('architect-implementor', undefined);

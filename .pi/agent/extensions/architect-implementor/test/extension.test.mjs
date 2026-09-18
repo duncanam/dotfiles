@@ -54,15 +54,25 @@ test('implementor context survives cycles and done/blocked gates subsequent code
     assert.equal(pi.events.get('tool_call')({ toolName: 'write' }, ctx).block, true);
     await control('ping', 1);
     assert.equal(pi.events.get('tool_call')({ toolName: 'write' }, ctx).block, true, 'status ping does not resume coding');
-    assert.equal((await pi.tools.get('ai_report').execute('status', { kind: 'status', cycle: 1, text: 'Still paused' })).terminate, undefined);
+    const pausedStatus = await pi.tools.get('ai_report').execute('status', { kind: 'status', cycle: 1, text: 'Still paused' });
+    assert.equal(pausedStatus.terminate, undefined);
+    assert.match(pausedStatus.content[0].text, /Remain paused/);
     await control('guide', 1);
     assert.equal(pi.events.get('tool_call')({ toolName: 'write' }, ctx), undefined, 'review guidance resumes the same cycle');
+    const waitingStatus = await pi.tools.get('ai_report').execute('status', { kind: 'status', cycle: 1, text: 'Remote job running' });
+    assert.equal(waitingStatus.terminate, undefined);
+    assert.match(waitingStatus.content[0].text, /yield while awaiting external progress/);
     await control('assign', 2);
     assert.equal(pi.events.get('tool_call')({ toolName: 'write' }, ctx), undefined);
     assert.equal(prompts.length, 4);
     const system = pi.events.get('before_agent_start')({ systemPrompt: 'base' }).systemPrompt;
     assert.match(system, /cycle: 2/);
     assert.match(system, /do not redesign architecture/);
+    assert.match(system, /bounded status snapshots with explicit timeouts/);
+    assert.match(system, /local command abort\/timeout does not establish remote job failure/);
+    assert.match(system, /report status and yield/);
+    assert.match(system, /do not report done while assigned acceptance criteria remain unmet/);
+    assert.doesNotMatch(system, /PAIR_TODO|backlog continuation/);
     assert.deepEqual([...pi.tools.keys()], ['ai_report']);
   } finally { if (previous === undefined) delete process.env.PI_AI_WORKER; else process.env.PI_AI_WORKER = previous; }
 });
@@ -85,7 +95,10 @@ test('architect has normal coding tools and extensions, delegates by instruction
     for (const name of ['read', 'write', 'edit', 'bash', 'ai_directive', 'context7_get_library_docs']) assert.ok(active.includes(name));
     const policy = pi.events.get('before_agent_start')({ systemPrompt: 'base' }).systemPrompt;
     assert.match(policy, /Delegate substantive implementation/);
-    assert.doesNotMatch(policy, /NEVER implement|restricted to the working directory|Bash is unavailable/);
+    assert.match(policy, /observable readiness\/capacity criteria/);
+    assert.match(policy, /not as mandatory ping commands/);
+    assert.match(policy, /Avoid immediately duplicating recent guidance/);
+    assert.doesNotMatch(policy, /NEVER implement|restricted to the working directory|Bash is unavailable|PAIR_TODO|backlog continuation/);
     await pi.tools.get('ai_directive').execute('assign', { kind: 'assign', cycle: 0, text: 'task' });
     pi.events.get('agent_end')?.({ willRetry: true }, ctx);
     assert.equal(pi.events.get('tool_call')({ toolName: 'ai_directive' }, ctx).terminate, true, 'retry gap cannot replay a recorded directive');
@@ -103,7 +116,9 @@ async function handoffHarness(t, onPrompt = () => {}) {
   let pair, widget;
   t.mock.method(WorkerPair.prototype, 'start', async function () { pair = this; });
   t.mock.method(WorkerPair.prototype, 'stop', async function () { this.stopped = true; });
-  t.mock.method(WorkerPair.prototype, 'prompt', async function (role, message) {
+  t.mock.method(WorkerPair.prototype, 'rpc', async function (role, command) {
+    assert.equal(command.type, 'prompt');
+    const { message } = command;
     const control = message.startsWith('/ai-control ') ? JSON.parse(Buffer.from(message.slice(12), 'base64url').toString()) : undefined;
     const entry = { role, message, control };
     messages.push(entry);
@@ -134,13 +149,16 @@ async function handoffHarness(t, onPrompt = () => {}) {
     emit(role, { type: 'agent_start' });
     emit(role, { type: 'tool_execution_end', toolName: role === 'architect' ? 'ai_directive' : 'ai_report', result: { details: { ai: { kind, cycle, text } } } });
   };
-  return { pi, pair, messages, notices, send, emit, settle: (role) => emit(role, { type: 'agent_settled' }),
+  return { pi, get pair() { return pair; }, root, ctx, messages, notices, send, emit, settle: (role) => emit(role, { type: 'agent_settled' }),
     controls: (mode) => messages.filter((m) => m.role === 'implementor' && m.control?.mode === mode),
     display: () => widget.render(160).join('\n') };
 }
 
 test('review handoffs survive retry gaps and racing completion without losing, duplicating or rejecting guidance', async (t) => {
   const h = await handoffHarness(t);
+  const plan = '- [ ] Existing user plan\n';
+  await writeFile(join(h.root, 'PAIR_TODO.md'), plan);
+  assert.doesNotMatch(h.display(), /PAIR_TODO/);
   h.send('architect', 'assign', 0);
   h.emit('architect', { type: 'message_end', message: { role: 'assistant', stopReason: 'error', errorMessage: 'WebSocket error' } });
   h.emit('architect', { type: 'agent_end', willRetry: true });
@@ -174,12 +192,74 @@ test('review handoffs survive retry gaps and racing completion without losing, d
   h.settle('implementor');
   await wait(() => h.messages.some((m) => m.message.includes('Implementor status')));
   assert.match(h.display(), /cycle 1 • reviewing/);
+  const promptsBeforeAccept = h.messages.length;
   h.send('architect', 'accept', 1);
   h.settle('architect');
   await wait(() => h.notices.some((n) => n.text.includes('accepted')));
+  h.settle('architect');
+  h.settle('implementor');
+  await sleep(50);
+  assert.equal(h.messages.length, promptsBeforeAccept, 'acceptance stays idle without an automatic continuation');
+  assert.equal(await readFile(join(h.root, 'PAIR_TODO.md'), 'utf8'), plan);
   assert.equal(h.controls('assign').length, 1);
   assert.ok(!h.messages.some((m) => m.message.includes('Protocol rejected')));
   assert.ok(!h.notices.some((n) => n.level === 'error'));
+});
+
+test('status can yield for external progress without an idle re-prompt, including retry gaps; unreported exits still warn', async (t) => {
+  const h = await handoffHarness(t);
+  h.send('architect', 'assign', 0);
+  h.settle('architect');
+  await wait(() => h.controls('assign').length === 1);
+  for (const retry of [false, true]) {
+    h.send('implementor', 'status', 1, 'Job 42 is running; waiting for its result');
+    if (retry) {
+      h.emit('implementor', { type: 'agent_end', willRetry: true });
+      h.emit('implementor', { type: 'agent_start' });
+      h.emit('implementor', { type: 'auto_retry_end', success: true });
+    }
+    h.settle('implementor');
+    await wait(() => h.messages.filter((m) => m.message.includes('Implementor status')).length === (retry ? 2 : 1));
+    h.settle('architect');
+    await sleep(40);
+    assert.ok(!h.messages.some((m) => m.message.includes('Implementor is idle')));
+    assert.equal(h.controls('ping').length, 0);
+    assert.match(h.display(), /cycle 1 • implementing/);
+  }
+  h.emit('implementor', { type: 'agent_start' });
+  h.settle('implementor');
+  await wait(() => h.messages.some((m) => m.message.includes('without a status, blocker or completion report')));
+});
+
+test('successful communication is compact and explicitly queued, while errors and ordinary tool output stay visible', async (t) => {
+  const h = await handoffHarness(t);
+  const directive = { kind: 'assign', cycle: 0, text: 'Inspect the queue.' };
+  h.emit('architect', { type: 'agent_start' });
+  h.emit('architect', { type: 'message_update', assistantMessageEvent: { type: 'thinking_start' } });
+  h.emit('architect', { type: 'tool_execution_start', toolName: 'ai_directive', args: directive });
+  h.emit('architect', { type: 'tool_execution_end', toolName: 'ai_directive', result: {
+    content: [{ type: 'text', text: 'Directive queued; yield until feedback.' }], details: { ai: directive },
+  } });
+  const queued = h.display();
+  assert.match(queued, /QUEUED assign\s+Inspect the queue\./);
+  assert.doesNotMatch(queued, /THINK|ai_directive|"kind"|Directive queued/);
+  assert.equal(h.controls('assign').length, 0, 'queued is not dispatched until settled');
+  h.settle('architect');
+  await wait(() => h.controls('assign').length === 1);
+  assert.ok(h.messages.some((m) => m.control?.mode === 'note'), 'cycle control still reaches the worker');
+  assert.doesNotMatch(h.display(), /Assignment cycle 1 started/, 'routine cycle notes need no extra UI rows');
+  h.emit('architect', { type: 'tool_execution_end', toolName: 'ai_directive', isError: true,
+    result: { content: [{ type: 'text', text: 'Invalid directive' }] } });
+  assert.match(h.display(), /ERROR ai_directive: Invalid directive/);
+  h.emit('architect', { type: 'tool_execution_start', toolName: 'read', args: { path: 'file.txt' } });
+  h.emit('architect', { type: 'tool_execution_end', toolName: 'read',
+    result: { content: [{ type: 'text', text: 'Important detail' }], details: { ai: directive } } });
+  assert.match(h.display(), /TOOL\s+read/);
+  assert.match(h.display(), /RESULT\s+read: Important detail/);
+  h.emit('architect', { type: 'tool_execution_end', toolName: 'ai_directive',
+    result: { content: [{ type: 'text', text: 'Missing handoff metadata' }] } });
+  assert.match(h.display(), /RESULT\s+ai_directive: Missing handoff metadata/);
+  assert.equal(h.controls('assign').length, 1, 'other tool details must not become a handoff');
 });
 
 test('completion takes priority over queued guidance even when another RPC acknowledgement was in flight', async (t) => {
@@ -238,6 +318,25 @@ test('exhausted provider retries are visible without automatic job replay or dis
   assert.match(h.messages[0].message, /Please continue/);
 });
 
+test('a late failed handoff from a disabled pair cannot stop its replacement', async (t) => {
+  let rejectDelivery;
+  const h = await handoffHarness(t, (entry) => {
+    if (entry.role === 'implementor') return new Promise((_resolve, reject) => { rejectDelivery = reject; });
+  });
+  t.after(() => rejectDelivery?.(new Error('Test cleanup')));
+  h.send('architect', 'assign', 0);
+  h.settle('architect');
+  await wait(() => rejectDelivery);
+  const previousPair = h.pair;
+  await h.pi.commands.get('pair-disable').handler('', h.ctx);
+  await h.pi.commands.get('pair-enable').handler('', h.ctx);
+  rejectDelivery(new Error('Late delivery failure'));
+  await sleep(50);
+  assert.notEqual(h.pair, previousPair);
+  assert.equal(h.pair.stopped, false);
+  assert.ok(!h.notices.some((n) => n.level === 'error'));
+});
+
 test('full parent workflow completes two tasks using the same pair, keeps transcripts isolated, then disables cleanly', { timeout: 20000 }, async () => {
   const root = await mkdtemp('/tmp/ai-ui-test-');
   const prior = process.env.PI_CODING_AGENT_DIR, auditPrior = process.env.MOCK_AUDIT;
@@ -283,7 +382,7 @@ test('full parent workflow completes two tasks using the same pair, keeps transc
     await pi.commands.get('pair-models').handler('architect medium', context);
     await pi.commands.get('pair-enable').handler('Build task one', context);
     assert.match(statuses.at(-1), /starting/);
-    assert.equal(widget.render(380).length, 23, 'startup retains 22-row panes plus status');
+    assert.equal(widget.render(380).length, 27, 'startup retains 26-row panes plus status');
     terminal.rows = 28;
     assert.equal(widget.render(380).length, 16, 'short terminals retain 12 rows for the editor and other UI');
     terminal.rows = 40;

@@ -29,7 +29,8 @@ export type WorkflowStatus = {
 };
 function duration(ms: number) {
   const seconds = Math.max(0, Math.ceil(ms / 1000));
-  return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
+  const minutes = Math.floor(seconds / 60), tail = String(seconds % 60).padStart(2, '0');
+  return minutes < 60 ? `${minutes}:${tail}` : `${Math.floor(minutes / 60)}:${String(minutes % 60).padStart(2, '0')}:${tail}`;
 }
 export function workflowSummary(state: WorkflowStatus, now = Date.now()): string {
   const parts = ['Pair', state.mode];
@@ -101,6 +102,7 @@ function logPresentation(entry: string): { text: string; color: Parameters<Theme
   const tags: [RegExp, string, Parameters<Theme['fg']>[0]][] = [
     [/^\[(?:queued )?user feedback\]\s*/, 'YOU  ', 'accent'],
     [/^\[thinking\]\s*/, 'THINK  ', 'thinkingText'],
+    [/^\[queued (assign|guide|ping|accept|status|blocked|done)\]\s*/, 'QUEUED $1  ', 'customMessageLabel'],
     [/^→\s*/, 'TOOL  ', 'text'],
     [/^←\s*/, 'RESULT  ', 'toolOutput'],
     [/^\[blocked\]\s*/, 'BLOCKED  ', 'warning'],
@@ -135,7 +137,7 @@ export function renderPanes(width: number, height: number, panes: Pane[], theme:
       if (h >= 6) rows.push(row(''));
     }
     const bodyHeight = h - rows.length - 1;
-    const feed = p.log.entries.filter((entry) => entry.trim()).flatMap((entry) => {
+    const feed = p.log.entries.filter((entry) => entry.trim() && !/^\[thinking\]\s*$/.test(entry)).flatMap((entry) => {
       const { text, color } = logPresentation(entry);
       return wrapTextWithAnsi(text, contentWidth).map((line) => theme.fg(color, line));
     }).slice(-bodyHeight);

@@ -32,8 +32,8 @@ try {
     console.log(`${role}: live switch and restore verified, same session and zero messages`);
   }
   if (failure) throw failure;
-  console.log('Real Pi smoke passed; no model calls.');
+  console.log('Real Pi default worker smoke passed; no model calls.');
 } finally {
   await pair.stop();
-  assert.deepEqual(await snapshot(), settingsBefore, 'extension config and Pi settings remain byte-for-byte unchanged');
+  assert.deepEqual(await snapshot(), settingsBefore, 'extension config and Pi settings remain unchanged');
 }
