@@ -20,3 +20,11 @@ surfaces before running them.
 
 ## Python
 If using Python, sandbox your scripts and environment into a `uv` project, even if temporary.
+
+## Shell environment
+
+The command runner uses a non-login shell and may not inherit variables configured by the user's login shell. When a required variable such as `NUCLEUS_AUTH_TOKEN` is missing, retry the command through login zsh:
+
+    zsh -lic 'cd /absolute/path/to/project && <command>'
+
+Check only whether secrets are present; never print their values.
