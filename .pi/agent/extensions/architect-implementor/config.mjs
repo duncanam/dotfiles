@@ -2,8 +2,7 @@ import { readFileSync, existsSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { resolve, join } from 'node:path';
 
-export const roles = ['architect', 'implementor'];
-export const roleTools = (role) => ['read', 'write', 'edit', 'bash', role === 'architect' ? 'ai_directive' : 'ai_report'];
+export const workerTools = ['read', 'write', 'edit', 'bash', 'ai_report'];
 export const levels = ['off', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'];
 export const agentDir = () => process.env.PI_CODING_AGENT_DIR || join(homedir(), '.pi', 'agent');
 export const configPath = () => join(agentDir(), 'architect-implementor.json');
@@ -32,23 +31,27 @@ function paths(value, base, name) {
   });
 }
 export function validateConfig(raw, base = agentDir()) {
-  keys(raw, [...roles, 'checkinSeconds', 'paneLines', 'piCommand'], 'config');
+  keys(raw, ['version', 'architect', 'implementor', 'checkinSeconds', 'paneLines', 'piCommand'], 'config');
+  if (raw.version !== 2) throw new Error('config.version must be 2; migrate using architect-implementor.example.json and /reload for the native architect workflow');
   const result = {
+    version: 2,
     checkinSeconds: integer(raw.checkinSeconds, 600, 1, 86400, 'checkinSeconds'),
     paneLines: integer(raw.paneLines, 26, 5, 60, 'paneLines'),
     piCommand: text(raw.piCommand ?? 'pi', 'piCommand'),
   };
-  for (const role of roles) {
+  for (const role of ['architect', 'implementor']) {
     const r = raw[role];
-    keys(r, ['provider', 'model', 'thinking', 'extensions', 'skills', 'extraTools'], role);
+    keys(r, role === 'architect' ? ['provider', 'model', 'thinking'] : ['provider', 'model', 'thinking', 'extensions', 'skills', 'extraTools'], role);
     const thinking = r.thinking ?? 'high';
     if (!levels.includes(thinking)) throw new Error(`${role}.thinking must be one of ${levels.join(', ')}`);
     const extraTools = r.extraTools ?? [];
     if (!Array.isArray(extraTools) || extraTools.some((t) => typeof t !== 'string' || !/^[a-zA-Z0-9_-]+$/.test(t))) throw new Error(`${role}.extraTools must contain tool names`);
     result[role] = {
       provider: text(r.provider, `${role}.provider`), model: text(r.model, `${role}.model`), thinking,
-      extensions: paths(r.extensions, base, `${role}.extensions`),
-      skills: paths(r.skills, base, `${role}.skills`), extraTools,
+      ...(role === 'implementor' ? {
+        extensions: paths(r.extensions, base, `${role}.extensions`),
+        skills: paths(r.skills, base, `${role}.skills`), extraTools,
+      } : {}),
     };
   }
   return result;
@@ -62,13 +65,12 @@ export function loadConfig(path = configPath()) {
   catch (error) { throw new Error(`Invalid JSON in ${path}: ${error.message}`); }
   return validateConfig(raw, resolve(path, '..'));
 }
-export function workerArgs(config, role, extension) {
-  const r = config[role];
-  const tools = roleTools(role);
-  // --no-session disables disk persistence, NOT conversation continuity: each process
-  // stays alive for the entire enabled workflow and receives all its role's tasks.
+export function workerArgs(config, extension) {
+  const r = config.implementor;
+  // --no-session disables disk persistence, NOT conversation continuity: the worker
+  // stays alive for the entire enabled workflow and receives every assignment.
   return ['--mode', 'rpc', '--no-session', '--no-approve', '--no-extensions', '--no-skills', '--no-prompt-templates', '--no-themes',
     '--provider', r.provider, '--model', r.model, '--thinking', r.thinking,
     ...r.extensions.flatMap((p) => ['-e', p]), '-e', extension,
-    ...r.skills.flatMap((p) => ['--skill', p]), '--tools', [...new Set([...tools, ...r.extraTools])].join(',')];
+    ...r.skills.flatMap((p) => ['--skill', p]), '--tools', [...new Set([...workerTools, ...r.extraTools])].join(',')];
 }

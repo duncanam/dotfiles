@@ -1,4 +1,9 @@
 import { StringDecoder } from 'node:string_decoder';
+import { stripVTControlCharacters } from 'node:util';
+
+export function clean(text) {
+  return stripVTControlCharacters(text).replace(/[\x00-\x08\x0b-\x1f\x7f-\x9f]/g, '').replace(/\t/g, '  ');
+}
 
 export function jsonLines(stream, receive, fail, maxBytes = 8 * 1024 * 1024) {
   const decoder = new StringDecoder('utf8');

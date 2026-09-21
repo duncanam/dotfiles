@@ -1,20 +1,12 @@
 {
+  "version": 2,
   "checkinSeconds": 600,
   "paneLines": 26,
   "piCommand": "pi",
   "architect": {
     "provider": "openai-codex",
     "model": "gpt-5.6-sol",
-    "thinking": "high",
-    "extensions": [
-      "extensions/source-control-policy/index.ts",
-      "extensions/prefer-rg-fd.ts",
-      "extensions/protected-read-paths.ts",
-      "extensions/protected-write-paths.ts",
-      "extensions/context7.ts"
-    ],
-    "skills": ["skills/source-control"],
-    "extraTools": ["context7_resolve_library_id", "context7_get_library_docs"]
+    "thinking": "high"
   },
   "implementor": {
     "provider": "openai-codex",

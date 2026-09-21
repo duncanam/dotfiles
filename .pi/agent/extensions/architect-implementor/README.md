@@ -1,73 +1,117 @@
 # Architect / Implementor for Pi
 
-Two long-lived Pi workers in tmux, with live side-by-side panes. The architect leads and delegates; the implementor codes. **The parent model and conversation stay untouched.** Tested with Pi 0.85.1, Node 25 and tmux on macOS; Unix-only, Linux untested.
+**Main Pi is the architect.** Its conversation, tools, reports and reviews use normal scrollable Pi history. One persistent implementor runs in tmux and appears in a full-width, themed pane above the native editor. No architect subprocess, input interception or replacement editor/footer.
+
+Tested with Pi 0.85.1, Node 25 and tmux on macOS. Unix-only; Linux untested.
 
 ## Use
 
 ```text
-/reload
 /pair-enable Implement the authentication change described below
-...submit feedback to the architect...
+...talk directly to the architect in normal Pi...
+/model                     # architect's native model selector
+/thinking                  # architect's native thinking selector
+/pair-models high          # implementor only
 /pair-disable
 ```
 
-`/pair-enable` with no arguments starts workers without a model call. While enabled, submitted text, `!shell` and other slash commands route to the architect. Pair commands, `/reload` and `/quit` remain host commands; application keyboard shortcuts still belong to Pi. Disable other autonomous parent extensions before enabling.
+Bare `/pair-enable` initializes defaults and starts the implementor **without a model call**. An optional task enters the main conversation. Normal text/images, steering/follow-ups, `!shell`, skills, templates and slash commands work normally. Avoid conflicting autonomous extensions.
 
-Each worker keeps its conversation across tasks until disable. **Disable/reload/session replacement kills the pair and discards worker context and temporary overrides.** Re-enable starts fresh; code changes are not undone.
+Each enable applies the architect model/effort from JSON using native **session-only** setters. Subsequent `/model`, `/thinking` and keyboard selections work normally. Disable leaves the main conversation and its current model/effort intact; it does not restore an old selection. The extension never writes Pi's global defaults.
+
+The implementor keeps its own in-memory context across assignments and model switches. Disable, quit, reload, session replacement or successful `/tree` navigation stops it and clears temporary overrides. Re-enable creates a fresh worker. Main history follows Pi's normal session/branch/compaction behavior; code changes are not undone.
+
+**Escape affects the main Pi turn, not the implementor.** An unsent directive awaiting a settled report can be cancelled. Already-dispatched work may continue, and worker reports can trigger a subsequent architect turn. `/pair-disable` stops the local worker and its tool process tree; that does not imply cancellation of remote jobs.
 
 ## Configuration
 
-Use `~/.pi/agent/architect-implementor.json` (or `$PI_CODING_AGENT_DIR/architect-implementor.json`), copied from `architect-implementor.example.json`. Strict JSON is read on every enable; project-local config is not loaded. Pi authentication is reused and `settings.json` is unchanged.
+Use `~/.pi/agent/architect-implementor.json` (or `$PI_CODING_AGENT_DIR/architect-implementor.json`). Strict JSON is re-read on enable; no project-local configuration. Start from `architect-implementor.example.json`.
 
-| Role | Provider/model | Effort |
-|---|---|---|
-| Architect | `openai-codex/gpt-5.6-sol` | `high` |
-| Implementor | `openai-codex/gpt-5.6-luna` | `max` |
-
-Top-level settings: `checkinSeconds` (600), `paneLines` (26), `piCommand` (`pi`), `architect` and `implementor`. Each role has independent `provider`, `model`, `thinking`, `extensions`, `skills` and `extraTools`. Resource paths are relative to the config file; absolute paths and `~/` work. Unsupported model/effort selections fail rather than silently downgrade. Old `checks` and `allowUnsafeTools` settings have been removed.
-
-Both workers have normal **read, write, edit and Bash** tools. Their only custom tools are `ai_directive` (architect) and `ai_report` (implementor). Use ordinary tools for file inspection, tests, GitHub and research—not pair-specific wrappers. Delegation and review are role instructions, not a read-only sandbox or mandatory inspection sequence.
-
-The installed roles share your source-control, search and protected-path extensions, source-control skill and Context7 tools. Your normal policies still apply, including read-only Git/`gh` access. Only explicitly configured extensions/skills load; automatic discovery and project resource approval are disabled, while ancestor/global `AGENTS.md` context remains. Keep other orchestration/UI extensions out of workers. Missing configured tools fail startup; Pi handles tool availability thereafter.
-
-## One-off models
-
-`/pair-models` opens a role/model/effort picker; Escape cancels. Direct forms:
-
-```text
-/pair-models architect openai-codex/gpt-5.6-sol max
-/pair-models implementor high
-/pair-models architect reset
+```json
+{
+  "version": 2,
+  "checkinSeconds": 1200,
+  "paneLines": 26,
+  "piCommand": "pi",
+  "architect": {
+    "provider": "openai-codex",
+    "model": "gpt-5.6-sol",
+    "thinking": "high"
+  },
+  "implementor": {
+    "provider": "openai-codex",
+    "model": "gpt-5.6-luna",
+    "thinking": "max",
+    "extensions": [],
+    "skills": [],
+    "extraTools": []
+  }
+}
 ```
 
-An effort alone keeps the model. `ROLE reset` restores that role's model/effort from JSON. Before enable, choices apply to the next pair; while enabled, they update the existing worker without losing context or resetting its task timer. Overrides last until reset or disable, never modifying JSON.
+`architect` contains **only** `provider`, `model`, and `thinking`. It inherits the main Pi's normal tools, extensions, skills and policies. The extension adds `ai_directive` while active, preserving other active tools. Role guidelines and a transient current-state snapshot also cover automatic report-driven turns and tool continuations.
 
-Live changes wait for that worker to fully settle, including retries/compaction. The command returns immediately and shows `model queued`; subsequent feedback/handoffs to that role wait behind the switch. A busy wait expires after ten minutes, and duplicate pending changes for the same role are rejected. Exact model/effort is verified before updating pane metadata; rejected changes roll back, while uncertain setters or failed rollback stop the pair. Startup must finish before changing a live pair. Before enable the picker uses the parent's available catalogue; live it uses the worker's. Worker validation is authoritative.
+`implementor` additionally accepts explicit `extensions`, `skills`, and `extraTools`. Paths resolve relative to the JSON file; absolute paths and `~/` work. It has read/write/edit/Bash plus `ai_report`. Missing tools and unsupported model/effort selections fail rather than silently downgrade. Authentication is reused normally.
 
-## Workflow and UI
+The installed/example config retains source-control, search, protected-path and Context7 extensions, source-control skill and Context7 tools **for the implementor**. Its automatic resource discovery/project approval are disabled; ancestor/global `AGENTS.md` still loads. Keep unrelated orchestration out of its allowlist. This is not a filesystem or OS sandbox: both agents have ordinary user privileges and must follow normal policies.
 
-- Architect assigns jobs with constraints and acceptance criteria; implementor reports status, blockers or completion. After review, the architect can assign the next job or accept and wait. No required plan file or automatic backlog continuation.
-- Blocked/done pauses implementation until guidance or a new assignment. `guide` resumes the same job for review corrections (even after acceptance); `ping` only requests status and leaves coding paused. Acceptance requires a fresh completion, not a prescribed review-tool sequence.
-- For external jobs, workers are instructed to use short, bounded status queries rather than long foreground watchers or sleep loops. Steering waits for running tools to return. An implementor can report status and yield until feedback or the next check-in without an immediate idle warning; an unreported exit still alerts the architect. This is guidance, not a tool ban or automatic cancellation. Local command failure does not prove remote job failure.
-- Architect guidance should specify observable readiness/capacity conditions rather than just “when appropriate.” Timer reminders invite judgment, not mandatory pings after recent guidance or a recent status request. Neither adjustment resets the check-in clock.
-- Communication calls run alone; handoffs wait for `agent_settled`, including model retries. Feedback racing a completion report is queued rather than rejected: the report is applied before feedback resumes work. Multiple queued directives retain their order.
-- Check-ins default to 600 seconds of uninterrupted implementation. Completion or a blocker resets and pauses the clock while the implementor awaits architect feedback; acceptance keeps it paused. Resuming with `guide` starts a fresh interval in the same cycle, and a new assignment starts a new cycle. Routine activity, status, pings and guidance while already working do not reset it. The UI's elapsed time/countdown describe the current implementation stretch, not time spent waiting for review.
-- Only structured assignments/reports (up to 6,000 characters) cross roles. Display logs are never forwarded wholesale. Separate model contexts are orchestration behavior, not a filesystem security boundary.
-- The UI shows phase/cycle/countdown, model/effort, role activity and muted tmux session names in the pane borders. Panes retain full-width 50/50 geometry when idle, stack below 60 columns, and adapt to terminal height. Logs are bounded and sanitized; the countdown measures time to check-in, not task completion. Elapsed times over an hour use `H:MM:SS`. Successful communication appears as a readable `QUEUED` summary instead of raw tool JSON and boilerplate acknowledgements; errors remain visible. Queued does not mean the recipient has acted on it. Empty thinking markers and routine cycle-control notes are hidden.
+Defaults: `checkinSeconds: 600`, `paneLines: 26`, `piCommand: "pi"`. The installed configuration uses **1200-second check-ins and 26 rows**.
 
-## Cleanup
+### Upgrade from two tmux workers
 
-Workers use the dedicated `pi-ai` tmux server. `tmux -L pi-ai list-sessions` lists full session names. Disable, quit, reload and session replacement stop owned workers and their process trees, never unrelated sessions. Bridge heartbeat leases, a worker bridge-death watchdog and selective orphan cleanup cover parent/bridge failures. Runtime state lives under `/tmp/pi-ai-<uid>/` with private permissions.
+1. Save a concise handoff from any old workers whose context you need. Their private conversations are not imported automatically.
+2. `/pair-disable`, then `/reload` when safe. Reload stops old workers and loses their in-memory context.
+3. Use version 2 JSON: add `"version": 2` and remove `extensions`, `skills`, and `extraTools` from `architect`. Keep implementor resources.
+4. `/pair-enable` with the handoff/task.
 
-Model-connection retries belong to Pi. If they are exhausted, the UI warns without discarding worker context; send feedback or use `/pair-models` to continue. The pair does not automatically replay a recorded job. Transport/delivery errors stop the pair and leave input intercepted until `/pair-disable`: a missing acknowledgement does not prove the job was undelivered. Cleanup is best-effort under OS failure or deliberately escaped processes. Both workers and configured extensions have normal user privileges; this is not an OS sandbox.
+The installed and example JSON have already been migrated. The version marker prevents the old extension from accidentally starting its obsolete architect worker with the new configuration. Existing live workers are not hot-migrated.
+
+## Temporary implementor models
+
+`/pair-models` opens an implementor model/effort picker; Escape cancels. There is no role picker or role argument:
+
+```text
+/pair-models openai-codex/gpt-5.6-luna max
+/pair-models high
+/pair-models reset
+```
+
+Effort alone keeps the current model. `reset` restores implementor defaults from JSON. Before enable, choices are staged for the next worker. While active, changes preserve its conversation and task clock, and never change the architect or JSON.
+
+Live switches wait for a settled boundary, including retries/compaction. The command returns immediately with a `model queued` indicator; subsequent handoffs wait behind the switch. The wait expires after ten minutes, duplicate changes are rejected, and exact selection is verified before pane metadata changes. Unsupported selections roll back; uncertain setters or failed rollback stop delegation. Disable/reload clears staged and live overrides.
+
+## Workflow and indicators
+
+- Architect does enough initial investigation to scope the job, delegates substantive work (including read-only investigations), resolves blockers and independently reviews completion using ordinary tools. The implementor owns the delegated scope until done/blocked; the architect must not repeat that investigation or implementation in parallel. Explicitly non-overlapping work and coordinated supporting edits remain allowed. This is instruction-based ownership, not a tool ban. No required plan file, inspection wrapper or automatic backlog scheduler.
+- `ai_directive` must run alone in its tool batch. Assign increments the cycle; guide resumes/corrects the same cycle; ping requests status without resuming paused coding; accept requires a fresh completion. Dispatch yields the architect turn. Acceptance lets Pi produce its normal summary or decide on further work.
+- Implementor `blocked`/`done` pauses coding. Terminal reports wait for `agent_settled`, including retry gaps, before triggering main-conversation review. Completion is applied before racing corrections. Successful RPC acknowledgement means **queued**, not acted on. Unknown delivery stops delegation rather than replaying a job.
+- Concise reports enter the main conversation as visible, labeled messages. **Routine status is informational:** it stays in history without triggering or queuing an architect model turn. A ping permits the next valid status report to trigger one assessment; further status stays informational. Guide, assign, accept and terminal reports clear the request. Blocked/done, check-ins and genuine failures still wake the architect. A requested status response is not authorization to repeat the delegated job; if nothing is actionable, the architect waits. Use blocked when a decision/intervention is needed. Worker display transcripts are not forwarded. Communication text is capped at 6,000 characters.
+- External-job monitoring favors bounded snapshots, observable readiness/capacity criteria, and status followed by yielding. Reporting status then yielding does not cause an immediate idle re-prompt; an unreported exit still warns. Local timeout/abort does not prove remote failure. These are instructions, not tool bans or forced remote cancellation.
+- Check-ins measure the current uninterrupted implementation stretch. Done/blocker resets and pauses the clock; acceptance keeps it paused. Resuming guidance starts a full interval in the same cycle. Routine activity, status, pings, model changes and guidance while working do not reset it. Reminders invite judgment, not redundant mandatory pings.
+- The pane retains phase/cycle, elapsed time, the check-in progress bar/countdown, implementor activity, provider/model/effort and a muted tmux identity. Transparent borders/colors follow Pi's theme. It remains full-width and tall when idle, adapting to narrow/short terminals while reserving space for native Pi. Times over an hour use `H:MM:SS`; the countdown is **not** an ETA.
+- Successful communication is compact, empty thinking markers are hidden, and ordinary output/errors remain visible. Logs are sanitized and bounded. Main Pi's native footer/editor retain architect model, thinking, context and usage indicators (main-session usage, not aggregated worker usage).
+
+## Inspect and clean up
+
+The implementor's tmux session mirrors sanitized text, handoffs, tool activity and errors; it is not a second interactive Pi editor. Use the session name from the pane's bottom border:
+
+```sh
+tmux -L pi-ai list-sessions
+tmux -L pi-ai attach-session -r -t 'ai-KEY-implementor'
+tmux -L pi-ai capture-pane -p -J -t 'ai-KEY-implementor:0.0' -S -200
+```
+
+Use read-only attachment for inspection. Disable/quit/reload/session replacement stops only owned workers and their process trees. Heartbeat leases, a bridge-death watchdog and selective orphan cleanup cover failures, including stale legacy architect sessions. Runtime files are private under `/tmp/pi-ai-<uid>/`; no worker transcript is persisted to disk by this extension.
+
+Pi owns model retries. Exhaustion warns without discarding worker context; guide/ping it or change its model. Transport failures stop the implementor, remove delegation and notify the main conversation, which remains usable. Verify files and remote state before resubmitting uncertain work. Cleanup is best-effort under OS failure or deliberately escaped processes.
 
 ## Development
 
 ```sh
 npm ci --ignore-scripts
 npm run typecheck
-npm test        # mock models, real tmux/process lifecycle; no API/model calls
-npm run smoke   # real Pi startup and live model switch/restore; zero prompts
+npm test        # synthetic models; real tmux/processes and native Pi tool/review loops; no model API calls
+npm run smoke   # real configured models: startup, native setters, one worker, switch/reset/shutdown; zero model turns
 ```
 
-Tests cover config, delegation/review, completion/feedback races, retry boundaries, uncertain delivery, timers, context continuity, input routing, UI layouts, temporary model overrides, rollback and process cleanup. Paid-model end-to-end reasoning quality has not been tested.
+Tests cover native controls/context, real report-driven review/correction turns, informational progress without extra model turns, one-shot requested status, current-state refresh, context isolation, report ordering/retries, cancellation, timers, responsive themes/layouts, model rollback and process cleanup. Paid-model reasoning quality is not tested.

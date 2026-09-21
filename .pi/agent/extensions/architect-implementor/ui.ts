@@ -1,22 +1,22 @@
-import { stripVTControlCharacters } from 'node:util';
+import { clean } from './wire.mjs';
+export { clean } from './wire.mjs';
 import type { Theme } from '@earendil-works/pi-coding-agent';
 import { truncateToWidth, visibleWidth, wrapTextWithAnsi } from '@earendil-works/pi-tui';
-export function clean(text: string) {
-  return stripVTControlCharacters(text).replace(/[\x00-\x08\x0b-\x1f\x7f-\x9f]/g, '').replace(/\t/g, '  ');
-}
 export class Log {
   entries: string[] = [];
+  private stream = -1;
+  start(text: string) { this.add(text); this.stream = this.entries.length - 1; }
   add(text: string) {
     this.entries.push(clean(text).slice(-8000));
     this.trim();
   }
   delta(text: string) {
-    if (!this.entries.length) this.entries.push('');
-    this.entries[this.entries.length - 1] = (this.entries.at(-1)! + clean(text)).slice(-8000);
+    if (this.stream < 0) this.start('');
+    this.entries[this.stream] = (this.entries[this.stream] + clean(text)).slice(-8000);
     this.trim();
   }
   private trim() {
-    while (this.entries.length > 300 || this.entries.join('\n').length > 60000) this.entries.shift();
+    while (this.entries.length > 300 || this.entries.join('\n').length > 60000) { this.entries.shift(); this.stream--; }
   }
 }
 export type WorkflowStatus = {
@@ -42,25 +42,21 @@ export function workflowSummary(state: WorkflowStatus, now = Date.now()): string
       parts.push(state.nextPing <= now ? 'check-in due' : `next check-in ${duration(state.nextPing - now)}`);
     }
   }
-  parts.push(state.mode === 'failed' || state.mode === 'stopping' ? 'input intercepted' : 'input → Architect', '/pair-disable');
+  parts.push('Architect in main Pi', '/pair-disable');
   return parts.join(' • ');
 }
-export function roleStatus(state: WorkflowStatus, role: 'architect' | 'implementor', busy: boolean): string {
+export function implementorStatus(state: WorkflowStatus, busy: boolean): string {
   if (state.mode !== 'active') return state.mode;
-  if (role === 'implementor') {
-    if (state.phase === 'blocked') return 'paused: blocker';
-    if (state.phase === 'reviewing') return 'paused: review';
-    if (state.phase === 'planning') return 'awaiting assignment';
-  }
+  if (state.phase === 'blocked') return 'paused: blocker';
+  if (state.phase === 'reviewing') return 'paused: review';
+  if (state.phase === 'planning') return 'awaiting assignment';
   if (busy) return 'working';
-  if (state.phase === 'accepted') return 'idle: accepted';
-  if (role === 'architect' && state.phase === 'implementing') return 'monitoring';
-  return 'idle';
+  return state.phase === 'accepted' ? 'idle: accepted' : 'idle: task open';
 }
 export type PaneTheme = Pick<Theme, 'fg' | 'bold'>;
 const plainTheme: PaneTheme = { fg: (_color, s) => s, bold: (s) => s };
 export function workflowFooter(state: WorkflowStatus): string {
-  return `Pair • ${state.mode} • ${state.mode === 'failed' || state.mode === 'stopping' ? 'input intercepted' : 'input → Architect'} • /pair-disable`;
+  return `◇ Architect (main) • Pair ${state.mode} • /pair-disable`;
 }
 const inline = (s: string) => clean(s).replace(/\s+/g, ' ').trim();
 const fit = (s: string, w: number) => truncateToWidth(s, Math.max(0, w), '');
@@ -95,12 +91,11 @@ export function renderWorkflowStatus(width: number, state: WorkflowStatus, now =
   }
   return lines;
 }
-export type Pane = { title: string; log: Log; role?: 'architect' | 'implementor'; status?: string; model?: string; thinking?: string; emptyMessage?: string; sessionName?: string };
+export type Pane = { log: Log; status?: string; model?: string; thinking?: string; emptyMessage?: string; sessionName?: string };
 function logPresentation(entry: string): { text: string; color: Parameters<Theme['fg']>[0] } {
   const text = clean(entry);
   if (/^(ERROR|Model error|Protocol rejected)/.test(text)) return { text: `! ${text}`, color: 'error' };
   const tags: [RegExp, string, Parameters<Theme['fg']>[0]][] = [
-    [/^\[(?:queued )?user feedback\]\s*/, 'YOU  ', 'accent'],
     [/^\[thinking\]\s*/, 'THINK  ', 'thinkingText'],
     [/^\[queued (assign|guide|ping|accept|status|blocked|done)\]\s*/, 'QUEUED $1  ', 'customMessageLabel'],
     [/^→\s*/, 'TOOL  ', 'text'],
@@ -112,20 +107,16 @@ function logPresentation(entry: string): { text: string; color: Parameters<Theme
   for (const [pattern, label, color] of tags) if (pattern.test(text)) return { text: text.replace(pattern, label), color };
   return { text, color: /^(tmux:|Starting pair\.|Ready\.)/.test(text) ? 'dim' : 'text' };
 }
-// Preserve the configured height even when idle; split the full width evenly.
-export function renderPanes(width: number, height: number, panes: Pane[], theme: PaneTheme = plainTheme): string[] {
-  height = Math.max(0, Math.floor(height));
-  if (!height || width <= 0) return [];
-  if (width < 8) return panes.slice(0, height).map((p) => fit(inline(p.title), width));
-  const box = (p: Pane, w: number, h: number): string[] => {
-    if (h < 3) return h ? [fit(inline(p.title), w)] : [];
-    const accent = p.role === 'implementor' ? 'customMessageLabel' : 'accent';
+// One full-width implementor pane; the architect uses Pi's native transcript.
+export function renderPane(width: number, height: number, p: Pane, theme: PaneTheme = plainTheme): string[] {
+    const h = Math.max(0, Math.floor(height));
+    if (!h || width <= 0) return [];
+    if (h < 3 || width < 8) return [fit('○ Implementor', width)];
     const border = (s: string) => theme.fg('borderMuted', s);
-    const inner = w - 2;
+    const inner = width - 2;
     const contentWidth = Math.max(1, inner - 2);
     const row = (s: string) => border('│') + pad(' ' + fit(s, contentWidth), inner) + border('│');
-    const icon = p.role === 'implementor' ? '○' : '◇';
-    const title = theme.bold(theme.fg(accent, `${icon} ${inline(p.title)}`));
+    const title = theme.bold(theme.fg('customMessageLabel', '○ Implementor'));
     const status = inline(p.status ?? 'idle');
     const label = fit(' ' + title + border(' · ') + theme.fg(statusColor(status), status) + ' ', inner - 1);
     const top = border('╭─') + label + border('─'.repeat(Math.max(0, inner - 1 - visibleWidth(label))) + '╮');
@@ -142,7 +133,7 @@ export function renderPanes(width: number, height: number, panes: Pane[], theme:
       return wrapTextWithAnsi(text, contentWidth).map((line) => theme.fg(color, line));
     }).slice(-bodyHeight);
     if (!feed.length) {
-      const hint = p.emptyMessage ?? (p.role === 'implementor' ? 'Waiting for the architect’s plan.' : 'What would you like to build?');
+      const hint = p.emptyMessage ?? 'Waiting for the architect’s plan in the main conversation.';
       feed.push(...wrapTextWithAnsi(clean(hint), contentWidth).map((line) => theme.fg('muted', line)));
     }
     for (let i = 0; i < bodyHeight; i++) rows.push(row(feed[i] ?? ''));
@@ -152,13 +143,4 @@ export function renderPanes(width: number, height: number, panes: Pane[], theme:
       rows.push(border('╰─') + theme.fg('dim', label) + border('─'.repeat(Math.max(0, inner - 1 - visibleWidth(label))) + '╯'));
     } else rows.push(border('╰' + '─'.repeat(inner) + '╯'));
     return rows;
-  };
-  if (width < 60) {
-    const first = Math.floor((height - 1) / 2);
-    return [...box(panes[0], width, first), ...(height > 2 ? [''] : []), ...box(panes[1], width, Math.max(0, height - first - 1))];
-  }
-  const leftWidth = Math.floor((width - 2) / 2);
-  const left = box(panes[0], leftWidth, height);
-  const right = box(panes[1], width - leftWidth - 2, height);
-  return left.map((line, i) => pad(line, leftWidth) + '  ' + (right[i] ?? ''));
 }
