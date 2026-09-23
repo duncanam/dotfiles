@@ -112,6 +112,7 @@ link "$ROOT/.config/nvim" "$HOME/.config/nvim"
 # model cache, session history, and work plans remain local machine state.
 link "$ROOT/.pi/agent/AGENTS.md" "$HOME/.pi/agent/AGENTS.md"
 link "$ROOT/.pi/agent/agent-manager.json" "$HOME/.pi/agent/agent-manager.json"
+link "$ROOT/.pi/agent/architect-implementor.json" "$HOME/.pi/agent/architect-implementor.json"
 link "$ROOT/.pi/agent/extensions" "$HOME/.pi/agent/extensions"
 link "$ROOT/.pi/agent/models.json" "$HOME/.pi/agent/models.json"
 link "$ROOT/.pi/agent/settings.json" "$HOME/.pi/agent/settings.json"

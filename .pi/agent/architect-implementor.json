@@ -1,16 +1,16 @@
 {
   "version": 2,
-  "checkinSeconds": 600,
+  "checkinSeconds": 1200,
   "paneLines": 26,
   "piCommand": "pi",
   "architect": {
     "provider": "openai-codex",
-    "model": "gpt-5.6-sol",
-    "thinking": "high"
+    "model": "gpt-6-astra",
+    "thinking": "medium"
   },
   "implementor": {
     "provider": "openai-codex",
-    "model": "gpt-5.6-luna",
+    "model": "gpt-6-luna",
     "thinking": "max",
     "extensions": [
       "extensions/source-control-policy/index.ts",
@@ -20,7 +20,12 @@
       "extensions/loop-guard.ts",
       "extensions/context7.ts"
     ],
-    "skills": ["skills/source-control"],
-    "extraTools": ["context7_resolve_library_id", "context7_get_library_docs"]
+    "skills": [
+      "skills/source-control"
+    ],
+    "extraTools": [
+      "context7_resolve_library_id",
+      "context7_get_library_docs"
+    ]
   }
 }

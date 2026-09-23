@@ -18,7 +18,8 @@ The installer manages:
 - `~/.bashrc`, `~/.zshrc`, `~/.p10k.zsh`, `~/.tmux.conf`, and `~/.wezterm.lua`
 - `~/.config/nvim`
 - the tracked Pi agent entries under `~/.pi/agent`: `AGENTS.md`,
-  `agent-manager.json`, `extensions`, `models.json`, `settings.json`, and `skills`
+  `agent-manager.json`, `architect-implementor.json`, `extensions`, `models.json`,
+  `settings.json`, and `skills`
 - fonts from `.fonts/`, linked individually into `~/.local/share/fonts` on Linux
   or `~/Library/Fonts` on macOS
 

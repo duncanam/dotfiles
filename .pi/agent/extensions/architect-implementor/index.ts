@@ -5,7 +5,8 @@ import { Type } from 'typebox';
 import { loadConfig, levels } from './config.mjs';
 import { Engine, communication } from './engine.mjs';
 import { Implementor, reapOrphans, sessionName } from './transport.mjs';
-import { Log, clean, renderPane, renderWorkflowStatus, implementorStatus, workflowFooter } from './ui.ts';
+import { Log, clean, renderPane, renderWorkflowStatus, renderUsageStatus, implementorStatus, workflowFooter } from './ui.ts';
+import { emptyPairUsage, recordMessageUsage, recordUsage, usageReport, type PairUsage } from './usage.ts';
 import { chooseModel, selection, modelLabel, initializeArchitect, type Selection } from './models.ts';
 import { commonInstructions, architectInstructions, communicationAlone } from './prompts.ts';
 
@@ -27,6 +28,7 @@ export default function architectImplementor(pi: ExtensionAPI) {
   let feed = new Log(), override: Selection | undefined;
   let modelPicker: AbortController | undefined, modelChanging = false;
   let lastStatus: string | undefined;
+  let usage: PairUsage | undefined;
   const status = () => ({ mode, phase: engine?.phase ?? 'planning', cycle: engine?.cycle ?? 0, startedAt: engine?.startedAt ?? 0, nextPing: engine?.nextPing ?? 0, checkinMs: engine?.intervalMs });
   function activeTool(enabled: boolean) {
     const tools = pi.getActiveTools().filter((name) => name !== 'ai_directive');
@@ -48,7 +50,9 @@ export default function architectImplementor(pi: ExtensionAPI) {
       return {
         render: (width: number) => {
           const state = status(), space = Math.max(0, (tui.terminal.rows || 30) - 12);
-          const header = renderWorkflowStatus(width, state, Date.now(), theme).slice(0, Math.max(0, space - 3));
+          const header = [...renderWorkflowStatus(width, state, Date.now(), theme),
+            ...(usage ? renderUsageStatus(width, usage, theme) : []),
+          ].slice(0, Math.max(0, space - 3));
           const height = Math.max(0, Math.min(config.paneLines, space - header.length));
           return [...header, ...renderPane(width, height, {
             status: implementorStatus(state, busy) + (modelChanging ? ' • model queued' : ''),
@@ -134,6 +138,9 @@ export default function architectImplementor(pi: ExtensionAPI) {
   function event(e: any) {
     if (mode === 'off' || mode === 'stopping' || mode === 'failed') return;
     if (e.type === 'extension_error') { fail(`Implementor extension error: ${e.error}`); return; }
+    // Only authoritative terminal events, never streaming snapshots or turn_end.
+    if (usage && e.type === 'message_end') recordMessageUsage(usage.implementor, e.message);
+    if (usage && e.type === 'compaction_end' && !e.aborted && e.result?.usage !== undefined) recordUsage(usage.implementor, e.result.usage);
     if (e.type === 'agent_start') { if (!busy) reported = false; busy = true; }
     if (e.type === 'message_update') {
       const delta = e.assistantMessageEvent;
@@ -226,6 +233,14 @@ export default function architectImplementor(pi: ExtensionAPI) {
   pi.on('tool_call', (e, toolCtx) => {
     if (e.toolName === 'ai_directive' && !communicationAlone(toolCtx)) return { block: true, reason: 'Call ai_directive alone, not alongside other tools.' };
   });
+  pi.on('message_end', (e) => {
+    if (mode === 'active' && usage && recordMessageUsage(usage.architect, e.message)) render();
+  });
+  pi.on('session_compact', (e) => {
+    if (mode === 'active' && usage && e.compactionEntry.usage !== undefined) {
+      recordUsage(usage.architect, e.compactionEntry.usage); render();
+    }
+  });
   pi.on('context', (e) => {
     if (mode === 'off' || mode === 'stopping') return;
     // Native tool/follow-up continuations need current state even when there has
@@ -247,7 +262,7 @@ export default function architectImplementor(pi: ExtensionAPI) {
       ctx = commandCtx;
       try { config = loadConfig(); Object.assign(config.implementor, override); }
       catch (error) { ctx.ui.notify(String(error), 'error'); return; }
-      feed = new Log(); engine = new Engine(config.checkinSeconds * 1000); mode = 'starting';
+      feed = new Log(); usage = emptyPairUsage(); engine = new Engine(config.checkinSeconds * 1000); mode = 'starting';
       const mine = ++generation; chain = Promise.resolve(); show();
       startup = (async () => {
         await initializeArchitect(pi, ctx, config.architect, () => mine === generation);
@@ -265,6 +280,12 @@ export default function architectImplementor(pi: ExtensionAPI) {
     },
   });
   pi.registerCommand('pair-disable', { description: 'Stop the implementor; retain the main conversation and current model', handler: async (_args, commandCtx) => { await stop(); commandCtx.ui.notify('Pair disabled. Main conversation and model retained.', 'info'); } });
+  pi.registerCommand('pair-usage', {
+    description: 'Reported tokens and estimated cost by role for the current or last enabled pair',
+    handler: async (_args, commandCtx) => {
+      commandCtx.ui.notify(usage ? `Pair usage — ${mode === 'off' ? 'last' : 'current'} enable\n${usageReport(usage)}` : 'No pair usage recorded. /pair-enable starts new totals.', 'info');
+    },
+  });
   pi.registerCommand('pair-models', {
     description: 'Temporary implementor model/effort: [PROVIDER/MODEL EFFORT | EFFORT | reset]; architect uses /model and /thinking',
     getArgumentCompletions: (prefix) => [...levels, 'reset'].filter((s) => s.startsWith(prefix)).map((s) => ({ value: s, label: s })),
@@ -301,7 +322,7 @@ export default function architectImplementor(pi: ExtensionAPI) {
       finally { if (modelPicker === controller) modelPicker = undefined; }
     },
   });
-  pi.on('session_start', async (_e, sessionCtx) => { ctx = sessionCtx; activeTool(false); await reapOrphans().catch((error) => ctx.ui.notify(`AI orphan cleanup: ${error}`, 'warning')); });
+  pi.on('session_start', async (_e, sessionCtx) => { ctx = sessionCtx; usage = undefined; activeTool(false); await reapOrphans().catch((error) => ctx.ui.notify(`AI orphan cleanup: ${error}`, 'warning')); });
   pi.on('session_shutdown', stop);
   // A worker must not keep implementing a plan from an abandoned main branch.
   pi.on('session_tree', stop);

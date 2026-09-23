@@ -111,7 +111,7 @@ test('native main Pi becomes architect, keeps normal tools/commands/context and 
   assert.deepEqual(h.pi.model, { provider: 'mock', id: 'frontier' }); assert.equal(h.pi.thinking, 'high');
   assert.deepEqual(h.pi.userMessages, [{ text: 'Build a change', options: { deliverAs: 'followUp' } }]);
   assert.equal(h.messages.length, 0, 'initial task goes to main Pi, not directly to worker');
-  assert.deepEqual([...h.pi.commands.keys()], ['pair-enable', 'pair-disable', 'pair-models']);
+  assert.deepEqual([...h.pi.commands.keys()], ['pair-enable', 'pair-disable', 'pair-usage', 'pair-models']);
   assert.equal(h.pi.events.has('input'), false); assert.equal(h.pi.events.has('user_bash'), false); assert.equal(h.pi.events.has('agent_settled'), false, 'no separate architect scheduler');
   for (const toolName of ['write', 'edit', 'bash', 'read', 'context7_get_library_docs', 'dynamic_tool']) assert.equal(h.pi.events.get('tool_call')({ toolName }, h.ctx), undefined);
   const multi = { sessionManager: { getBranch: () => [{ type: 'message', message: { role: 'assistant', content: [{ type: 'toolCall' }, { type: 'toolCall' }] } }] } };
@@ -165,7 +165,8 @@ test('native tool continuations see fresh cycle/phase without a new prompt; bran
 
 test('single pane preserves indicators and 26-row idle height while native UI remains untouched on resize', async (t) => {
   const h = await harness(t);
-  assert.equal(h.widget.render(380).length, 27); assert.equal(h.widget.render(380)[1].match(/╭/g).length, 1);
+  assert.equal(h.widget.render(380).length, 28); assert.equal(h.widget.render(380)[2].match(/╭/g).length, 1);
+  assert.match(h.widget.render(380)[1], /Usage \(pair, est\.\).*Architect.*Implementor.*Total/);
   assert.match(h.widget.render(380).at(-1), /tmux: ai-[a-f0-9]{24}-implementor/); assert.doesNotMatch(h.widget.render(380).join('\n'), /-architect|◇ Architect/);
   for (const rows of [8, 12, 20, 28, 40]) for (const width of [1, 7, 20, 80, 380]) {
     h.terminal.rows = rows; const lines = h.widget.render(width); assert.ok(lines.length <= Math.max(0, rows - 12));
@@ -312,6 +313,44 @@ test('implementor-only overrides support pre-enable staging, cancel/reset, nativ
   assert.equal(await readFile(join(h.root, 'architect-implementor.json'), 'utf8'), configBefore);
   await h.command('pair-disable'); await h.command('pair-models', 'medium'); await h.command('pair-disable'); await h.command('pair-enable');
   assert.equal(h.worker.config.implementor.thinking, 'low'); assert.equal(h.pi.model.id, 'frontier');
+});
+
+test('pair usage counts final events, tool usage and compaction once, survives model/cycle changes and resets on re-enable', async (t) => {
+  const h = await harness(t, { enable: false });
+  const usage = (input) => ({ input, output: 2, cacheRead: 3, cacheWrite: 4, totalTokens: input + 9, cost: { total: input / 1000 } });
+  const assistant = (input, stopReason = 'stop') => ({ role: 'assistant', stopReason, usage: usage(input) });
+  const architect = (message) => h.pi.events.get('message_end')({ message });
+  const implementor = (message) => h.emit({ type: 'message_end', message });
+  architect(assistant(999)); await h.command('pair-usage');
+  assert.match(h.notices.at(-1).text, /No pair usage recorded/);
+  await h.command('pair-enable');
+  architect(assistant(10));
+  for (let i = 0; i < 3; i++) h.emit({ type: 'message_update', usage: usage(20), assistantMessageEvent: { type: 'text_delta', delta: 'preview' } });
+  h.emit({ type: 'turn_end', message: assistant(20) });
+  implementor(assistant(20)); implementor(assistant(5, 'aborted'));
+  architect({ role: 'toolResult', usage: usage(3) });
+  h.emit({ type: 'tool_execution_end', toolName: 'nested', result: { usage: usage(5) } }); // message_end owns tool accounting
+  h.pi.events.get('session_compact')({ compactionEntry: { usage: usage(2) } });
+  h.emit({ type: 'compaction_end', aborted: false, result: { usage: usage(1) } });
+  h.emit({ type: 'compaction_end', aborted: true });
+  h.emit({ type: 'compaction_end', errorMessage: 'No summary' });
+  await h.command('pair-models', 'medium'); await wait(() => h.worker.config.implementor.thinking === 'medium');
+  await h.directive('assign', 0); h.sendReport('done', 1); h.settle();
+  await wait(() => h.pi.nativeMessages.length === 1); await h.directive('accept', 1); await h.directive('assign', 1);
+  await h.command('pair-usage'); const report = h.notices.at(-1).text;
+  assert.match(report, /Architect: 42 tok \/ \$0\.0150/);
+  assert.match(report, /Implementor: 53 tok \/ \$0\.0260/);
+  assert.match(report, /Total: 95 tok \/ \$0\.0410/);
+  assert.match(h.display(), /Architect 42 tok \/ \$0\.0150.*Implementor 53 tok \/ \$0\.0260.*Total 95 tok \/ \$0\.0410/);
+  assert.doesNotMatch(JSON.stringify(h.pi.nativeMessages), /Pair usage|0\.0410/, 'metrics do not enter the model conversation');
+  const old = h.worker; await h.command('pair-disable');
+  architect(assistant(999)); old.onEvent({ type: 'message_end', message: assistant(999) });
+  await h.command('pair-usage'); assert.equal(h.notices.at(-1).text, report.replace('current enable', 'last enable'));
+  await h.command('pair-enable');
+  old.onEvent({ type: 'message_end', message: assistant(999) });
+  old.onEvent({ type: 'compaction_end', result: { usage: usage(999) } });
+  await h.command('pair-usage'); assert.match(h.notices.at(-1).text, /Total: 0 tok \/ \$0\.0000/);
+  assert.match(h.display(), /Architect 0 tok.*Implementor 0 tok.*Total 0 tok/);
 });
 
 test('two native-architect tasks use one real tmux worker, retaining worker context and isolated transcripts', { timeout: 20000 }, async (t) => {

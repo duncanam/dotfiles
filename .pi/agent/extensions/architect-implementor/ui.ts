@@ -2,6 +2,7 @@ import { clean } from './wire.mjs';
 export { clean } from './wire.mjs';
 import type { Theme } from '@earendil-works/pi-coding-agent';
 import { truncateToWidth, visibleWidth, wrapTextWithAnsi } from '@earendil-works/pi-tui';
+import { usageRows, usageSummary, type PairUsage } from './usage.ts';
 export class Log {
   entries: string[] = [];
   private stream = -1;
@@ -90,6 +91,11 @@ export function renderWorkflowStatus(width: number, state: WorkflowStatus, now =
     lines.push(fit(theme.fg('dim', '  CHECK-IN  ') + bar + theme.fg('muted', `  ${label}`), width));
   }
   return lines;
+}
+export function renderUsageStatus(width: number, usage: PairUsage, theme: PaneTheme = plainTheme): string[] {
+  if (width <= 0) return [];
+  const text = 'Usage (pair, est.) • ' + usageRows(usage).map(([role, total]) => `${role} ${usageSummary(total)}`).join(' • ');
+  return wrapTextWithAnsi(theme.fg('muted', text), width);
 }
 export type Pane = { log: Log; status?: string; model?: string; thinking?: string; emptyMessage?: string; sessionName?: string };
 function logPresentation(entry: string): { text: string; color: Parameters<Theme['fg']>[0] } {

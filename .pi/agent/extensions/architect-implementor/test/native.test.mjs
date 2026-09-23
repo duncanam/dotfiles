@@ -54,8 +54,19 @@ test('real Pi stays idle during unsolicited progress, then reviews, corrects and
     assert.equal(messages.filter((m) => m.role === 'custom' && m.customType === 'pair-update' && m.content.includes('Implementor status')).length, 2, 'informational progress stays in the visible native history');
     assert.equal(messages.filter((m) => m.role === 'toolResult' && m.toolName === 'read').length, 2, 'independent native review after both completions');
     assert.equal(messages.filter((m) => m.role === 'toolResult' && m.toolName === 'ai_directive').length, 3);
-    assert.doesNotMatch(JSON.stringify(messages), /PRIVATE_WORKER_SENTINEL|pair-state/, 'worker transcript and transient state snapshots are not persisted in main history');
+    assert.doesNotMatch(JSON.stringify(messages), /PRIVATE_WORKER_SENTINEL|Current pair state: cycle/, 'worker transcript and transient state snapshots are not persisted in main history');
+    assert.ok(!messages.some((m) => m.customType === 'pair-state'), 'the persisted system prompt may describe snapshots, but snapshots stay transient');
+    await rpc({ type: 'prompt', message: '/pair-usage' });
+    const usageNotice = events.filter((e) => e.method === 'notify' && e.message?.startsWith('Pair usage')).at(-1).message;
+    assert.match(usageNotice, /Architect: 870 tok \/ \$0\.0600/);
+    assert.match(usageNotice, /Implementor: 1740 tok \/ \$0\.1200/);
+    assert.match(usageNotice, /Total: 2610 tok \/ \$0\.1800/);
+    const stats = await rpc({ type: 'get_session_stats' });
+    assert.equal(stats.tokens.total, 870, 'native session usage still excludes the worker');
+    assert.ok(Math.abs(stats.cost - 0.06) < 1e-12, 'worker costs are not injected into native totals');
     await rpc({ type: 'prompt', message: '/pair-disable' });
+    await rpc({ type: 'prompt', message: '/pair-usage' });
+    assert.match(events.filter((e) => e.method === 'notify' && e.message?.startsWith('Pair usage')).at(-1).message, /last enable[\s\S]*Total: 2610 tok \/ \$0\.1800/);
     await rpc({ type: 'prompt', message: '/fixture-quit' });
     await Promise.race([closed, sleep(1000)]); assert.ok(exited, 'native host shuts down');
   } finally {

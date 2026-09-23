@@ -2,7 +2,7 @@
 
 **Main Pi is the architect.** Its conversation, tools, reports and reviews use normal scrollable Pi history. One persistent implementor runs in tmux and appears in a full-width, themed pane above the native editor. No architect subprocess, input interception or replacement editor/footer.
 
-Tested with Pi 0.85.1, Node 25 and tmux on macOS. Unix-only; Linux untested.
+Typechecked against Pi 0.85.1; integration-tested with Pi 0.87.1, Node 25 and tmux on macOS. Unix-only; Linux untested.
 
 ## Use
 
@@ -12,6 +12,7 @@ Tested with Pi 0.85.1, Node 25 and tmux on macOS. Unix-only; Linux untested.
 /model                     # architect's native model selector
 /thinking                  # architect's native thinking selector
 /pair-models high          # implementor only
+/pair-usage                # per-role tokens/cache/estimated cost, plus combined total
 /pair-disable
 ```
 
@@ -53,7 +54,7 @@ Use `~/.pi/agent/architect-implementor.json` (or `$PI_CODING_AGENT_DIR/architect
 
 `implementor` additionally accepts explicit `extensions`, `skills`, and `extraTools`. Paths resolve relative to the JSON file; absolute paths and `~/` work. It has read/write/edit/Bash plus `ai_report`. Missing tools and unsupported model/effort selections fail rather than silently downgrade. Authentication is reused normally.
 
-The installed/example config retains source-control, search, protected-path and Context7 extensions, source-control skill and Context7 tools **for the implementor**. Its automatic resource discovery/project approval are disabled; ancestor/global `AGENTS.md` still loads. Keep unrelated orchestration out of its allowlist. This is not a filesystem or OS sandbox: both agents have ordinary user privileges and must follow normal policies.
+The installed/example config retains source-control, search, protected-path and Context7 extensions, source-control skill and Context7 tools **for the implementor**, and enables `extensions/loop-guard.ts`. The guard warns after three identical assistant responses and aborts the local run after five; warnings/aborts appear in the implementor feed. It detects repeated responses, not semantic lack of progress, and does not cancel remote jobs or declare the assignment complete. The implementor's automatic resource discovery/project approval are disabled; ancestor/global `AGENTS.md` still loads. Keep unrelated orchestration out of its allowlist. This is not a filesystem or OS sandbox: both agents have ordinary user privileges and must follow normal policies.
 
 Defaults: `checkinSeconds: 600`, `paneLines: 26`, `piCommand: "pi"`. The installed configuration uses **1200-second check-ins and 26 rows**.
 
@@ -91,6 +92,19 @@ Live switches wait for a settled boundary, including retries/compaction. The com
 - The pane retains phase/cycle, elapsed time, the check-in progress bar/countdown, implementor activity, provider/model/effort and a muted tmux identity. Transparent borders/colors follow Pi's theme. It remains full-width and tall when idle, adapting to narrow/short terminals while reserving space for native Pi. Times over an hour use `H:MM:SS`; the countdown is **not** an ETA.
 - Successful communication is compact, empty thinking markers are hidden, and ordinary output/errors remain visible. Logs are sanitized and bounded. Main Pi's native footer/editor retain architect model, thinking, context and usage indicators (main-session usage, not aggregated worker usage).
 
+## Tokens and estimated cost
+
+The pane header shows **Architect**, **Implementor** and combined **Total** usage for the current `/pair-enable` run. `/pair-usage` shows exact token counts split into input, output, cache read and cache write, plus each role's estimated cost. This command works in TUI/RPC, makes no model call and adds nothing to model context.
+
+- Totals start at enable, accumulate across assignments, corrections and model/effort changes, and reset on the next enable. They are in-memory only. After disable, `/pair-usage` retains the last run until re-enable, reload or session replacement.
+- Count finalized assistant responses (including failed/aborted responses with reported usage), tool results with nested model usage, and reported successful compaction usage. Streaming snapshots and tool-execution previews are not counted again. Compaction does not erase prior totals.
+- Token totals include cache tokens. Reasoning tokens are already in output; one-hour cache writes are already in cache writes. These are cumulative usage, **not context-window occupancy**.
+- Missing/invalid data is labelled `n/a`; partial known totals are marked `≥`. A valid reported zero remains zero. In-flight/unreported work, background cache warming and branch-summary calls are outside these totals. Calls cut off by disable or transport failure may have unreported usage.
+- Dollar amounts use Pi's reported model-price estimates, **not billing or subscription charges**. Missing/zero model prices may yield zero estimated cost even when tokens were used. Model switches retain the amounts recorded at the time; earlier usage is never repriced.
+- Native Pi footer and `/cost` accounting are unchanged: they cover the main session, not the worker. Do not add the pair total to native Pi totals—the architect usage overlaps. The separate combined pair total avoids double-counting.
+
+To apply the guard/configuration and usage display to an existing session, wait for a safe handoff, then `/pair-disable`, `/reload`, and `/pair-enable`. This stops the old worker and loses its private in-memory context; the main conversation remains. Existing workers are not modified in place.
+
 ## Inspect and clean up
 
 The implementor's tmux session mirrors sanitized text, handoffs, tool activity and errors; it is not a second interactive Pi editor. Use the session name from the pane's bottom border:
@@ -114,4 +128,4 @@ npm test        # synthetic models; real tmux/processes and native Pi tool/revie
 npm run smoke   # real configured models: startup, native setters, one worker, switch/reset/shutdown; zero model turns
 ```
 
-Tests cover native controls/context, real report-driven review/correction turns, informational progress without extra model turns, one-shot requested status, current-state refresh, context isolation, report ordering/retries, cancellation, timers, responsive themes/layouts, model rollback and process cleanup. Paid-model reasoning quality is not tested.
+Tests cover native controls/context, real report-driven review/correction turns, informational progress without extra model turns, one-shot requested status, current-state refresh, context isolation, report ordering/retries, cancellation, timers, responsive themes/layouts, model rollback and process cleanup. Synthetic-model tests also verify implementor loop-guard warning/abort thresholds and exact per-role usage with unchanged native totals; unit tests cover partial/missing usage, caching, compaction, model changes and stale worker events. Paid-model reasoning quality is not tested.
