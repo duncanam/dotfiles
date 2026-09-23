@@ -3,9 +3,9 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 const PROVIDER = "openai-codex";
 
 const COMMAND_MODELS = {
-  luna: "gpt-5.6-luna",
+  luna: "gpt-6-luna",
   terra: "gpt-5.6-terra",
-  sol: "gpt-5.6-sol",
+  sol: "gpt-6-sol",
   astra: "gpt-6-astra",
 } as const;
 
