@@ -27,6 +27,8 @@ jsonLines(process.stdin, (c) => {
   if (c.type === 'extension_ui_response') { output({ type: 'test_ui_response', value: c }); return; }
   output({ type: 'response', command: c.type, id: c.id, success: true, data });
   if (c.type !== 'prompt') return;
+  if (process.env.MOCK_EXIT_AFTER_PROMPT) process.exit(Number(process.env.MOCK_EXIT_AFTER_PROMPT));
+  if (process.env.MOCK_BAD_JSON) { process.stdout.write('PRIVATE_MALFORMED_MODEL_OUTPUT\n'); return; }
   messageCount++;
   output({ type: 'test_prompt', message: c.message, provider, model, thinking });
   if (process.env.MOCK_AUDIT) appendFileSync(process.env.MOCK_AUDIT, JSON.stringify({ type: 'prompt', message: c.message, pid: process.pid, provider, model, thinking }) + '\n');

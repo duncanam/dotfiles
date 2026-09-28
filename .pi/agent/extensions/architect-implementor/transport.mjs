@@ -7,6 +7,7 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { levels, workerArgs } from './config.mjs';
 import { jsonLines, send } from './wire.mjs';
+import { readShutdownReason } from './supervision.mjs';
 const exec = promisify(execFile);
 const here = dirname(fileURLToPath(import.meta.url));
 export const runtimeRoot = `/tmp/pi-ai-${process.getuid?.() ?? 'user'}`;
@@ -27,7 +28,14 @@ export async function reapOrphans(root = runtimeRoot, now = Date.now()) {
     if (!stat.isDirectory() || stat.isSymbolicLink()) continue;
     let heartbeat = stat.mtimeMs;
     try {
-      const value = Number(JSON.parse(await readFile(join(dir, 'lease.json'), 'utf8')).heartbeat);
+      const lease = JSON.parse(await readFile(join(dir, 'lease.json'), 'utf8'));
+      // Wall-clock age alone cannot prove orphanhood after sleep or a clock jump.
+      // Be conservative about PID reuse and EPERM: never kill a possibly live owner.
+      if (Number.isSafeInteger(lease.pid) && lease.pid > 1) {
+        try { process.kill(lease.pid, 0); continue; }
+        catch (error) { if (error.code !== 'ESRCH') continue; }
+      }
+      const value = Number(lease.heartbeat);
       if (Number.isFinite(value)) heartbeat = value;
     } catch {}
     if (now - heartbeat < 60000) continue;
@@ -59,6 +67,10 @@ export class Implementor {
     this.onFailure(error instanceof Error ? error : new Error(String(error)));
     void this.stop();
   }
+  async disconnected(socketError) {
+    const reason = await readShutdownReason(this.dir);
+    this.fail(new Error(reason ? `Implementor disconnected: ${reason}` : `Implementor disconnected without a shutdown record (cause unknown)${socketError ? `; socket error: ${socketError.message}` : ''}`));
+  }
   async lease() {
     if (this.stopped) return;
     const path = join(this.dir, 'lease.json');
@@ -73,10 +85,10 @@ export class Implementor {
       await this.lease();
       if (this.stopped) throw new Error('Startup cancelled');
       this.server = createServer((socket) => {
-        let authenticated = false;
+        let authenticated = false, socketError;
         const timer = setTimeout(() => socket.destroy(), 5000);
-        socket.on('error', () => socket.destroy());
-        socket.on('close', () => { clearTimeout(timer); if (authenticated && !this.stopped) this.fail(new Error('Implementor disconnected')); });
+        socket.on('error', (error) => { socketError = error; socket.destroy(); });
+        socket.on('close', () => { clearTimeout(timer); if (authenticated && !this.stopped) void this.disconnected(socketError); });
         jsonLines(socket, (packet) => {
           if (!authenticated) {
             if (this.stopped || packet.hello !== 'implementor' || packet.token !== this.token || this.socket) { socket.destroy(); return; }

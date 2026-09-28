@@ -1,13 +1,15 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, readFile, writeFile, rm } from 'node:fs/promises';
-import { spawn } from 'node:child_process';
+import { mkdtemp, readFile, writeFile, rm, readdir } from 'node:fs/promises';
+import { spawn, execFile } from 'node:child_process';
+import { promisify } from 'node:util';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { jsonLines, send } from '../wire.mjs';
+import { runtimeRoot, sessionName } from '../transport.mjs';
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-test('real Pi stays idle during unsolicited progress, then reviews, corrects and accepts on completion (no API)', { timeout: 30000 }, async () => {
+test('real Pi stays idle on routine progress and accepted-pair failure, but reviews/corrects/accepts completion (no API)', { timeout: 30000 }, async () => {
   const root = await mkdtemp('/tmp/pair-native-loop-');
   const provider = fileURLToPath(new URL('./mock-provider.ts', import.meta.url));
   await writeFile(join(root, 'architect-implementor.json'), JSON.stringify({ version: 2,
@@ -33,10 +35,10 @@ test('real Pi stays idle during unsolicited progress, then reviews, corrects and
   try {
     await rpc({ type: 'set_auto_retry', enabled: false });
     await rpc({ type: 'prompt', message: '/pair-enable Complete the fixture task. MAIN_ONLY_SENTINEL' });
-    const waitMessage = async (text) => {
+    const waitMessage = async (text, expectedFailure = false) => {
       const deadline = Date.now() + 15000;
       while (!events.some((e) => e.type === 'message_end' && JSON.stringify(e.message).includes(text))) {
-        const errors = events.filter((e) => e.type === 'extension_error' || e.type === 'message_end' && e.message?.stopReason === 'error' || e.method === 'notify' && e.notifyType === 'error');
+        const errors = events.filter((e) => e.type === 'extension_error' || e.type === 'message_end' && e.message?.stopReason === 'error' || e.method === 'notify' && e.notifyType === 'error' && !(expectedFailure && e.message?.includes('Bridge received SIGTERM')));
         assert.equal(errors.length, 0, JSON.stringify(errors)); assert.ok(Date.now() < deadline, JSON.stringify(events.slice(-8)) + stderr); await sleep(30);
       }
     };
@@ -64,6 +66,22 @@ test('real Pi stays idle during unsolicited progress, then reviews, corrects and
     const stats = await rpc({ type: 'get_session_stats' });
     assert.equal(stats.tokens.total, 870, 'native session usage still excludes the worker');
     assert.ok(Math.abs(stats.cost - 0.06) < 1e-12, 'worker costs are not injected into native totals');
+    // Target only this fixture's worker, never another test or a user's pair.
+    const owned = [];
+    for (const key of await readdir(runtimeRoot)) {
+      if (!/^[a-f0-9]{24}$/.test(key)) continue;
+      try { if (JSON.parse(await readFile(join(runtimeRoot, key, 'lease.json'), 'utf8')).pid === child.pid) owned.push(key); } catch {}
+    }
+    assert.equal(owned.length, 1);
+    const bridgePid = Number((await promisify(execFile)('tmux', ['-L', 'pi-ai', 'display-message', '-p', '-t', `${sessionName(owned[0])}:0.0`, '#{pane_pid}'], { timeout: 5000 })).stdout.trim());
+    assert.ok(Number.isSafeInteger(bridgePid) && bridgePid > 1);
+    process.kill(bridgePid, 'SIGTERM'); await waitMessage('Implementor stopped:', true);
+    assert.equal((await rpc({ type: 'get_state' })).isStreaming, false, 'accepted-pair failure is not a model scheduling event');
+    const afterFailure = (await rpc({ type: 'get_messages' })).messages;
+    assert.equal(afterFailure.filter((m) => m.role === 'assistant').length, messages.filter((m) => m.role === 'assistant').length, 'no model response to an idle failure');
+    assert.ok(afterFailure.some((m) => m.role === 'custom' && m.customType === 'pair-update' && m.display && m.content.includes('Bridge received SIGTERM')), 'failure cause stays in visible native history');
+    const afterStats = await rpc({ type: 'get_session_stats' });
+    assert.deepEqual(afterStats.tokens, stats.tokens, 'an idle failure adds no model tokens'); assert.equal(afterStats.cost, stats.cost);
     await rpc({ type: 'prompt', message: '/pair-disable' });
     await rpc({ type: 'prompt', message: '/pair-usage' });
     assert.match(events.filter((e) => e.method === 'notify' && e.message?.startsWith('Pair usage')).at(-1).message, /last enable[\s\S]*Total: 2610 tok \/ \$0\.1800/);

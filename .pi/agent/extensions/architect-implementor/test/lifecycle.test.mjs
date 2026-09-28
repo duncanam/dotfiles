@@ -2,12 +2,14 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { execFile, spawn } from 'node:child_process';
 import { connect } from 'node:net';
+import { randomBytes } from 'node:crypto';
 import { promisify } from 'node:util';
 import { mkdtemp, readFile, rm, mkdir, writeFile, access, stat } from 'node:fs/promises';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { validateConfig } from '../config.mjs';
 import { Implementor, sessionName, reapOrphans } from '../transport.mjs';
+import { recordShutdown } from '../supervision.mjs';
 const exec = promisify(execFile);
 const fixture = join(dirname(fileURLToPath(import.meta.url)), 'fake-rpc.mjs');
 const config = () => validateConfig({ version: 2, architect: { provider: 'mock', model: 'frontier', thinking: 'high' }, implementor: { provider: 'mock', model: 'small', thinking: 'low' } });
@@ -71,13 +73,81 @@ test('live implementor model changes wait through retry gaps, hold handoffs and 
   } finally { await worker.stop(); await rm(root, { recursive: true, force: true }); }
 });
 
-test('independent bridge lease expires if parent heartbeats stop', { timeout: 15000 }, async () => {
-  const root = await mkdtemp('/tmp/ai-test-'), cfg = config(); let failure;
-  const worker = new Implementor(cfg, '/tmp', 'frozen-parent', () => {}, (e) => { failure = e; }, { root, boot: boot(cfg), leaseMs: 1000 });
+test('parent and bridge suspension preserves the same worker when the bridge resumes first', { timeout: 20000 }, async () => {
+  const root = await mkdtemp('/tmp/ai-suspend-test-'); let bridgePid, toolPid, seq = 0, stdout = '';
+  const owner = spawn(process.execPath, [fileURLToPath(new URL('./bridge-owner.mjs', import.meta.url)), root], { stdio: ['ignore', 'pipe', 'pipe', 'ipc'] });
+  owner.stdout.on('data', (data) => { stdout += data; });
+  const rpc = (command) => new Promise((resolve, reject) => {
+    const id = ++seq;
+    const timer = setTimeout(() => { owner.off('message', receive); reject(new Error('Owner RPC timed out')); }, 5000);
+    const receive = (message) => { if (message.id !== id) return; clearTimeout(timer); owner.off('message', receive); message.error ? reject(new Error(message.error)) : resolve(message.data); };
+    owner.on('message', receive); owner.send({ id, command });
+  });
   try {
-    await worker.start(); clearInterval(worker.heartbeat); await wait(() => !!failure); await worker.stop();
+    await wait(() => stdout.includes('\n')); ({ bridgePid } = JSON.parse(stdout.trim()));
+    assert.ok(Number.isSafeInteger(bridgePid) && bridgePid > 1);
+    await rpc({ type: 'prompt', message: 'Retain this context' }); const before = await rpc({ type: 'get_state' });
+    toolPid = Number(await readFile(join(root, 'implementor.pid'), 'utf8'));
+    owner.kill('SIGSTOP'); process.kill(bridgePid, 'SIGSTOP');
+    await sleep(3000); // Both observers miss their timers, like whole-machine suspension.
+    process.kill(bridgePid, 'SIGCONT'); await sleep(350); // Parent deliberately resumes later.
+    assert.ok(alive(toolPid), 'a missed watchdog interval must not kill the worker on resume');
+    owner.kill('SIGCONT');
+    const after = await rpc({ type: 'get_state' });
+    assert.equal(after.sessionId, before.sessionId); assert.equal(after.messageCount, before.messageCount);
+    await sleep(1500); assert.ok(alive(bridgePid), 'heartbeats continue extending the lease after resume');
+  } finally {
+    owner.kill('SIGKILL'); if (bridgePid) { try { process.kill(bridgePid, 'SIGCONT'); } catch {} }
+    if (bridgePid) await wait(() => !alive(bridgePid));
+    if (toolPid) await wait(() => !alive(toolPid));
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('independent bridge lease expires if parent heartbeats stop', { timeout: 15000 }, async () => {
+  const root = await mkdtemp('/tmp/ai-test-'), cfg = config(), childFile = join(root, 'descendant'); let failure;
+  const worker = new Implementor(cfg, '/tmp', 'frozen-parent', () => {}, (e) => { failure = e; }, { root, boot: boot(cfg, { MOCK_DESCENDANT_FILE: childFile }), leaseMs: 1000 });
+  try {
+    await worker.start(); const pid = Number(await readFile(childFile, 'utf8'));
+    clearInterval(worker.heartbeat); await wait(() => !!failure);
+    assert.match(failure.message, /Parent heartbeat timed out \(1000ms lease\)/);
+    const record = JSON.parse(await readFile(join(worker.dir, 'shutdown.json'), 'utf8'));
+    assert.match(record.reason, /heartbeat timed out/); assert.ok(Number.isInteger(record.pid));
+    await sleep(100);
+    assert.equal(JSON.parse(await readFile(join(worker.dir, 'shutdown.json'), 'utf8')).reason, record.reason, 'later stop/child exit must not overwrite the cause');
+    await worker.stop(); await wait(() => !alive(pid));
     assert.equal(await has(sessionName(worker.key)), false);
   } finally { await worker.stop(); await rm(root, { recursive: true, force: true }); }
+});
+
+test('child exits, protocol errors and signals retain distinct causes; forced disconnects are honest or use the private fallback', { timeout: 25000 }, async () => {
+  const root = await mkdtemp('/tmp/ai-diagnostics-test-'), cfg = config();
+  try {
+    for (const kind of ['exit', 'protocol', 'signal', 'unknown', 'fallback']) {
+      let failure;
+      const extra = kind === 'exit' ? { MOCK_EXIT_AFTER_PROMPT: '7' } : kind === 'protocol' ? { MOCK_BAD_JSON: '1' } : {};
+      const worker = new Implementor(cfg, '/tmp', `diagnostics-${kind}`, () => {}, (error) => { failure = error; }, { root, boot: boot(cfg, extra) });
+      try {
+        await worker.start();
+        const state = await worker.rpc({ type: 'get_state' }), pid = Number(state.sessionId.slice('mock-'.length));
+        if (kind === 'exit' || kind === 'protocol') await worker.prompt('fixture').catch(() => {});
+        else {
+          if (kind === 'fallback') recordShutdown(worker.dir, 'Recorded shutdown cause');
+          const bridgePid = Number((await tmux(['display-message', '-p', '-t', `${sessionName(worker.key)}:0.0`, '#{pane_pid}'])).stdout.trim());
+          assert.ok(Number.isSafeInteger(bridgePid) && bridgePid > 1);
+          process.kill(bridgePid, kind === 'signal' ? 'SIGTERM' : 'SIGKILL');
+        }
+        await wait(() => !!failure);
+        assert.match(failure.message, { exit: /Pi exited \(code 7\)/, protocol: /Pi RPC stream error: invalid JSON/, signal: /Bridge received SIGTERM/, unknown: /without a shutdown record \(cause unknown\)/, fallback: /Recorded shutdown cause/ }[kind]);
+        assert.doesNotMatch(failure.message, /PRIVATE_MALFORMED_MODEL_OUTPUT/);
+        if (kind !== 'unknown') {
+          const record = await readFile(join(worker.dir, 'shutdown.json'), 'utf8');
+          assert.doesNotMatch(record, /PRIVATE_MALFORMED_MODEL_OUTPUT/); assert.ok(!record.includes(worker.token));
+        }
+        await worker.stop(); await wait(() => !alive(pid)); assert.equal(await has(sessionName(worker.key)), false);
+      } finally { await worker.stop(); }
+    }
+  } finally { await rm(root, { recursive: true, force: true }); }
 });
 
 test('SIGKILL of owning parent leaves neither implementor tmux nor detached tool descendants', { timeout: 15000 }, async () => {
@@ -88,6 +158,7 @@ test('SIGKILL of owning parent leaves neither implementor tmux nor detached tool
     await wait(() => stdout.includes('\n')); const { key } = JSON.parse(stdout.trim());
     const pid = Number(await readFile(join(root, 'implementor.pid'), 'utf8')); assert.ok(alive(pid)); owner.kill('SIGKILL');
     await wait(async () => !await has(sessionName(key))); await wait(() => !alive(pid));
+    assert.match(JSON.parse(await readFile(join(root, key, 'shutdown.json'), 'utf8')).reason, /Parent socket (closed|error)/);
     await reapOrphans(root, Date.now() + 120000); await assert.rejects(access(join(root, key))); assert.equal(stderr, '');
   } finally { owner.kill('SIGKILL'); await rm(root, { recursive: true, force: true }); }
 });
@@ -113,18 +184,18 @@ test('cancelling startup cannot leave a late tmux session or heartbeat', { timeo
 });
 
 test('orphan reap removes exact stale sessions including legacy architects, preserving fresh pairs and unrelated tmux', { timeout: 10000 }, async () => {
-  const root = await mkdtemp('/tmp/ai-test-'), stale = 'a'.repeat(24), fresh = 'b'.repeat(24), unrelated = `ai-test-unrelated-${process.pid}`;
+  const root = await mkdtemp('/tmp/ai-test-'), [stale, fresh, suspended] = Array.from({ length: 3 }, () => randomBytes(12).toString('hex')), unrelated = `ai-test-unrelated-${process.pid}`;
   try {
-    for (const key of [stale, fresh]) {
-      await mkdir(join(root, key)); await writeFile(join(root, key, 'lease.json'), JSON.stringify({ heartbeat: key === stale ? Date.now() - 120000 : Date.now() }));
+    for (const key of [stale, fresh, suspended]) {
+      await mkdir(join(root, key)); await writeFile(join(root, key, 'lease.json'), JSON.stringify({ heartbeat: key === fresh ? Date.now() : Date.now() - 120000, ...(key === suspended ? { pid: process.pid } : {}) }));
       for (const name of names(key)) await tmux(['new-session', '-d', '-s', name, '/bin/sleep', '120']);
     }
     await tmux(['new-session', '-d', '-s', unrelated, '/bin/sleep', '120']); await reapOrphans(root);
     for (const name of names(stale)) assert.equal(await has(name), false);
-    for (const name of names(fresh)) assert.equal(await has(name), true);
+    for (const name of [...names(fresh), ...names(suspended)]) assert.equal(await has(name), true, 'do not reap a suspended but living owner');
     assert.equal(await has(unrelated), true);
   } finally {
-    for (const name of [...names(stale), ...names(fresh), unrelated]) await tmux(['kill-session', '-t', `=${name}`]).catch(() => {});
+    for (const name of [...names(stale), ...names(fresh), ...names(suspended), unrelated]) await tmux(['kill-session', '-t', `=${name}`]).catch(() => {});
     await rm(root, { recursive: true, force: true });
   }
 });

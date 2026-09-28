@@ -261,7 +261,35 @@ test('protocol errors are native tool errors; uncertain delivery stops delegatio
   await assert.rejects(h.directive('assign', 0), /timed out/); await wait(() => h.worker.stopped);
   assert.equal(h.controls('assign').length, 1); assert.ok(!h.pi.getActiveTools().includes('ai_directive'));
   assert.equal(h.pi.events.has('input'), false); assert.match(h.pi.nativeMessages.at(-1).content, /Do not automatically replay/);
+  assert.match(h.pi.nativeMessages.at(-1).content, /missing acknowledgement does not prove a directive was undelivered/);
   await assert.rejects(h.directive('assign', 0), /Pair is failed/); assert.equal(h.controls('assign').length, 1);
+});
+
+test('failures during planning, blocker/review waits and accepted idle remain visible without model wake-ups', async (t) => {
+  for (const phase of ['planning', 'blocked', 'reviewing', 'accepted']) await t.test(phase, async (t) => {
+    const h = await harness(t);
+    if (phase !== 'planning') {
+      await h.directive('assign', 0); h.sendReport(phase === 'blocked' ? 'blocked' : 'done', 1); h.settle();
+      await wait(() => h.pi.nativeMessages.length === 1);
+      if (phase === 'accepted') await h.directive('accept', 1);
+    }
+    const count = h.pi.nativeMessages.length;
+    h.worker.onFailure(new Error('Bridge stopped: parent heartbeat timed out'));
+    assert.equal(h.pi.nativeMessages.length, count + 1); const failure = h.pi.nativeMessages.at(-1);
+    assert.equal(failure.display, true); assert.equal(failure.options.triggerTurn, false);
+    assert.match(failure.content, /parent heartbeat timed out/); assert.doesNotMatch(failure.content, /missing acknowledgement/i);
+    assert.ok(h.notices.some((n) => n.level === 'error')); assert.match(h.display(), /failed/);
+    assert.equal(h.worker.stopped, true); assert.ok(!h.pi.getActiveTools().includes('ai_directive'));
+  });
+});
+
+test('unfinished work and an outstanding explicit status request still wake the architect on failure', async (t) => {
+  for (const ping of [false, true]) await t.test(ping ? 'requested status while paused' : 'implementation', async (t) => {
+    const h = await harness(t); await h.directive('assign', 0);
+    if (ping) { h.sendReport('blocked', 1); h.settle(); await wait(() => h.pi.nativeMessages.length === 1); await h.directive('ping', 1); }
+    h.worker.onFailure(new Error('Bridge received SIGTERM'));
+    assert.equal(h.pi.nativeMessages.at(-1).options.triggerTurn, true);
+  });
 });
 
 test('Escape cancels an unsent directive waiting for a settled report; it does not cancel the worker', async (t) => {

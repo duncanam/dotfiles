@@ -74,13 +74,14 @@ export default function architectImplementor(pi: ExtensionAPI) {
   }
   function fail(error: unknown) {
     if (mode === 'off' || mode === 'stopping' || mode === 'failed') return;
-    const wasActive = mode === 'active';
+    const triggerTurn = mode === 'active' && (engine.phase === 'implementing' || engine.statusRequested);
+    const uncertainDelivery = [...requests].some((request) => request.started);
     mode = 'failed'; clearInterval(timer); modelPicker?.abort(); activeTool(false); updateStatus();
     const text = error instanceof Error ? error.message : String(error);
     rejectRequests(new Error(text));
     log(`ERROR: ${text}`);
     ctx.ui.notify(`Implementor stopped: ${text}. Main Pi remains available; /pair-disable to clear.`, 'error');
-    message(`Implementor stopped: ${text}. A missing acknowledgement does not prove a directive was undelivered. Verify files and remote job state before retrying. Do not automatically replay work.`, 'Pair failure', undefined, wasActive);
+    message(`Implementor stopped: ${text}. ${uncertainDelivery ? 'A missing acknowledgement does not prove a directive was undelivered. ' : ''}Main history is retained; private worker context cannot be resumed. This does not establish remote job failure. Verify files and remote job state before retrying. Do not automatically replay work.`, 'Pair failure', undefined, triggerTurn);
     void implementor?.stop();
   }
   function enqueue(work: () => Promise<void>) {
@@ -132,7 +133,11 @@ export default function architectImplementor(pi: ExtensionAPI) {
           details: { cycle: engine.cycle, phase: engine.phase },
           ...(request.data.kind === 'accept' ? {} : { terminate: true }),
         });
-      } catch (error) { request.reject(error); throw error; }
+      } catch (error) {
+        // Capture in-flight delivery before rejecting/removing the request.
+        if (mine === generation) fail(error);
+        request.reject(error); throw error;
+      }
     }
   }
   function event(e: any) {
