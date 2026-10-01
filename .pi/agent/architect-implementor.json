@@ -21,7 +21,27 @@
       "extensions/context7.ts"
     ],
     "skills": [
-      "skills/source-control"
+      "skills/source-control",
+      "~/.a-gents/skills/atomic-angstrom",
+      "~/.a-gents/skills/atomic-barista",
+      "~/.a-gents/skills/atomic-batch-compute",
+      "~/.a-gents/skills/atomic-espresso",
+      "~/.a-gents/skills/atomic-forge-cli",
+      "~/.a-gents/skills/atomic-forge-evals",
+      "~/.a-gents/skills/atomic-forge-extend",
+      "~/.a-gents/skills/atomic-forge-framework",
+      "~/.a-gents/skills/atomic-forge-multi-cavity",
+      "~/.a-gents/skills/atomic-forge-pipeline",
+      "~/.a-gents/skills/atomic-gate-checker",
+      "~/.a-gents/skills/atomic-minemesh",
+      "~/.a-gents/skills/atomic-mtr-to-atomic",
+      "~/.a-gents/skills/atomic-parasolid-docs",
+      "~/.a-gents/skills/atomic-parasolid-step-translator",
+      "~/.a-gents/skills/atomic-parasollm",
+      "~/.a-gents/skills/atomic-part-catalog",
+      "~/.a-gents/skills/atomic-plotly-three",
+      "~/.a-gents/skills/atomic-running-tools",
+      "~/.a-gents/skills/atomic-tiramisu"
     ],
     "extraTools": [
       "context7_resolve_library_id",
