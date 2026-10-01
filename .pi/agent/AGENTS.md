@@ -11,6 +11,17 @@
   `gtimeout` wrapper — GNU `timeout` is not installed on macOS, and a missing
   binary fails silently (empty result, no error) when stderr is redirected.
 
+### Scripts executed outside the local agent
+- The local `rg`/`fd` preference is not a portability requirement for authored
+  scripts. CI, build, container, and remote scripts may use `grep`/`find` when
+  those tools are provided by their execution environment. This does not
+  authorize direct local tool calls that bypass the extension's block.
+- Do not assume remote runners have tools installed on this Mac. Before adding
+  `rg`, `fd`, or another nonstandard command, verify the runner image/setup
+  provides it, explicitly install it, or use an available portable alternative.
+- Exercise script dependencies in CI or a representative minimal environment;
+  passing locally alone does not prove runner compatibility.
+
 ## GitHub
 Prefer the `gh` CLI over raw `git` remote operations or direct API calls;
 assume `gh` is installed and authenticated. `git` and `gh` are gated to a
