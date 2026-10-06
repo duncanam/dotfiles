@@ -2,9 +2,9 @@
   "skills": [
     "/Users/duncan/git/parasolid_llm/skills"
   ],
-  "lastChangelogVersion": "0.87.1",
+  "lastChangelogVersion": "1.0.0",
   "defaultProvider": "openai-codex",
-  "defaultModel": "gpt-6-sol",
+  "defaultModel": "gpt-6.1-sol",
   "defaultThinkingLevel": "medium",
   "editorPaddingX": 1,
   "showHardwareCursor": true,

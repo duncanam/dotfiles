@@ -5,7 +5,7 @@ const PROVIDER = "openai-codex";
 const COMMAND_MODELS = {
   luna: "gpt-6-luna",
   terra: "gpt-5.6-terra",
-  sol: "gpt-6-sol",
+  sol: "gpt-6.1-sol",
   astra: "gpt-6-astra",
 } as const;
 
