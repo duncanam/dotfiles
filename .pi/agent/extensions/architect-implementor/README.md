@@ -32,7 +32,7 @@ Use `~/.pi/agent/architect-implementor.json` (or `$PI_CODING_AGENT_DIR/architect
 {
   "version": 2,
   "checkinSeconds": 1200,
-  "paneLines": 26,
+  "panePercent": 40,
   "piCommand": "pi",
   "architect": {
     "provider": "openai-codex",
@@ -58,12 +58,12 @@ The installed/example config retains source-control, search, protected-path and 
 
 The **installed config** also explicitly loads task-focused Atomic skills from `~/.a-gents/skills/`: CAD measurement/conversion/inspection, mold and gate workflows, Forge development and evaluation, simulation/meshing/materials, 3D visualization, and the `atomic-running-tools` / `atomic-batch-compute` guidance those workflows depend on. It omits a-gents subscription management, registry skill authoring, and menu-bar widget support; those are not typical delegated engineering work. The **example config** remains usable without a-gents. To copy the installed selection elsewhere, install/sync a-gents there first, or remove unavailable paths: missing explicit skill paths make `/pair-enable` fail. Skills provide instructions, not extra tool permissions. Restart the pair (`/pair-disable`, `/reload`, `/pair-enable`) to apply config changes; an existing worker keeps its current skill set.
 
-Defaults: `checkinSeconds: 600`, `paneLines: 26`, `piCommand: "pi"`. The installed configuration uses **1200-second check-ins and 26 rows**.
+Defaults: `checkinSeconds: 600`, `panePercent: 40`, `piCommand: "pi"`. The installed configuration uses **1200-second check-ins and a roughly 60% architect / 40% implementor split**. `panePercent` is an integer from 1 to 90 and budgets the entire implementor widget (including workflow/usage headers) against the terminal pane height, recalculated on resize. Short terminals reserve at least 12 rows for native Pi. Legacy explicit `paneLines` (5–60) still selects fixed feed height when `panePercent` is absent; `panePercent` takes precedence when both are present.
 
 ### Upgrade from two tmux workers
 
 1. Save a concise handoff from any old workers whose context you need. Their private conversations are not imported automatically.
-2. `/pair-disable`, then `/reload` when safe. Reload stops old workers and loses their in-memory context.
+2. `/pair-disable`, then fully quit and restart Pi when safe (resume the main conversation if needed). A full restart clears cached `.mjs` dependencies; `/reload` alone may retain old extension code. Stopping the pair loses its worker's in-memory context.
 3. Use version 2 JSON: add `"version": 2` and remove `extensions`, `skills`, and `extraTools` from `architect`. Keep implementor resources.
 4. `/pair-enable` with the handoff/task.
 
@@ -91,7 +91,7 @@ Live switches wait for a settled boundary, including retries/compaction. The com
 - Concise reports enter the main conversation as visible, labeled messages. **Routine status is informational:** it stays in history without triggering or queuing an architect model turn. A ping permits the next valid status report to trigger one assessment; further status stays informational. Guide, assign, accept and terminal reports clear the request. Blocked/done and check-ins still wake the architect. Failure wake-ups are limited to the `implementing` phase or an outstanding explicit ping; planning, blocked, review and accepted waits are notification-only. A requested status response is not authorization to repeat the delegated job; if nothing is actionable, the architect waits. Use blocked when a decision/intervention is needed. Worker display transcripts are not forwarded. Communication text is capped at 6,000 characters.
 - External-job monitoring favors bounded snapshots, observable readiness/capacity criteria, and status followed by yielding. Reporting status then yielding does not cause an immediate idle re-prompt; an unreported exit still warns. Local timeout/abort does not prove remote failure. These are instructions, not tool bans or forced remote cancellation.
 - Check-ins measure the current uninterrupted implementation stretch. Done/blocker resets and pauses the clock; acceptance keeps it paused. Resuming guidance starts a full interval in the same cycle. Routine activity, status, pings, model changes and guidance while working do not reset it. Reminders invite judgment, not redundant mandatory pings.
-- The pane retains phase/cycle, elapsed time, the check-in progress bar/countdown, implementor activity, provider/model/effort and a muted tmux identity. Transparent borders/colors follow Pi's theme. It remains full-width and tall when idle, adapting to narrow/short terminals while reserving space for native Pi. Times over an hour use `H:MM:SS`; the countdown is **not** an ETA.
+- The pane retains phase/cycle, elapsed time, the check-in progress bar/countdown, implementor activity, provider/model/effort and a muted tmux identity. Transparent borders/colors follow Pi's theme. It remains full-width and keeps its proportional height when idle, adapting to narrow/short terminals while reserving space for native Pi. Times over an hour use `H:MM:SS`; the countdown is **not** an ETA.
 - Successful communication is compact, empty thinking markers are hidden, and ordinary output/errors remain visible. Logs are sanitized and bounded. Main Pi's native footer/editor retain architect model, thinking, context and usage indicators (main-session usage, not aggregated worker usage).
 
 ## Tokens and estimated cost
@@ -105,7 +105,7 @@ The pane header shows **Architect**, **Implementor** and combined **Total** usag
 - Dollar amounts use Pi's reported model-price estimates, **not billing or subscription charges**. Missing/zero model prices may yield zero estimated cost even when tokens were used. Model switches retain the amounts recorded at the time; earlier usage is never repriced.
 - Native Pi footer and `/cost` accounting are unchanged: they cover the main session, not the worker. Do not add the pair total to native Pi totals—the architect usage overlaps. The separate combined pair total avoids double-counting.
 
-To apply extension/configuration updates to an existing session, wait for a safe handoff, then `/pair-disable`, `/reload`, and `/pair-enable`. This stops the old worker and loses its private in-memory context; the main conversation remains. Existing workers are not modified in place.
+For configuration-only updates supported by the currently loaded code, wait for a safe handoff, then `/pair-disable` and `/pair-enable`. For extension-code updates (including the new `panePercent` setting), disable the pair, fully quit and restart Pi, resume the main conversation if needed, then `/pair-enable`. Pi's loader can retain native `.mjs` dependencies across `/reload`, leaving the old validator active and producing `Unknown config.panePercent`. A full process restart clears that cache. Stopping the pair loses its private in-memory context; existing workers are not modified in place.
 
 ## Inspect and clean up
 

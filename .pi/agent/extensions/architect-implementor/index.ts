@@ -49,11 +49,15 @@ export default function architectImplementor(pi: ExtensionAPI) {
       requestRender = () => tui.requestRender();
       return {
         render: (width: number) => {
-          const state = status(), space = Math.max(0, (tui.terminal.rows || 30) - 12);
+          const state = status(), rows = tui.terminal.rows || 30;
+          // Budget the entire widget, not just its feed, so indicators don't
+          // inflate the implementor's share. Reserve native UI on tiny terminals.
+          const space = Math.max(0, Math.min(rows - 12,
+            config.panePercent === undefined ? rows : Math.round(rows * config.panePercent / 100)));
           const header = [...renderWorkflowStatus(width, state, Date.now(), theme),
             ...(usage ? renderUsageStatus(width, usage, theme) : []),
           ].slice(0, Math.max(0, space - 3));
-          const height = Math.max(0, Math.min(config.paneLines, space - header.length));
+          const height = Math.max(0, Math.min(config.panePercent === undefined ? config.paneLines : space, space - header.length));
           return [...header, ...renderPane(width, height, {
             status: implementorStatus(state, busy) + (modelChanging ? ' • model queued' : ''),
             model: `${config.implementor.provider}/${config.implementor.model}`, thinking: config.implementor.thinking,

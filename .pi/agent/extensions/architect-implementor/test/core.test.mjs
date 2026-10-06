@@ -15,7 +15,17 @@ const config = () => validateConfig({ version: 2, architect: { provider: 'mock',
 
 test('v2 config separates native architect defaults from implementor resources and rejects legacy shapes', () => {
   const c = config();
-  assert.equal(c.checkinSeconds, 600); assert.equal(c.paneLines, 26);
+  assert.equal(c.checkinSeconds, 600); assert.equal(c.panePercent, 40);
+  assert.equal(c.paneLines, undefined);
+  for (const panePercent of [0, 91, 40.5, '40']) {
+    assert.throws(() => validateConfig({ ...c, panePercent }), /panePercent.*integer/);
+  }
+  assert.equal(validateConfig({ ...c, panePercent: 60 }).panePercent, 60);
+  const { panePercent, ...legacy } = c;
+  const fixed = validateConfig({ ...legacy, paneLines: 26 });
+  assert.equal(fixed.paneLines, 26); assert.equal(fixed.panePercent, undefined);
+  assert.deepEqual(validateConfig(fixed), fixed);
+  assert.equal(validateConfig({ ...fixed, panePercent: 40 }).panePercent, 40);
   assert.deepEqual(c.architect, { provider: 'mock', model: 'frontier', thinking: 'high' });
   assert.equal(c.implementor.thinking, 'low');
   assert.throws(() => validateConfig({ ...c, version: undefined }), /config.version must be 2/);

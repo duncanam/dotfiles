@@ -1,7 +1,7 @@
 {
   "version": 2,
   "checkinSeconds": 600,
-  "paneLines": 26,
+  "panePercent": 40,
   "piCommand": "pi",
   "architect": {
     "provider": "openai-codex",

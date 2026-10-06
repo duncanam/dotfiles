@@ -31,12 +31,15 @@ function paths(value, base, name) {
   });
 }
 export function validateConfig(raw, base = agentDir()) {
-  keys(raw, ['version', 'architect', 'implementor', 'checkinSeconds', 'paneLines', 'piCommand'], 'config');
+  keys(raw, ['version', 'architect', 'implementor', 'checkinSeconds', 'panePercent', 'paneLines', 'piCommand'], 'config');
   if (raw.version !== 2) throw new Error('config.version must be 2; migrate using architect-implementor.example.json and /reload for the native architect workflow');
+  /** @type {Record<string, any>} */
   const result = {
     version: 2,
     checkinSeconds: integer(raw.checkinSeconds, 600, 1, 86400, 'checkinSeconds'),
-    paneLines: integer(raw.paneLines, 26, 5, 60, 'paneLines'),
+    ...(raw.paneLines !== undefined ? { paneLines: integer(raw.paneLines, 26, 5, 60, 'paneLines') } : {}),
+    ...(raw.panePercent !== undefined || raw.paneLines === undefined
+      ? { panePercent: integer(raw.panePercent, 40, 1, 90, 'panePercent') } : {}),
     piCommand: text(raw.piCommand ?? 'pi', 'piCommand'),
   };
   for (const role of ['architect', 'implementor']) {

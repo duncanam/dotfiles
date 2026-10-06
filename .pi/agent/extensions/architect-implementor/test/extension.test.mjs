@@ -92,7 +92,7 @@ async function harness(t, { onPrompt = () => {}, real = false, enable = true, ta
     if (previousAudit === undefined) delete process.env.MOCK_AUDIT; else process.env.MOCK_AUDIT = previousAudit;
     await rm(root, { recursive: true, force: true });
   });
-  const cfg = { version: 2, checkinSeconds: 1200, paneLines: 26, architect: { provider: 'mock', model: 'frontier', thinking: 'high' }, implementor: { provider: 'mock', model: 'small', thinking: 'low' } };
+  const cfg = { version: 2, checkinSeconds: 1200, panePercent: 40, architect: { provider: 'mock', model: 'frontier', thinking: 'high' }, implementor: { provider: 'mock', model: 'small', thinking: 'low' } };
   if (real) { cfg.piCommand = fileURLToPath(new URL('./fake-rpc.mjs', import.meta.url)); await chmod(cfg.piCommand, 0o755); }
   configure(cfg); await writeFile(join(root, 'architect-implementor.json'), JSON.stringify(cfg));
   extension(pi); await pi.events.get('session_start')({}, ctx);
@@ -163,17 +163,30 @@ test('native tool continuations see fresh cycle/phase without a new prompt; bran
   assert.equal(h.pi.events.get('context')({ messages: history }), undefined);
 });
 
-test('single pane preserves indicators and 26-row idle height while native UI remains untouched on resize', async (t) => {
+test('single pane budgets 40% including indicators while native UI remains untouched on resize', async (t) => {
   const h = await harness(t);
-  assert.equal(h.widget.render(380).length, 28); assert.equal(h.widget.render(380)[2].match(/╭/g).length, 1);
+  assert.equal(h.widget.render(380).length, 16); assert.equal(h.widget.render(380)[2].match(/╭/g).length, 1);
   assert.match(h.widget.render(380)[1], /Usage \(pair, est\.\).*Architect.*Implementor.*Total/);
   assert.match(h.widget.render(380).at(-1), /tmux: ai-[a-f0-9]{24}-implementor/); assert.doesNotMatch(h.widget.render(380).join('\n'), /-architect|◇ Architect/);
-  for (const rows of [8, 12, 20, 28, 40]) for (const width of [1, 7, 20, 80, 380]) {
-    h.terminal.rows = rows; const lines = h.widget.render(width); assert.ok(lines.length <= Math.max(0, rows - 12));
+  for (const rows of [8, 12, 20, 28, 40, 80, 160]) for (const width of [1, 7, 20, 80, 380]) {
+    h.terminal.rows = rows; const lines = h.widget.render(width); assert.ok(lines.length <= Math.max(0, Math.min(rows - 12, Math.round(rows * 0.4))));
+    if (width === 380 && rows >= 20) assert.equal(lines.length, Math.min(rows - 12, Math.round(rows * 0.4)));
     for (const line of lines) assert.ok(visibleWidth(line) <= width);
   }
   h.terminal.rows = 40; await h.directive('assign', 0);
   assert.match(h.display(), /cycle 1 • implementing/); assert.match(h.display(), /CHECK-IN/); assert.match(h.display(), /elapsed/); assert.match(h.display(), /mock\/small.*effort low/);
+});
+
+test('custom percentage overrides legacy fixed sizing; explicit legacy-only settings still work', async (t) => {
+  const h = await harness(t, { configure: (cfg) => { cfg.panePercent = 50; cfg.paneLines = 26; } });
+  assert.equal(h.widget.render(380).length, 20);
+  h.terminal.rows = 100; assert.equal(h.widget.render(380).length, 50);
+});
+
+test('legacy fixed pane height remains supported', async (t) => {
+  const h = await harness(t, { configure: (cfg) => { delete cfg.panePercent; cfg.paneLines = 26; } });
+  assert.equal(h.widget.render(380).length, 28);
+  h.terminal.rows = 100; assert.equal(h.widget.render(380).length, 28);
 });
 
 test('terminal reports wait through retries and precede racing corrections; reports enter native conversation, not full transcripts', async (t) => {
