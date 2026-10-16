@@ -6,7 +6,7 @@
   "defaultProvider": "openai-codex",
   "defaultModel": "gpt-6.1-sol",
   "defaultThinkingLevel": "medium",
-  "editorPaddingX": 1,
+  "editorPaddingX": 0,
   "showHardwareCursor": true,
   "theme": "light/dark",
   "httpIdleTimeoutMs": 300000,
