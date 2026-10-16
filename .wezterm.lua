@@ -13,7 +13,7 @@ end
 
 -- Visual
 -- Auto switch based on system appearance
--- Light: flexoki-light / Dark: catppuccin-mocha
+-- Flexoki in both modes; ANSI prompt colors follow the selected palette.
 local function get_appearance()
 	if wezterm.gui then
 		return wezterm.gui.get_appearance()
@@ -23,7 +23,7 @@ end
 
 local function scheme_for_appearance(appearance)
 	if appearance:find("Dark") then
-		return "catppuccin-mocha"
+		return "flexoki-dark"
 	else
 		return "flexoki-light"
 	end
