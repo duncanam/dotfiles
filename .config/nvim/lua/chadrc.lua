@@ -3,7 +3,7 @@
 -- Please read that file to know all available options :(
 
 -- Detect system appearance before base46 compiles (terminal query hasn't happened yet)
--- Light: flexoki-light / Dark: catppuccin
+-- Light: flexoki-light / Dark: flexoki
 local function system_is_dark()
   local sysname = vim.uv.os_uname().sysname
   local cmd
@@ -27,20 +27,20 @@ end
 local M = {}
 
 M.base46 = {
-  theme = system_is_dark() and "catppuccin" or "flexoki-light",
-  theme_toggle = { "catppuccin", "flexoki-light" },
+  theme = system_is_dark() and "flexoki" or "flexoki-light",
+  theme_toggle = { "flexoki", "flexoki-light" },
 
-  -- Dark (Mocha) diff overrides live here since catppuccin is a built-in theme.
+  -- Keep diffs readable in both Flexoki variants.
   changed_themes = {
-    catppuccin = {
+    flexoki = {
       polish_hl = {
         git = {
-          DiffAdd = { bg = "#2d4f3e", fg = "#a6e3a1" },
-          DiffAdded = { bg = "#2d4f3e", fg = "#a6e3a1" },
-          DiffDelete = { bg = "#4a2d33", fg = "#f38ba8" },
-          DiffRemoved = { bg = "#4a2d33", fg = "#f38ba8" },
-          DiffChange = { bg = "#2d3f5c", fg = "#89b4fa" },
-          DiffText = { bg = "#4a5a7d", fg = "#cdd6f4" },
+          DiffAdd = { bg = "#252D09", fg = "#879A39" },
+          DiffAdded = { bg = "#252D09", fg = "#879A39" },
+          DiffDelete = { bg = "#3E1715", fg = "#D14D41" },
+          DiffRemoved = { bg = "#3E1715", fg = "#D14D41" },
+          DiffChange = { bg = "#12253B", fg = "#4385BE" },
+          DiffText = { bg = "#163B66", fg = "#CECDC3" },
         },
       },
     },
