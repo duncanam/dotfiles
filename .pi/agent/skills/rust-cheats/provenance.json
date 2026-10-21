@@ -1,0 +1,213 @@
+{
+  "formatVersion": 1,
+  "upstream": {
+    "repository": "https://github.com/ralfbiedert/cheats.rs",
+    "commit": "f153e8e1da51e909fb6e1ed210013c6aadab80c2",
+    "sourceURL": "https://github.com/ralfbiedert/cheats.rs/blob/f153e8e1da51e909fb6e1ed210013c6aadab80c2/content/_index.md",
+    "files": {
+      "content/_index.md": "fabba2e863bbea261497b2421bbafb1b9f9aa16a4a63015ac1e0218bdbdded16",
+      "content/legal.md": "885af9aab79ed6d4e3ca49e87ed46d248c566a3a30e0325a781c62851218ba2d",
+      "templates/shortcodes/above.html": "1a9cf4e1df6f2d8aee4da04e40e20db0f7ab7c77f31bda1478787710d11bd116",
+      "templates/shortcodes/bad.html": "75f3bcd4c562a002ee12885b0f43848c838ce40e83f17b2dc8d1cda5aa3088d9",
+      "templates/shortcodes/below.html": "c4053e849b0469dba25f874c6a67e4c933c9c846596dcfe7d6a18551995524a6",
+      "templates/shortcodes/book.html": "3f493dbebee414d4e86b2e2e387d66108c90c9bf46d9bb5cbe1e0d6274f2ed67",
+      "templates/shortcodes/date.html": "b2c444351072f63f25c24d5d08bb7324ed38a44d13a85c2e8c04b44d60b0f7c1",
+      "templates/shortcodes/deprecated.html": "bc722ef842b311e1e4286bd9d1c9ff2940bb2a3392ab29b5ce6e6818806fd3d5",
+      "templates/shortcodes/edition.html": "4d2fd46e9ad0b6250c1e8f78b14f043c3629f644f60d6ad51dce09277df58780",
+      "templates/shortcodes/esoteric.html": "7033d622dedbe036a9e027715dad3edd835b13368882a31cdd371b0f87ddfa1a",
+      "templates/shortcodes/ex.html": "fdc8af68739e8649d6a019b7958c2881955bb4d75732fa03296dcff595abb0a3",
+      "templates/shortcodes/expands_to.html": "f70937a7eb212e417cb4b08acfe8dd7746fbcb189f15df124fc947985c854dfb",
+      "templates/shortcodes/experimental.html": "3b96b5888e44e5e1f6533df28d026da13136bad2a86514a84b87ad839edb5197",
+      "templates/shortcodes/hot.html": "e30b583926cd732326c9c844b462f7373ac484dfc9aca9534622139950672c67",
+      "templates/shortcodes/link.html": "38015fee66fc1e5cc402ef1f1f2da76b464579ff7f50396fea183bc81548d27b",
+      "templates/shortcodes/noemoji1.html": "68256c4facb94d1ae4f7abf7c9973c30c35154845bbaabbc0cf5084df4e6679f",
+      "templates/shortcodes/noemoji2.html": "ea4b024060f164c453df8218dd4e892bdfd795b835900c530d211531879e3506",
+      "templates/shortcodes/nom.html": "a84450663a843bf1b2e5d1e0993d3a3f4858d95de101b375ae3f76770e7f756b",
+      "templates/shortcodes/note.html": "7aa6223ad60634d3427dfb3c9120c9014bf41a86c037f429f8d75941d8e5f906",
+      "templates/shortcodes/opinionated.html": "77b4636de01e00c0210fefea711268aa50249174964d6ed125eba7c51cd9b273",
+      "templates/shortcodes/ref.html": "6c881bde41f6ec0a204e91a84cb9dc9e3a1e2f6126910b2ec191f8578807b16b",
+      "templates/shortcodes/rfc.html": "88913c8183da344439472c2934cb371d509e15691feddca59985fc042ce09b82",
+      "templates/shortcodes/std.html": "b68e45ab4db349a2bd168e7db28e21136f15e9c3486c53f78723246d2864e736",
+      "templates/shortcodes/tab.html": "32f86b12abd86b20d0f3cf8aa8cbdd04660f817f77824c22b26d54f5916fa2b8",
+      "templates/shortcodes/tablesep.html": "8c658667afca8693bb4e42dc3d3c247865b24a7945faaf218fbcdb6790e52d52",
+      "templates/shortcodes/tbl_boost.html": "c6268d9a123d48e2e6051d543e59b3a2c188ee036572620d46f653510d8338bf",
+      "templates/shortcodes/tbl_risk.html": "1be72cd023c5d19d643ee62d53810f136176918d96e4bc6fd74c1ffe27ee954e",
+      "templates/shortcodes/tbl_simple.html": "d327af35b3faaa504d72f609881eca9e68059f20bec0062ea83d0b7e37241afb",
+      "templates/shortcodes/tbl_tradeoff.html": "c6f3277887782f5ae41d0495fe2a447fab9e9e6d0650f7be7edb01c1510e0515",
+      "templates/shortcodes/todo.html": "51873367d167a2edd5f2a59dc7afc1f839575051414930ddaa20aa01a9e563d2",
+      "templates/shortcodes/year.html": "a7ef14019395f397e57721fc7e410ff6bfb9fd3ac2af8da9053a42c3a5343ff5"
+    }
+  },
+  "conversion": {
+    "generatorFiles": {
+      "scripts/convert.mjs": "3688c005c05c1ce92bc766209b6e995df26cb026f81f72eaf654491c1f67da65",
+      "scripts/generate.mjs": "cc39f032ab08737cd7df6170b615dca11dac50d162f6f706eb78a43d12a0967a",
+      "scripts/topics.mjs": "1bee2a244a2306338ecb50ec470995f80bb61592908ed968dd20e476d30c4189",
+      "scripts/tokens.mjs": "bcfcd13a8c3d11b75ed5a787cad13c00553babcab1bca7747a5b94ed1039461c",
+      "topic-plan.json": "26ede0591504a4ab06bac71698f8faae4647bd5a7c318d7eea86b3c17116b331",
+      "package-lock.json": "1de4a76a6b27936b872e354454e0123d17244282d559301653a15c9fe7edd172"
+    },
+    "policy": "CONVERSION.md",
+    "generatedFrom": "Markdown source, not rendered website HTML",
+    "correctionPolicy": "No silent factual or version corrections"
+  },
+  "license": {
+    "notice": "NOTICE.md",
+    "upstreamTerms": "https://github.com/ralfbiedert/cheats.rs/blob/f153e8e1da51e909fb6e1ed210013c6aadab80c2/content/legal.md",
+    "statement": "Upstream describes CC-BY with additional conditions/exclusions; Rust source snippets CC-0. No specific CC version is asserted."
+  },
+  "outputs": {
+    "references/all.md": {
+      "sha256": "e228b442b2393151aaab3621ce170677d644f0e085d868a2a114102ebef3c9e2",
+      "bytes": 273016
+    },
+    "references/conversion-report.json": {
+      "sha256": "08eb7efcb4f1542bc292c8a5f425b7b1614ab179efabb25cf600ef9d4c47156a",
+      "bytes": 38768
+    },
+    "references/common.md": {
+      "sha256": "185dd3433eb3cde8f1dba4095936da1c5019e927bc24dc4efa3e3730fda2ec93",
+      "bytes": 903
+    },
+    "references/topics/getting-started.md": {
+      "sha256": "376ebff88c7381e9a6a538b42a08290cc0ac72e56c5a36706d312001c5d27153",
+      "bytes": 3960
+    },
+    "references/topics/syntax-data.md": {
+      "sha256": "74fe7c61d9b5d578358d3fe08dd7b27dd2e8e47efb5953567245929f3791817f",
+      "bytes": 12550
+    },
+    "references/topics/syntax-functions.md": {
+      "sha256": "458b604b5f0cbdee95cca1e59606114f428c88791918a1f3aa0340d51b4a1300",
+      "bytes": 12259
+    },
+    "references/topics/syntax-organization.md": {
+      "sha256": "04fa1e2c422b52fff8f6bce243436f5750257d673282e1e1edf4fb91266b575a",
+      "bytes": 7867
+    },
+    "references/topics/syntax-patterns.md": {
+      "sha256": "5ad76c32474c8ff318b4a054952ef3ac5518c8c9f87e26f8d52776028496643b",
+      "bytes": 7368
+    },
+    "references/topics/syntax-generics.md": {
+      "sha256": "2a578dc46bb944a11bbea96d59fb26f2783449c21962f9acfd4b2793992a3d05",
+      "bytes": 8687
+    },
+    "references/topics/syntax-misc.md": {
+      "sha256": "b961d3bd944d79360fe11d26608ead3dea06e0ff2df386df354a36f86a6e1754",
+      "bytes": 6640
+    },
+    "references/topics/execution-model.md": {
+      "sha256": "192ae9a55419dacf549b60c8e81093b3906b3c27d8194fb5d9701ef1be79c2d8",
+      "bytes": 6150
+    },
+    "references/topics/moves-and-stack.md": {
+      "sha256": "353dee790ef7a562c488b456a00e54847ff023627433ca3a34532f6cc42ed9d1",
+      "bytes": 8934
+    },
+    "references/topics/borrowing.md": {
+      "sha256": "975ab89dbf2fae320ce6398d84c13b6d2259e382c1e1da1df39445d3e09a3b8d",
+      "bytes": 11918
+    },
+    "references/topics/function-lifetimes.md": {
+      "sha256": "77f444cde3bab95522837555c3548e2c3259bea06d95c24bdf3a9b5e51334424",
+      "bytes": 12701
+    },
+    "references/topics/layout-primitives.md": {
+      "sha256": "fe7132231fb6f22505510bc0b2ae4ecab132310761b620247d576d9dc878f100",
+      "bytes": 10609
+    },
+    "references/topics/layout-custom.md": {
+      "sha256": "ab97decb6509d1b6100c4ad1769dc01b3b44530928334bbbca29b6d44560144f",
+      "bytes": 9415
+    },
+    "references/topics/layout-stdlib.md": {
+      "sha256": "33bf318f0d53ea3a938f90a0c5539619981ed7b06a9f93cc6dccefc58244d062",
+      "bytes": 15141
+    },
+    "references/topics/idioms.md": {
+      "sha256": "8d69d7692b530d1c2e1e062d9ac5f4ea7d6ea63f540d20e3467d745a8f792e21",
+      "bytes": 3977
+    },
+    "references/topics/concurrency.md": {
+      "sha256": "f2896e14d26c712959b2d430d84b44711dbca389e155591e1a2aafb6e7e2e6a9",
+      "bytes": 11734
+    },
+    "references/topics/iterators.md": {
+      "sha256": "71f7e30d437906d1a67888181b9c289ef074432a70f4d9eddbb90387b2cf4f6d",
+      "bytes": 8014
+    },
+    "references/topics/strings-conversions.md": {
+      "sha256": "4c86c654e4cc75c323eeea3450f9a967da7f251500ce7d6d842b1b567938e48d",
+      "bytes": 11194
+    },
+    "references/topics/projects-cargo.md": {
+      "sha256": "a8d7159115c3bdeb91cd76d46c2d4a720ad4809a6d405f69c638484df726b490",
+      "bytes": 11696
+    },
+    "references/topics/macros-rustdoc.md": {
+      "sha256": "44c42cfffcf2a115174f30491360319f9993b908a6ccf8bec5dd731e5367ff2e",
+      "bytes": 3996
+    },
+    "references/topics/attributes-cfg.md": {
+      "sha256": "9c9840ef8caa5c29821bd8dde8298e2cbc0a60a2531a1f79e8ad7cf32235001e",
+      "bytes": 16919
+    },
+    "references/topics/build-scripts.md": {
+      "sha256": "77caefb969df37a3b57e49eda5f27f2387fff67fa95557754693a7edadc76c74",
+      "bytes": 2780
+    },
+    "references/topics/types-traits.md": {
+      "sha256": "52874d78ee2db8d6c70c92ad5886bd1dbfa0a4f6d91c09b3dc37d7c75ed036ef",
+      "bytes": 8832
+    },
+    "references/topics/generics.md": {
+      "sha256": "a1860f8382710134583e19d2cfc6cc492f1a62cb60a6fe20c7497f73d1bf88b2",
+      "bytes": 7347
+    },
+    "references/topics/advanced-traits.md": {
+      "sha256": "9ca3e872d32966aa753ad731f7891b3a6c3f4117c4d5315785b60dbbd5768f19",
+      "bytes": 11767
+    },
+    "references/topics/sized-and-lifetimes.md": {
+      "sha256": "2872f03452abcbba66e86d1cdf65bb71d18a161eb02c667dfeaed4a2da0c9f7d",
+      "bytes": 6068
+    },
+    "references/topics/coherence.md": {
+      "sha256": "6a2c9ba33700ffa9fa1930aa41d16ec57ea4a601204b303c0d7f69cf85aeae9b",
+      "bytes": 6258
+    },
+    "references/topics/conversions.md": {
+      "sha256": "40680445a383fc15e0d840e15fced8a2f2590879d15c433254450cf6b5d6d146",
+      "bytes": 8503
+    },
+    "references/topics/practices-performance.md": {
+      "sha256": "5e4a5b92818115ee1c19f97144725a0539efa98ba9cc3f30811bf7c38dab163b",
+      "bytes": 10164
+    },
+    "references/topics/async-closures.md": {
+      "sha256": "42d31e568d587d3e1d07a2695874e06a40e79197fe16e0d37b8b7e56c634cf9e",
+      "bytes": 6668
+    },
+    "references/topics/safety-stability.md": {
+      "sha256": "7255ada4baee81fe67adce9003bf231a7f727f7ebc988b61cfb3d6588f77411a",
+      "bytes": 9115
+    },
+    "references/topics/links.md": {
+      "sha256": "e2d27167b049ea537598028609fb62bceb1aa5ac7651aa6bd59d99403edc8f2d",
+      "bytes": 4412
+    },
+    "references/index.md": {
+      "sha256": "10eb176ba716c65d8966ab11a947624ecf3714c5e4dd0bd622020b9d92956157",
+      "bytes": 2719
+    },
+    "references/sections.md": {
+      "sha256": "948b5de1ef4b42ad3541f6536ec30f8c23ed3e5cdb1dc1ec569cee13cfce456b",
+      "bytes": 16279
+    },
+    "references/topics.json": {
+      "sha256": "a2b5db18534443ac6103b5c39b65b3bb30dd9527e8fd740df6e39313a200277c",
+      "bytes": 19854
+    }
+  }
+}

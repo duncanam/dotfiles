@@ -1,0 +1,749 @@
+{
+  "formatVersion": 1,
+  "tokenizer": "gpt-tokenizer@4.1.0",
+  "archive": {
+    "file": "references/all.md",
+    "sha256": "e228b442b2393151aaab3621ce170677d644f0e085d868a2a114102ebef3c9e2",
+    "tokens": {
+      "o200k_base": 81844,
+      "cl100k_base": 81938
+    }
+  },
+  "common": {
+    "file": "references/common.md",
+    "source": {
+      "startLine": 1,
+      "endLine": 15
+    },
+    "sha256": "185dd3433eb3cde8f1dba4095936da1c5019e927bc24dc4efa3e3730fda2ec93",
+    "tokens": {
+      "o200k_base": 222,
+      "cl100k_base": 224
+    }
+  },
+  "router": {
+    "file": "references/index.md",
+    "tokens": {
+      "o200k_base": 611,
+      "cl100k_base": 607
+    }
+  },
+  "topics": [
+    {
+      "id": "getting-started",
+      "group": "Syntax",
+      "description": "setup, first steps, strengths and limitations",
+      "file": "references/topics/getting-started.md",
+      "requires": [],
+      "source": {
+        "startLine": 16,
+        "endLine": 74,
+        "sha256": "2bdefc118955b5b46b408a900f0bbf1f56dbb64ddad170b7991a06f9f5489f94"
+      },
+      "bodyStartLine": 8,
+      "bytes": 3960,
+      "bodyTokens": {
+        "o200k_base": 982,
+        "cl100k_base": 993
+      },
+      "tokens": {
+        "o200k_base": 1082,
+        "cl100k_base": 1094
+      }
+    },
+    {
+      "id": "syntax-data",
+      "group": "Syntax",
+      "description": "structs, enums, references and pointers",
+      "file": "references/topics/syntax-data.md",
+      "requires": [],
+      "source": {
+        "startLine": 75,
+        "endLine": 170,
+        "sha256": "0e30771b13172290806b154c4fd679094fabc4e6669f3bbfa2009104cc63f64a"
+      },
+      "bodyStartLine": 9,
+      "bytes": 12550,
+      "bodyTokens": {
+        "o200k_base": 3671,
+        "cl100k_base": 3693
+      },
+      "tokens": {
+        "o200k_base": 3777,
+        "cl100k_base": 3801
+      }
+    },
+    {
+      "id": "syntax-functions",
+      "group": "Syntax",
+      "description": "functions, closures and control flow",
+      "file": "references/topics/syntax-functions.md",
+      "requires": [],
+      "source": {
+        "startLine": 171,
+        "endLine": 251,
+        "sha256": "a3ccb4f3d94a16fcbba0f5cc9ed7a06a5171d5795d8a6149c202922d5e1bacee"
+      },
+      "bodyStartLine": 9,
+      "bytes": 12259,
+      "bodyTokens": {
+        "o200k_base": 3545,
+        "cl100k_base": 3545
+      },
+      "tokens": {
+        "o200k_base": 3650,
+        "cl100k_base": 3652
+      }
+    },
+    {
+      "id": "syntax-organization",
+      "group": "Syntax",
+      "description": "modules, aliases, casts, macros and attributes",
+      "file": "references/topics/syntax-organization.md",
+      "requires": [],
+      "source": {
+        "startLine": 252,
+        "endLine": 328,
+        "sha256": "f72dfa15405f048515bc3f689e92ed29c3dfb57d70b5f01bbc76da1250212e45"
+      },
+      "bodyStartLine": 9,
+      "bytes": 7867,
+      "bodyTokens": {
+        "o200k_base": 2249,
+        "cl100k_base": 2235
+      },
+      "tokens": {
+        "o200k_base": 2357,
+        "cl100k_base": 2345
+      }
+    },
+    {
+      "id": "syntax-patterns",
+      "group": "Syntax",
+      "description": "patterns, match and destructuring",
+      "file": "references/topics/syntax-patterns.md",
+      "requires": [],
+      "source": {
+        "startLine": 329,
+        "endLine": 388,
+        "sha256": "0218b3285f7847cbd34c5af96b6b624d46c998e119433a6677c2979e5b941477"
+      },
+      "bodyStartLine": 9,
+      "bytes": 7368,
+      "bodyTokens": {
+        "o200k_base": 2313,
+        "cl100k_base": 2295
+      },
+      "tokens": {
+        "o200k_base": 2418,
+        "cl100k_base": 2402
+      }
+    },
+    {
+      "id": "syntax-generics",
+      "group": "Syntax",
+      "description": "generic syntax, bounds and higher-ranked items",
+      "file": "references/topics/syntax-generics.md",
+      "requires": [],
+      "source": {
+        "startLine": 389,
+        "endLine": 463,
+        "sha256": "660d0495e7ff99cb631551b95945d415c48a3aa51d23d89203f51f2dcc1ebde3"
+      },
+      "bodyStartLine": 9,
+      "bytes": 8687,
+      "bodyTokens": {
+        "o200k_base": 2661,
+        "cl100k_base": 2663
+      },
+      "tokens": {
+        "o200k_base": 2768,
+        "cl100k_base": 2772
+      }
+    },
+    {
+      "id": "syntax-misc",
+      "group": "Syntax",
+      "description": "strings, characters, documentation and operators",
+      "file": "references/topics/syntax-misc.md",
+      "requires": [],
+      "source": {
+        "startLine": 464,
+        "endLine": 533,
+        "sha256": "9acb1f6d23bcc1cf2747f28f417f7733f0879407b23041df9ab15f32c9f1c9fe"
+      },
+      "bodyStartLine": 9,
+      "bytes": 6640,
+      "bodyTokens": {
+        "o200k_base": 1849,
+        "cl100k_base": 1844
+      },
+      "tokens": {
+        "o200k_base": 1955,
+        "cl100k_base": 1952
+      }
+    },
+    {
+      "id": "execution-model",
+      "group": "Ownership",
+      "description": "abstract machine and language sugar",
+      "file": "references/topics/execution-model.md",
+      "requires": [],
+      "source": {
+        "startLine": 534,
+        "endLine": 611,
+        "sha256": "cd9cc53d47f35f05229be5a98e4d353ba8cab6c982d0924a6836aef3c26f15f5"
+      },
+      "bodyStartLine": 8,
+      "bytes": 6150,
+      "bodyTokens": {
+        "o200k_base": 1628,
+        "cl100k_base": 1636
+      },
+      "tokens": {
+        "o200k_base": 1725,
+        "cl100k_base": 1734
+      }
+    },
+    {
+      "id": "moves-and-stack",
+      "group": "Ownership",
+      "description": "moves, ownership and call stack",
+      "file": "references/topics/moves-and-stack.md",
+      "requires": [],
+      "source": {
+        "startLine": 612,
+        "endLine": 900,
+        "sha256": "e6bbf676251b1289d6cf4edd643c0c1d17bac1152f9147194a30568b449fe415"
+      },
+      "bodyStartLine": 8,
+      "bytes": 8934,
+      "bodyTokens": {
+        "o200k_base": 2502,
+        "cl100k_base": 2515
+      },
+      "tokens": {
+        "o200k_base": 2600,
+        "cl100k_base": 2614
+      }
+    },
+    {
+      "id": "borrowing",
+      "group": "Ownership",
+      "description": "references, pointers and lifetime basics",
+      "file": "references/topics/borrowing.md",
+      "requires": [
+        "moves-and-stack"
+      ],
+      "source": {
+        "startLine": 901,
+        "endLine": 1283,
+        "sha256": "86b7fc2f710dd8e73f6c20b8db931ca4c8e8eadd06f7be2483e4adda930130e4"
+      },
+      "bodyStartLine": 10,
+      "bytes": 11918,
+      "bodyTokens": {
+        "o200k_base": 3604,
+        "cl100k_base": 3625
+      },
+      "tokens": {
+        "o200k_base": 3734,
+        "cl100k_base": 3756
+      }
+    },
+    {
+      "id": "function-lifetimes",
+      "group": "Ownership",
+      "description": "function lifetimes and advanced borrowing",
+      "file": "references/topics/function-lifetimes.md",
+      "requires": [
+        "borrowing"
+      ],
+      "source": {
+        "startLine": 1284,
+        "endLine": 1695,
+        "sha256": "66952abd1c5bb6217ddb1a6114260a5aef5bdb6ac6dbeddec50e9fa21937d318"
+      },
+      "bodyStartLine": 10,
+      "bytes": 12701,
+      "bodyTokens": {
+        "o200k_base": 4083,
+        "cl100k_base": 4105
+      },
+      "tokens": {
+        "o200k_base": 4212,
+        "cl100k_base": 4235
+      }
+    },
+    {
+      "id": "layout-primitives",
+      "group": "Layout",
+      "description": "numeric/textual types, casts and arithmetic pitfalls",
+      "file": "references/topics/layout-primitives.md",
+      "requires": [],
+      "source": {
+        "startLine": 1696,
+        "endLine": 2043,
+        "sha256": "2f5c24b445879659476f7e146e3eb6efb49596e6d506d4303c2cf35efe2a1b63"
+      },
+      "bodyStartLine": 8,
+      "bytes": 10609,
+      "bodyTokens": {
+        "o200k_base": 3615,
+        "cl100k_base": 3614
+      },
+      "tokens": {
+        "o200k_base": 3718,
+        "cl100k_base": 3718
+      }
+    },
+    {
+      "id": "layout-custom",
+      "group": "Layout",
+      "description": "custom types, pointer metadata and closure layout",
+      "file": "references/topics/layout-custom.md",
+      "requires": [],
+      "source": {
+        "startLine": 2044,
+        "endLine": 2454,
+        "sha256": "62f5f3991829f9df0b02f2979337de5d852fbbb5697127114c10a7458365b322"
+      },
+      "bodyStartLine": 8,
+      "bytes": 9415,
+      "bodyTokens": {
+        "o200k_base": 2670,
+        "cl100k_base": 2696
+      },
+      "tokens": {
+        "o200k_base": 2772,
+        "cl100k_base": 2799
+      }
+    },
+    {
+      "id": "layout-stdlib",
+      "group": "Layout",
+      "description": "cells, collections, strings and shared ownership layout",
+      "file": "references/topics/layout-stdlib.md",
+      "requires": [],
+      "source": {
+        "startLine": 2455,
+        "endLine": 3170,
+        "sha256": "899b7731d698b0af022a90f1f8ce45ed1bacafe5192e89a6c07c5702a5687b5f"
+      },
+      "bodyStartLine": 8,
+      "bytes": 15141,
+      "bodyTokens": {
+        "o200k_base": 4367,
+        "cl100k_base": 4410
+      },
+      "tokens": {
+        "o200k_base": 4470,
+        "cl100k_base": 4514
+      }
+    },
+    {
+      "id": "idioms",
+      "group": "Standard library",
+      "description": "common string, I/O and transformation idioms",
+      "file": "references/topics/idioms.md",
+      "requires": [],
+      "source": {
+        "startLine": 3171,
+        "endLine": 3233,
+        "sha256": "8321a6e23f609adb67079989086b5f1f47989d458e707757ab9814de7e7e0c39"
+      },
+      "bodyStartLine": 8,
+      "bytes": 3977,
+      "bodyTokens": {
+        "o200k_base": 1096,
+        "cl100k_base": 1089
+      },
+      "tokens": {
+        "o200k_base": 1200,
+        "cl100k_base": 1194
+      }
+    },
+    {
+      "id": "concurrency",
+      "group": "Standard library",
+      "description": "Send/Sync, threads, atomics and caches",
+      "file": "references/topics/concurrency.md",
+      "requires": [],
+      "source": {
+        "startLine": 3234,
+        "endLine": 3556,
+        "sha256": "783a719f3546c33ee64dc75cd090906275157171125597a092a940191f104ab9"
+      },
+      "bodyStartLine": 8,
+      "bytes": 11734,
+      "bodyTokens": {
+        "o200k_base": 3520,
+        "cl100k_base": 3533
+      },
+      "tokens": {
+        "o200k_base": 3625,
+        "cl100k_base": 3639
+      }
+    },
+    {
+      "id": "iterators",
+      "group": "Standard library",
+      "description": "iterator construction, loops, borrowing and interoperability",
+      "file": "references/topics/iterators.md",
+      "requires": [],
+      "source": {
+        "startLine": 3557,
+        "endLine": 3812,
+        "sha256": "c4237fd3cc8e9c36fced5ea3025ba4290c1c6ebb34479d5cd1da3a8bcfde03e0"
+      },
+      "bodyStartLine": 8,
+      "bytes": 8014,
+      "bodyTokens": {
+        "o200k_base": 1965,
+        "cl100k_base": 1973
+      },
+      "tokens": {
+        "o200k_base": 2068,
+        "cl100k_base": 2078
+      }
+    },
+    {
+      "id": "strings-conversions",
+      "group": "Standard library",
+      "description": "number/string conversions and formatting",
+      "file": "references/topics/strings-conversions.md",
+      "requires": [],
+      "source": {
+        "startLine": 3813,
+        "endLine": 4096,
+        "sha256": "25843329dcfd07e130849561765b26260b2e65dbef2cdf460556d806b908dc1d"
+      },
+      "bodyStartLine": 8,
+      "bytes": 11194,
+      "bodyTokens": {
+        "o200k_base": 3995,
+        "cl100k_base": 3958
+      },
+      "tokens": {
+        "o200k_base": 4095,
+        "cl100k_base": 4059
+      }
+    },
+    {
+      "id": "projects-cargo",
+      "group": "Tooling",
+      "description": "project structure, modules, Cargo and cross compilation",
+      "file": "references/topics/projects-cargo.md",
+      "requires": [],
+      "source": {
+        "startLine": 4097,
+        "endLine": 4391,
+        "sha256": "d9c0ea48cc026e4404a5248d34b3ea42d8cdeabe40617159e698dfa76cbe3b28"
+      },
+      "bodyStartLine": 8,
+      "bytes": 11696,
+      "bodyTokens": {
+        "o200k_base": 3182,
+        "cl100k_base": 3189
+      },
+      "tokens": {
+        "o200k_base": 3286,
+        "cl100k_base": 3294
+      }
+    },
+    {
+      "id": "macros-rustdoc",
+      "group": "Tooling",
+      "description": "macro fragments and rustdoc directives",
+      "file": "references/topics/macros-rustdoc.md",
+      "requires": [],
+      "source": {
+        "startLine": 4392,
+        "endLine": 4438,
+        "sha256": "e0001fac27d9492c67239d4ff8bd34804e64833b9b19d76972e0cb26bafbf137"
+      },
+      "bodyStartLine": 8,
+      "bytes": 3996,
+      "bodyTokens": {
+        "o200k_base": 1144,
+        "cl100k_base": 1140
+      },
+      "tokens": {
+        "o200k_base": 1245,
+        "cl100k_base": 1242
+      }
+    },
+    {
+      "id": "attributes-cfg",
+      "group": "Tooling",
+      "description": "crate/code/lint/proc-macro attributes and cfg",
+      "file": "references/topics/attributes-cfg.md",
+      "requires": [],
+      "source": {
+        "startLine": 4439,
+        "endLine": 4596,
+        "sha256": "fa3264afd3cf74314b9a3fc2be0d2f64ad938994c56058a90fe92024dc6eb5b5"
+      },
+      "bodyStartLine": 9,
+      "bytes": 16919,
+      "bodyTokens": {
+        "o200k_base": 4684,
+        "cl100k_base": 4636
+      },
+      "tokens": {
+        "o200k_base": 4798,
+        "cl100k_base": 4751
+      }
+    },
+    {
+      "id": "build-scripts",
+      "group": "Tooling",
+      "description": "build.rs and Cargo build-script instructions",
+      "file": "references/topics/build-scripts.md",
+      "requires": [],
+      "source": {
+        "startLine": 4597,
+        "endLine": 4655,
+        "sha256": "0eeed92f6c35153d2c8bc65cda2a5dde16cb0ac843d9e6f3c6dc2cc405ac9f6c"
+      },
+      "bodyStartLine": 9,
+      "bytes": 2780,
+      "bodyTokens": {
+        "o200k_base": 718,
+        "cl100k_base": 716
+      },
+      "tokens": {
+        "o200k_base": 828,
+        "cl100k_base": 827
+      }
+    },
+    {
+      "id": "types-traits",
+      "group": "Types",
+      "description": "types, implementations, traits and interfaces",
+      "file": "references/topics/types-traits.md",
+      "requires": [],
+      "source": {
+        "startLine": 4656,
+        "endLine": 5023,
+        "sha256": "1ea69928ae556e3d5a46945f7aaf656daf28037087bce32ec3c84cd0e664b14d"
+      },
+      "bodyStartLine": 8,
+      "bytes": 8832,
+      "bodyTokens": {
+        "o200k_base": 2419,
+        "cl100k_base": 2423
+      },
+      "tokens": {
+        "o200k_base": 2520,
+        "cl100k_base": 2525
+      }
+    },
+    {
+      "id": "generics",
+      "group": "Types",
+      "description": "type constructors, const generics, bounds and blanket implementations",
+      "file": "references/topics/generics.md",
+      "requires": [
+        "types-traits"
+      ],
+      "source": {
+        "startLine": 5024,
+        "endLine": 5307,
+        "sha256": "3076d0bb55ed13a28d7de72752085336ddcfbd03fdf8dc204dc07ea1e780705f"
+      },
+      "bodyStartLine": 10,
+      "bytes": 7347,
+      "bodyTokens": {
+        "o200k_base": 1978,
+        "cl100k_base": 1978
+      },
+      "tokens": {
+        "o200k_base": 2116,
+        "cl100k_base": 2116
+      }
+    },
+    {
+      "id": "advanced-traits",
+      "group": "Types",
+      "description": "trait parameters and trait-authoring tradeoffs",
+      "file": "references/topics/advanced-traits.md",
+      "requires": [
+        "generics"
+      ],
+      "source": {
+        "startLine": 5308,
+        "endLine": 5916,
+        "sha256": "127444039ce5a53bfd03319a705a6ed311440a20a979d7f0004f1b6d23910903"
+      },
+      "bodyStartLine": 10,
+      "bytes": 11767,
+      "bodyTokens": {
+        "o200k_base": 3308,
+        "cl100k_base": 3311
+      },
+      "tokens": {
+        "o200k_base": 3441,
+        "cl100k_base": 3445
+      }
+    },
+    {
+      "id": "sized-and-lifetimes",
+      "group": "Types",
+      "description": "DSTs, zero-sized types, Sized and lifetime generics",
+      "file": "references/topics/sized-and-lifetimes.md",
+      "requires": [
+        "generics"
+      ],
+      "source": {
+        "startLine": 5917,
+        "endLine": 6104,
+        "sha256": "cde515e718ce5fd2e2bfe4f121a71ddebc0bdd326957eedea9cfe048dc551e95"
+      },
+      "bodyStartLine": 10,
+      "bytes": 6068,
+      "bodyTokens": {
+        "o200k_base": 1582,
+        "cl100k_base": 1597
+      },
+      "tokens": {
+        "o200k_base": 1724,
+        "cl100k_base": 1739
+      }
+    },
+    {
+      "id": "coherence",
+      "group": "Types",
+      "description": "foreign types/traits and implementation legality",
+      "file": "references/topics/coherence.md",
+      "requires": [
+        "types-traits"
+      ],
+      "source": {
+        "startLine": 6105,
+        "endLine": 6259,
+        "sha256": "12a271f56c4162aec6f48129578f158d56a56ad442f591dfa6c2cb09c078f59d"
+      },
+      "bodyStartLine": 9,
+      "bytes": 6258,
+      "bodyTokens": {
+        "o200k_base": 1644,
+        "cl100k_base": 1690
+      },
+      "tokens": {
+        "o200k_base": 1768,
+        "cl100k_base": 1815
+      }
+    },
+    {
+      "id": "conversions",
+      "group": "Types",
+      "description": "casts, coercions, subtyping and variance",
+      "file": "references/topics/conversions.md",
+      "requires": [],
+      "source": {
+        "startLine": 6260,
+        "endLine": 6443,
+        "sha256": "07a774bd3a61dc3d267ab62004de4e28899f8258eb1c8cd4f58d5737c402bbef"
+      },
+      "bodyStartLine": 8,
+      "bytes": 8503,
+      "bodyTokens": {
+        "o200k_base": 2731,
+        "cl100k_base": 2737
+      },
+      "tokens": {
+        "o200k_base": 2834,
+        "cl100k_base": 2841
+      }
+    },
+    {
+      "id": "practices-performance",
+      "group": "Guides",
+      "description": "idiomatic Rust, optimization and profiling",
+      "file": "references/topics/practices-performance.md",
+      "requires": [],
+      "source": {
+        "startLine": 6444,
+        "endLine": 6543,
+        "sha256": "03d13fd6095ecd72ab5970afd1982af76efbbd6f3b2bad52eb64cbea2bc91b4e"
+      },
+      "bodyStartLine": 8,
+      "bytes": 10164,
+      "bodyTokens": {
+        "o200k_base": 2871,
+        "cl100k_base": 2845
+      },
+      "tokens": {
+        "o200k_base": 2972,
+        "cl100k_base": 2947
+      }
+    },
+    {
+      "id": "async-closures",
+      "group": "Guides",
+      "description": "async execution/caveats and closure API bounds",
+      "file": "references/topics/async-closures.md",
+      "requires": [],
+      "source": {
+        "startLine": 6544,
+        "endLine": 6652,
+        "sha256": "d6a4e7e2eb874a1e5390e51c939c4dbdccedc354f06b2143a61242fce5d68d3a"
+      },
+      "bodyStartLine": 8,
+      "bytes": 6668,
+      "bodyTokens": {
+        "o200k_base": 1703,
+        "cl100k_base": 1689
+      },
+      "tokens": {
+        "o200k_base": 1806,
+        "cl100k_base": 1793
+      }
+    },
+    {
+      "id": "safety-stability",
+      "group": "Guides",
+      "description": "unsafe, unsoundness, adversarial code and API stability",
+      "file": "references/topics/safety-stability.md",
+      "requires": [],
+      "source": {
+        "startLine": 6653,
+        "endLine": 6826,
+        "sha256": "e1515191a9ddebc52a360d4679a31a375cd82c86434a39419a553a401be28195"
+      },
+      "bodyStartLine": 8,
+      "bytes": 9115,
+      "bodyTokens": {
+        "o200k_base": 2264,
+        "cl100k_base": 2266
+      },
+      "tokens": {
+        "o200k_base": 2370,
+        "cl100k_base": 2373
+      }
+    },
+    {
+      "id": "links",
+      "group": "Miscellaneous",
+      "description": "reference links and ecosystem services",
+      "file": "references/topics/links.md",
+      "requires": [],
+      "source": {
+        "startLine": 6827,
+        "endLine": 6874,
+        "sha256": "19110449874ebbde0d8a13769b880e58d9b74abcdbc48ab32bb0eb5059d58725"
+      },
+      "bodyStartLine": 8,
+      "bytes": 4412,
+      "bodyTokens": {
+        "o200k_base": 1079,
+        "cl100k_base": 1075
+      },
+      "tokens": {
+        "o200k_base": 1179,
+        "cl100k_base": 1175
+      }
+    }
+  ]
+}

@@ -1,0 +1,1572 @@
+{
+  "shortcodes": {
+    "date": 1,
+    "book": 59,
+    "ex": 48,
+    "std": 134,
+    "nom": 20,
+    "ref": 188,
+    "rfc": 17,
+    "link": 69,
+    "above": 12,
+    "below": 26,
+    "deprecated": 8,
+    "edition": 21,
+    "experimental": 23,
+    "bad": 46,
+    "esoteric": 51,
+    "hot": 16,
+    "expands_to": 5,
+    "opinionated": 9,
+    "todo": 17,
+    "tab": 206,
+    "note": 10,
+    "tablesep": 111,
+    "tbl_boost": 6,
+    "tbl_simple": 12,
+    "noemoji1": 15,
+    "tbl_risk": 5,
+    "tbl_tradeoff": 12,
+    "noemoji2": 8
+  },
+  "tags": {
+    "a": 12,
+    "img": 1,
+    "pagetitle": 1,
+    "subtitle": 11,
+    "span": 23,
+    "blockquote": 3,
+    "noprint": 4,
+    "page-controls": 1,
+    "div": 176,
+    "toc": 1,
+    "tabs": 16,
+    "tab": 80,
+    "b": 92,
+    "input": 80,
+    "panel": 80,
+    "strike": 4,
+    "sup": 227,
+    "br": 109,
+    "fixed-2-column": 20,
+    "footnotes": 57,
+    "code": 936,
+    "less-important": 8,
+    "magic": 1,
+    "mini-zoo": 156,
+    "entry": 154,
+    "machine": 5,
+    "note": 32,
+    "lifetime-section": 26,
+    "lifetime-example": 52,
+    "section-header": 9,
+    "memory-row": 32,
+    "memory-backdrop": 48,
+    "byte": 386,
+    "values": 32,
+    "value": 87,
+    "labels": 22,
+    "label": 74,
+    "subtext": 25,
+    "explanation": 22,
+    "failed": 3,
+    "denied": 5,
+    "drop": 3,
+    "droparrow": 3,
+    "arrows": 9,
+    "arrow": 11,
+    "tip": 10,
+    "datum": 116,
+    "name": 59,
+    "visual": 71,
+    "zoom": 4,
+    "bitgroup": 3,
+    "bit": 32,
+    "sub": 56,
+    "description": 62,
+    "i": 13,
+    "framed": 70,
+    "andor": 13,
+    "pad": 15,
+    "ptr": 24,
+    "payload": 7,
+    "memory-entry": 27,
+    "memory-link": 24,
+    "memory": 23,
+    "sized": 23,
+    "table": 15,
+    "tr": 5,
+    "td": 5,
+    "spacer": 9,
+    "capacity": 5,
+    "word": 4,
+    "threading-section": 1,
+    "thread-row": 6,
+    "thread-backdrop": 3,
+    "hr": 7,
+    "thread-link": 4,
+    "blank-background": 3,
+    "line-comment": 10,
+    "container": 8,
+    "tag": 8,
+    "type": 112,
+    "trait-impl": 98,
+    "associated-type": 24,
+    "fixed-3-column": 7,
+    "generics-section": 19,
+    "header": 19,
+    "mini-table": 23,
+    "impl": 6,
+    "person": 29,
+    "narrow-entry": 14,
+    "zoo": 1,
+    "region": 4,
+    "group": 8,
+    "function": 4,
+    "macro": 2,
+    "region-label": 2,
+    "footnote": 2
+  },
+  "removed": {
+    "TOML frontmatter": 1,
+    "HTML comment": 306,
+    "printing instructions and site footer": 1,
+    "site chrome: img#logo": 1,
+    "interactive control": 1,
+    "site chrome: pagetitle": 1,
+    "site chrome: span#subtitle": 1,
+    "site chrome: blockquote": 1,
+    "site chrome: page-controls": 1,
+    "site chrome: div": 1,
+    "site chrome: toc": 1,
+    "site chrome: input#tab-hello-1": 1,
+    "site chrome: div#helloplay": 1,
+    "site chrome: div#helloinfo": 1,
+    "site chrome: div#helloctrl": 1,
+    "site chrome: input#tab-hello-3": 1,
+    "site chrome: input#tab-hello-4": 1,
+    "site chrome: input#tab-hello-5": 1,
+    "site chrome: input#tab-hello-6": 1,
+    "site chrome: input#tab-abstract-machine-1": 1,
+    "site chrome: input#tab-abstract-machine-2": 1,
+    "site chrome: input#tab-lt-1": 1,
+    "site chrome: input#tab-lt-2": 1,
+    "site chrome: input#tab-lt-3": 1,
+    "site chrome: input#tab-lt-10": 1,
+    "site chrome: input#tab-lt-11": 1,
+    "site chrome: input#tab-lt-12": 1,
+    "site chrome: input#tab-numeric-1": 1,
+    "site chrome: input#tab-numeric-3": 1,
+    "site chrome: input#tab-numeric-6": 1,
+    "site chrome: input#tab-numeric-2": 1,
+    "site chrome: input#tab-numeric-4": 1,
+    "site chrome: input#tab-numeric-5": 1,
+    "site chrome: input#tab-textual-3": 1,
+    "site chrome: input#tab-textual-1": 1,
+    "site chrome: input#tab-textual-2": 1,
+    "site chrome: input#tab-api-2": 1,
+    "site chrome: input#tab-api-1": 1,
+    "site chrome: input#tab-api-4": 1,
+    "site chrome: input#tab-api-5": 1,
+    "site chrome: input#tab-api-3": 1,
+    "site chrome: input#tab-trait-iter-p0": 1,
+    "site chrome: input#tab-trait-iter-1": 1,
+    "site chrome: input#tab-trait-iter-2": 1,
+    "site chrome: input#tab-trait-iter-3": 1,
+    "site chrome: input#tab-trait-iter-2b": 1,
+    "site chrome: input#tab-trait-iter-4": 1,
+    "site chrome: input#tab-str-1": 1,
+    "site chrome: input#tab-str-2": 1,
+    "site chrome: input#tab-str-3": 1,
+    "site chrome: input#tab-str-35": 1,
+    "site chrome: input#tab-str-4": 1,
+    "site chrome: input#tab-str-5": 1,
+    "site chrome: input#tab-str-6": 1,
+    "site chrome: input#tab-str-8": 1,
+    "site chrome: input#tab-str-85": 1,
+    "site chrome: input#tab-str-7": 1,
+    "site chrome: input#tab-str-9": 1,
+    "site chrome: input#tab-strop-1": 1,
+    "site chrome: input#tab-strop-2": 1,
+    "site chrome: input#tab-strop-3": 1,
+    "site chrome: input#tab-anatomy-1": 1,
+    "site chrome: input#tab-anatomy-2": 1,
+    "site chrome: input#tab-anatomy-3": 1,
+    "site chrome: input#tab-anatomy-4": 1,
+    "site chrome: input#tab-anatomy-5": 1,
+    "site chrome: input#tab-anatomy-6": 1,
+    "site chrome: input#tab-anatomy-25": 1,
+    "site chrome: input#tab-module-import-1": 1,
+    "site chrome: input#tab-module-import-2": 1,
+    "site chrome: input#tab-preprocessing-1": 1,
+    "site chrome: input#tab-preprocessing-2": 1,
+    "site chrome: input#tab-preprocessing-7": 1,
+    "site chrome: input#tab-preprocessing-4": 1,
+    "site chrome: input#tab-preprocessing-3": 1,
+    "site chrome: input#tab-preprocessing-8": 1,
+    "site chrome: input#tab-preprocessing-5": 1,
+    "site chrome: input#tab-preprocessing-6": 1,
+    "site chrome: input#tab-types-1": 1,
+    "site chrome: input#tab-types-2": 1,
+    "site chrome: input#tab-types-3": 1,
+    "site chrome: input#tab-variance-1": 1,
+    "site chrome: input#tab-variance-2": 1,
+    "site chrome: input#tab-variance-3": 1,
+    "site chrome: input#tab-variance-4": 1,
+    "site chrome: input#tab-variance-5": 1,
+    "site chrome: input#tab-variance-8": 1,
+    "site chrome: input#tab-async-1": 1,
+    "site chrome: input#tab-async-2": 1,
+    "site chrome: input#tab-async-3": 1,
+    "site chrome: input#tab-unsafe-0": 1,
+    "site chrome: input#tab-unsafe-1": 1,
+    "site chrome: input#tab-unsafe-2": 1,
+    "site chrome: input#tab-unsafe-3": 1
+  },
+  "tabs": [
+    "Hello World",
+    "Strengths",
+    "Weaknesses",
+    "Installation",
+    "First Steps",
+    "Overview",
+    "Misconceptions",
+    "Types & Moves",
+    "Call Stack",
+    "References & Pointers",
+    "Lifetime Basics",
+    "Lifetimes in Functions",
+    "Advanced [Advanced] ",
+    "Unsigned Types",
+    "Signed Types",
+    "Float Types",
+    "Float Internals [Advanced]",
+    "Casting Pitfalls [Pitfall / intentionally wrong]",
+    "Arithmetic Pitfalls [Pitfall / intentionally wrong]",
+    "Basics",
+    "Usage",
+    "Encoding [Advanced]",
+    "Strings",
+    "I/O",
+    "Macros",
+    "Transforms [Useful] ",
+    "Esoterics [Advanced]",
+    "Basics",
+    "Obtaining",
+    "Creating",
+    "For Loops",
+    "Borrowing",
+    "Interoperability",
+    "`String`",
+    "`CString`",
+    "`OsString`",
+    "`PathBuf`",
+    "`Vec<u8>`",
+    "`&str`",
+    "`&CStr`",
+    "`&OsStr`",
+    "`&Path`",
+    "`&[u8]`",
+    "Other",
+    "APIs",
+    "Printable Types",
+    "Formatting",
+    "Applications",
+    "Libraries",
+    "Unit Tests",
+    "Integration Tests",
+    "Benchmarks [Unstable / nightly]",
+    "Build Scripts",
+    "Proc Macros [Advanced]",
+    "Module Trees",
+    "Namespaces [Advanced]",
+    "Macro Fragments",
+    "Documentation",
+    "`#![globals]`",
+    "`#[code]`",
+    "`#[quality]`",
+    "`#[macros]`",
+    "`#[cfg]`",
+    "`build.rs`",
+    "Types & Traits",
+    "Generics",
+    "Advanced Concepts [Advanced]",
+    "Intro",
+    "Computation (Traits)",
+    "Casts",
+    "Coercions",
+    "Subtyping [Advanced]",
+    "Variance [Advanced]",
+    "Basics",
+    "Execution Flow",
+    "Caveats [Pitfall / intentionally wrong]",
+    "Safe Code",
+    "Unsafe Code",
+    "Undefined Behavior",
+    "Unsound Code"
+  ],
+  "diagrams": [
+    {
+      "id": 1,
+      "kind": "mini-zoo",
+      "normalizedInputLine": 879,
+      "title": "Rust → CPU **[Pitfall / intentionally wrong]** Misleading."
+    },
+    {
+      "id": 2,
+      "kind": "mini-zoo",
+      "normalizedInputLine": 891,
+      "title": "Rust → Abstract Machine → CPU Correct."
+    },
+    {
+      "id": 3,
+      "kind": "lifetime-example",
+      "normalizedInputLine": 1027,
+      "title": "Application Memory S(1) Application Memory"
+    },
+    {
+      "id": 4,
+      "kind": "lifetime-example",
+      "normalizedInputLine": 1104,
+      "title": "Variables S(1) S(1) a t Variables"
+    },
+    {
+      "id": 5,
+      "kind": "lifetime-example",
+      "normalizedInputLine": 1186,
+      "title": "Move Semantics S(1) a t Moves"
+    },
+    {
+      "id": 6,
+      "kind": "lifetime-example",
+      "normalizedInputLine": 1263,
+      "title": "Type Safety M { … } ⛔ c Type Safety"
+    },
+    {
+      "id": 7,
+      "kind": "lifetime-example",
+      "normalizedInputLine": 1338,
+      "title": "Scope & Drop S(1)▼ C(2) S(2)▼ S(3) t Scope & Drop"
+    },
+    {
+      "id": 8,
+      "kind": "lifetime-example",
+      "normalizedInputLine": 1426,
+      "title": "Stack Frame S(1) a x Function Boundaries"
+    },
+    {
+      "id": 9,
+      "kind": "lifetime-example",
+      "normalizedInputLine": 1501,
+      "title": "S(1) a x x Nested Functions"
+    },
+    {
+      "id": 10,
+      "kind": "lifetime-example",
+      "normalizedInputLine": 1571,
+      "title": "Validity of Variables S(1) M { } a x m Repurposing Memory"
+    },
+    {
+      "id": 11,
+      "kind": "lifetime-example",
+      "normalizedInputLine": 1653,
+      "title": "Reference Types ▼ S(1) 0x3 a r References as Pointers"
+    },
+    {
+      "id": 12,
+      "kind": "lifetime-example",
+      "normalizedInputLine": 1730,
+      "title": "(Mutable) References ▼ S(2) 0x3 S(1) a r d Access to Non-Owned Memory"
+    },
+    {
+      "id": 13,
+      "kind": "lifetime-example",
+      "normalizedInputLine": 1809,
+      "title": "▼ S(2) 0x3 M { x } ⛔ ⛔ a r d References Guard Referents"
+    },
+    {
+      "id": 14,
+      "kind": "lifetime-example",
+      "normalizedInputLine": 1889,
+      "title": "▼ C(2) 0x3 c p Raw Pointers"
+    },
+    {
+      "id": 15,
+      "kind": "lifetime-example",
+      "normalizedInputLine": 1973,
+      "title": "C(2) 0x3 \"Lifetime\" of Things"
+    },
+    {
+      "id": 16,
+      "kind": "lifetime-example",
+      "normalizedInputLine": 2155,
+      "title": "▼ S(0) S(1) S(2) 0xa a b c r Meaning of r: &'c S"
+    },
+    {
+      "id": 17,
+      "kind": "lifetime-example",
+      "normalizedInputLine": 2330,
+      "title": "▼ S(0) S(3) S(2) 0x6 ⛔ a b c r Typelikeness of Lifetimes"
+    },
+    {
+      "id": 18,
+      "kind": "lifetime-example",
+      "normalizedInputLine": 2508,
+      "title": "▼ S(0) S(2) 0x6 S(4) ⛔ a b c Borrowed State"
+    },
+    {
+      "id": 19,
+      "kind": "lifetime-example",
+      "normalizedInputLine": 2693,
+      "title": "S(0) S(1) S(2) ? 0x6 0xa a b c r x y Function Parameters"
+    },
+    {
+      "id": 20,
+      "kind": "lifetime-example",
+      "normalizedInputLine": 2871,
+      "title": "S(0) S(1) S(2) ? 0x6 0xa a b c r x y Problem of 'Borrowed' Propagation"
+    },
+    {
+      "id": 21,
+      "kind": "lifetime-example",
+      "normalizedInputLine": 3047,
+      "title": "▼ S(1) S(1) S(2) y + _ 0x6 0xa a b c r x y Lifetimes Propagate Borrowed State"
+    },
+    {
+      "id": 22,
+      "kind": "lifetime-example",
+      "normalizedInputLine": 3230,
+      "title": "S(2) S(1) S(2) y + 1 0x6 0xa a b c r x y Unlocking"
+    },
+    {
+      "id": 23,
+      "kind": "lifetime-example",
+      "normalizedInputLine": 3413,
+      "title": "▼ ▼ S(1) 0x2 0x6 0x2 a ra rb rval References to References"
+    },
+    {
+      "id": 24,
+      "kind": "lifetime-example",
+      "normalizedInputLine": 3508,
+      "title": "S(1)▼ _ Drop and _"
+    },
+    {
+      "id": 25,
+      "kind": "datum",
+      "normalizedInputLine": 3623,
+      "title": "bool"
+    },
+    {
+      "id": 26,
+      "kind": "datum",
+      "normalizedInputLine": 3632,
+      "title": "u8, i8"
+    },
+    {
+      "id": 27,
+      "kind": "datum",
+      "normalizedInputLine": 3641,
+      "title": "u16, i16"
+    },
+    {
+      "id": 28,
+      "kind": "datum",
+      "normalizedInputLine": 3651,
+      "title": "u32, i32"
+    },
+    {
+      "id": 29,
+      "kind": "datum",
+      "normalizedInputLine": 3663,
+      "title": "u64, i64"
+    },
+    {
+      "id": 30,
+      "kind": "datum",
+      "normalizedInputLine": 3679,
+      "title": "u128, i128"
+    },
+    {
+      "id": 31,
+      "kind": "datum",
+      "normalizedInputLine": 3704,
+      "title": "usize, isize Same as ptr on platform."
+    },
+    {
+      "id": 32,
+      "kind": "datum",
+      "normalizedInputLine": 3724,
+      "title": "f16 **[Unstable / nightly]**"
+    },
+    {
+      "id": 33,
+      "kind": "datum",
+      "normalizedInputLine": 3735,
+      "title": "f32"
+    },
+    {
+      "id": 34,
+      "kind": "datum",
+      "normalizedInputLine": 3747,
+      "title": "f64"
+    },
+    {
+      "id": 35,
+      "kind": "datum",
+      "normalizedInputLine": 3763,
+      "title": "f128 **[Unstable / nightly]**"
+    },
+    {
+      "id": 36,
+      "kind": "datum",
+      "normalizedInputLine": 3898,
+      "title": "S E E E E E E E E F F F F F F F F F F F F F F F F F F F F F F F"
+    },
+    {
+      "id": 37,
+      "kind": "datum",
+      "normalizedInputLine": 4050,
+      "title": "char Any Unicode scalar."
+    },
+    {
+      "id": 38,
+      "kind": "datum",
+      "normalizedInputLine": 4064,
+      "title": "str … U T F - 8 … unspecified times Rarely seen alone, but as &str instead."
+    },
+    {
+      "id": 39,
+      "kind": "datum",
+      "normalizedInputLine": 4191,
+      "title": "T x T Sized type."
+    },
+    {
+      "id": 40,
+      "kind": "datum",
+      "normalizedInputLine": 4201,
+      "title": "T: ?Sized T Maybe sized."
+    },
+    {
+      "id": 41,
+      "kind": "datum",
+      "normalizedInputLine": 4211,
+      "title": "[T; n] T T T … n times Fixed array of n elements."
+    },
+    {
+      "id": 42,
+      "kind": "datum",
+      "normalizedInputLine": 4224,
+      "title": "[T] … T T T … unspecified times Slice type of unknown-many elements. Neither Sized (nor ca"
+    },
+    {
+      "id": 43,
+      "kind": "datum",
+      "normalizedInputLine": 4237,
+      "title": "struct S; ; Zero-sized type."
+    },
+    {
+      "id": 44,
+      "kind": "datum",
+      "normalizedInputLine": 4248,
+      "title": "(A, B, C) A B C or maybe B A C Unless a representation is forced (e.g., via #[repr(C)]), t"
+    },
+    {
+      "id": 45,
+      "kind": "datum",
+      "normalizedInputLine": 4266,
+      "title": "struct S { b: B, c: C } B C or maybe C ↦ B Compiler may also add padding."
+    },
+    {
+      "id": 46,
+      "kind": "datum",
+      "normalizedInputLine": 4300,
+      "title": "enum E { A, B, C } Tag A exclusive or Tag B exclusive or Tag C Safely holds A or B or C, a"
+    },
+    {
+      "id": 47,
+      "kind": "datum",
+      "normalizedInputLine": 4329,
+      "title": "union { … } A unsafe or B unsafe or C Can unsafely reinterpret memory. Result might be und"
+    },
+    {
+      "id": 48,
+      "kind": "datum",
+      "normalizedInputLine": 4362,
+      "title": "&'a T ptr2/4/8 meta2/4/8 | T Must target some valid t of T, and any such target must exist"
+    },
+    {
+      "id": 49,
+      "kind": "datum",
+      "normalizedInputLine": 4383,
+      "title": "*const T ptr2/4/8 meta2/4/8 No guarantees."
+    },
+    {
+      "id": 50,
+      "kind": "datum",
+      "normalizedInputLine": 4407,
+      "title": "&'a T ptr2/4/8 | T No meta for sized target.(pointer is thin)."
+    },
+    {
+      "id": 51,
+      "kind": "datum",
+      "normalizedInputLine": 4425,
+      "title": "&'a T ptr2/4/8 len2/4/8 | T If T is a DST struct such as S { x: [u8] } meta field len is c"
+    },
+    {
+      "id": 52,
+      "kind": "datum",
+      "normalizedInputLine": 4448,
+      "title": "&'a [T] ptr2/4/8 len2/4/8 | … T T … Regular slice reference (i.e., the reference type of a"
+    },
+    {
+      "id": 53,
+      "kind": "datum",
+      "normalizedInputLine": 4472,
+      "title": "&'a str ptr2/4/8 len2/4/8 | … U T F - 8 … String slice reference (i.e., the reference type"
+    },
+    {
+      "id": 54,
+      "kind": "datum",
+      "normalizedInputLine": 4500,
+      "title": "&'a dyn Trait ptr2/4/8 ptr2/4/8 | T | *Drop::drop(&mut T) size align *Trait::f(&T, …) *Tra"
+    },
+    {
+      "id": 55,
+      "kind": "datum",
+      "normalizedInputLine": 4543,
+      "title": "move |x| x + y.f() + z Y Z Anonymous closure type C1"
+    },
+    {
+      "id": 56,
+      "kind": "datum",
+      "normalizedInputLine": 4555,
+      "title": "|x| x + y.f() + z ptr2/4/8 ptr2/4/8 Anonymous closure type C2 | Y | Z"
+    },
+    {
+      "id": 57,
+      "kind": "datum",
+      "normalizedInputLine": 4608,
+      "title": "Option<T> [std](https://doc.rust-lang.org/std/option/enum.Option.html) Tag or Tag T Tag ma"
+    },
+    {
+      "id": 58,
+      "kind": "datum",
+      "normalizedInputLine": 4626,
+      "title": "Result<T, E> [std](https://doc.rust-lang.org/std/result/enum.Result.html) Tag E or Tag T E"
+    },
+    {
+      "id": 59,
+      "kind": "datum",
+      "normalizedInputLine": 4646,
+      "title": "ManuallyDrop<T> [std](https://doc.rust-lang.org/std/mem/struct.ManuallyDrop.html) T Preven"
+    },
+    {
+      "id": 60,
+      "kind": "datum",
+      "normalizedInputLine": 4655,
+      "title": "AtomicUsize [std](https://doc.rust-lang.org/std/sync/atomic/index.html) usize2/4/8 Other a"
+    },
+    {
+      "id": 61,
+      "kind": "datum",
+      "normalizedInputLine": 4667,
+      "title": "MaybeUninit<T> [std](https://doc.rust-lang.org/std/mem/union.MaybeUninit.html) U̼̟̔͛n̥͕͐͞d"
+    },
+    {
+      "id": 62,
+      "kind": "datum",
+      "normalizedInputLine": 4685,
+      "title": "PhantomData<T> [std](https://doc.rust-lang.org/std/marker/struct.PhantomData.html) Zero-si"
+    },
+    {
+      "id": 63,
+      "kind": "datum",
+      "normalizedInputLine": 4696,
+      "title": "Pin<P> [std](https://doc.rust-lang.org/std/pin/struct.Pin.html) P | 📌 P::Deref Signals tg"
+    },
+    {
+      "id": 64,
+      "kind": "datum",
+      "normalizedInputLine": 4727,
+      "title": "UnsafeCell<T> [std](https://doc.rust-lang.org/std/cell/struct.UnsafeCell.html) T Magic typ"
+    },
+    {
+      "id": 65,
+      "kind": "datum",
+      "normalizedInputLine": 4737,
+      "title": "Cell<T> [std](https://doc.rust-lang.org/std/cell/struct.Cell.html) T Allows T's to move in"
+    },
+    {
+      "id": 66,
+      "kind": "datum",
+      "normalizedInputLine": 4747,
+      "title": "RefCell<T> [std](https://doc.rust-lang.org/std/cell/struct.RefCell.html) borrowed T Also s"
+    },
+    {
+      "id": 67,
+      "kind": "datum",
+      "normalizedInputLine": 4761,
+      "title": "OnceCell<T> [std](https://doc.rust-lang.org/std/cell/struct.OnceCell.html) Tag or Tag T In"
+    },
+    {
+      "id": 68,
+      "kind": "datum",
+      "normalizedInputLine": 4780,
+      "title": "LazyCell<T, F> [std](https://doc.rust-lang.org/std/cell/struct.LazyCell.html) Tag Uninit<F"
+    },
+    {
+      "id": 69,
+      "kind": "datum",
+      "normalizedInputLine": 4819,
+      "title": "Box<T> [std](https://doc.rust-lang.org/std/boxed/struct.Box.html) ptr2/4/8 meta2/4/8 | T F"
+    },
+    {
+      "id": 70,
+      "kind": "datum",
+      "normalizedInputLine": 4842,
+      "title": "Vec<T> [std](https://doc.rust-lang.org/std/vec/struct.Vec.html) ptr2/4/8 len2/4/8 capacity"
+    },
+    {
+      "id": 71,
+      "kind": "datum",
+      "normalizedInputLine": 4875,
+      "title": "LinkedList<T> [std](https://doc.rust-lang.org/std/collections/struct.LinkedList.html) **[A"
+    },
+    {
+      "id": 72,
+      "kind": "datum",
+      "normalizedInputLine": 4912,
+      "title": "VecDeque<T> [std](https://doc.rust-lang.org/std/collections/struct.VecDeque.html) head2/4/"
+    },
+    {
+      "id": 73,
+      "kind": "datum",
+      "normalizedInputLine": 4957,
+      "title": "HashMap<K, V> [std](https://doc.rust-lang.org/std/collections/struct.HashMap.html) bmask2/"
+    },
+    {
+      "id": 74,
+      "kind": "datum",
+      "normalizedInputLine": 4995,
+      "title": "BinaryHeap<T> [std](https://doc.rust-lang.org/std/collections/struct.BinaryHeap.html) ptr2"
+    },
+    {
+      "id": 75,
+      "kind": "datum",
+      "normalizedInputLine": 5034,
+      "title": "String [std](https://doc.rust-lang.org/std/string/struct.String.html) ptr2/4/8 capacity2/4"
+    },
+    {
+      "id": 76,
+      "kind": "datum",
+      "normalizedInputLine": 5069,
+      "title": "CString [std](https://doc.rust-lang.org/std/ffi/struct.CString.html) ptr2/4/8 len2/4/8 | A"
+    },
+    {
+      "id": 77,
+      "kind": "datum",
+      "normalizedInputLine": 5100,
+      "title": "OsString [std](https://doc.rust-lang.org/std/ffi/struct.OsString.html) Platform Defined | "
+    },
+    {
+      "id": 78,
+      "kind": "datum",
+      "normalizedInputLine": 5125,
+      "title": "PathBuf [std](https://doc.rust-lang.org/std/path/struct.PathBuf.html) OsString | / Encapsu"
+    },
+    {
+      "id": 79,
+      "kind": "datum",
+      "normalizedInputLine": 5158,
+      "title": "Rc<T> [std](https://doc.rust-lang.org/std/rc/struct.Rc.html) ptr2/4/8 meta2/4/8 | strng2/4"
+    },
+    {
+      "id": 80,
+      "kind": "datum",
+      "normalizedInputLine": 5184,
+      "title": "Arc<T> [std](https://doc.rust-lang.org/std/sync/struct.Arc.html) ptr2/4/8 meta2/4/8 | strn"
+    },
+    {
+      "id": 81,
+      "kind": "datum",
+      "normalizedInputLine": 5211,
+      "title": "Mutex<T> [std](https://doc.rust-lang.org/std/sync/struct.Mutex.html) / RwLock<T> [std](htt"
+    },
+    {
+      "id": 82,
+      "kind": "datum",
+      "normalizedInputLine": 5229,
+      "title": "Cow<'a, T> [std](https://doc.rust-lang.org/std/borrow/enum.Cow.html) Tag T::Owned or Tag p"
+    },
+    {
+      "id": 83,
+      "kind": "thread-row",
+      "normalizedInputLine": 5403,
+      "title": "||| Mutex<u32> ||| Cell<u32> ||| MutexGuard<u32> ||| Rc<u32> Thread 1"
+    },
+    {
+      "id": 84,
+      "kind": "thread-row",
+      "normalizedInputLine": 5413,
+      "title": "Mutex<u32> Cell<u32> MutexGuard<u32> Rc<u32> Thread 2"
+    },
+    {
+      "id": 85,
+      "kind": "thread-row",
+      "normalizedInputLine": 5423,
+      "title": "&Mutex<u32> &Cell<u32> &MutexGuard<u32> &Rc<u32> Thread 3"
+    },
+    {
+      "id": 86,
+      "kind": "lifetime-example",
+      "normalizedInputLine": 5519,
+      "title": "S O M E D R A M D A T A Main Memory"
+    },
+    {
+      "id": 87,
+      "kind": "lifetime-example",
+      "normalizedInputLine": 5564,
+      "title": "S O M E (E) D A T A (S) CPU1 Cache S R A M (M) D A T A (S) CPU2 Cache"
+    },
+    {
+      "id": 88,
+      "kind": "lifetime-example",
+      "normalizedInputLine": 5665,
+      "title": "S O M E D X T A (M) Cycle 1 O3 S O M 4 D X T A Cycle 2 23 STALLED 1 4 (M) D X T Y (M) Cycl"
+    },
+    {
+      "id": 89,
+      "kind": "lifetime-example",
+      "normalizedInputLine": 5816,
+      "title": "1 2 3 4 S R A M D X T Y Main Memory RA 1 R A M Cycle 4 RA 1 2 M Cycle 5 23 1 2 3 4 (M) Cyc"
+    },
+    {
+      "id": 90,
+      "kind": "mini-zoo",
+      "normalizedInputLine": 6125,
+      "title": "Collection<T>"
+    },
+    {
+      "id": 91,
+      "kind": "mini-zoo",
+      "normalizedInputLine": 6131,
+      "title": "IntoIter<T> ⌾ Iterator Item = T;"
+    },
+    {
+      "id": 92,
+      "kind": "mini-zoo",
+      "normalizedInputLine": 6162,
+      "title": "Collection<T> ⌾ IntoIterator Item = T; To = IntoIter<T> Iterate over T."
+    },
+    {
+      "id": 93,
+      "kind": "mini-zoo",
+      "normalizedInputLine": 6172,
+      "title": "&Collection<T> ⌾ IntoIterator Item = &T; To = Iter<T> Iterate over &T."
+    },
+    {
+      "id": 94,
+      "kind": "mini-zoo",
+      "normalizedInputLine": 6182,
+      "title": "&mut Collectn<T> ⌾ IntoIterator Item = &mut T; To = IterMut<T> Iterate over &mut T."
+    },
+    {
+      "id": 95,
+      "kind": "mini-zoo",
+      "normalizedInputLine": 6226,
+      "title": "Iter<T> ⌾ Iterator Item = &T;"
+    },
+    {
+      "id": 96,
+      "kind": "mini-zoo",
+      "normalizedInputLine": 6235,
+      "title": "IterMut<T> ⌾ Iterator Item = &mut T;"
+    },
+    {
+      "id": 97,
+      "kind": "mini-zoo",
+      "normalizedInputLine": 6271,
+      "title": "Collection<T> ⌾ FromIterator ⌾ Extend"
+    },
+    {
+      "id": 98,
+      "kind": "mini-zoo",
+      "normalizedInputLine": 6279,
+      "title": "IntoIter<T> ⌾ DoubleEndedIt… ⌾ ExactSizeIt… ⌾ FusedIterator"
+    },
+    {
+      "id": 99,
+      "kind": "mini-zoo",
+      "normalizedInputLine": 6288,
+      "title": "Iter<T> ⌾ DoubleEndedIt… ⌾ ExactSizeIt… ⌾ FusedIterator"
+    },
+    {
+      "id": 100,
+      "kind": "mini-zoo",
+      "normalizedInputLine": 6297,
+      "title": "IterMut<T> ⌾ DoubleEndedIt… ⌾ ExactSizeIt… ⌾ FusedIterator"
+    },
+    {
+      "id": 101,
+      "kind": "mini-zoo",
+      "normalizedInputLine": 7662,
+      "title": "u8 String Device"
+    },
+    {
+      "id": 102,
+      "kind": "mini-zoo",
+      "normalizedInputLine": 7697,
+      "title": "u8 &u8 &mut u8 [u8; 1] String"
+    },
+    {
+      "id": 103,
+      "kind": "mini-zoo",
+      "normalizedInputLine": 7766,
+      "title": "u8 impl { … } String impl { … } Port impl { … }"
+    },
+    {
+      "id": 104,
+      "kind": "mini-zoo",
+      "normalizedInputLine": 7799,
+      "title": "⌾ Copy ⌾ Clone ⌾ Sized ⌾ ShowHex"
+    },
+    {
+      "id": 105,
+      "kind": "mini-zoo",
+      "normalizedInputLine": 7881,
+      "title": "⌾ Copy"
+    },
+    {
+      "id": 106,
+      "kind": "mini-zoo",
+      "normalizedInputLine": 7892,
+      "title": "⌾ Sized"
+    },
+    {
+      "id": 107,
+      "kind": "mini-zoo",
+      "normalizedInputLine": 7936,
+      "title": "u8 impl { … } ⌾ Sized ⌾ Clone ⌾ Copy Device impl { … } ⌾ Transport Port impl { … } ⌾ Sized"
+    },
+    {
+      "id": 108,
+      "kind": "mini-zoo",
+      "normalizedInputLine": 7970,
+      "title": "👩‍🦰 ⌾ Eat"
+    },
+    {
+      "id": 109,
+      "kind": "mini-zoo",
+      "normalizedInputLine": 7977,
+      "title": "🧔 Venison ⌾ Eat"
+    },
+    {
+      "id": 110,
+      "kind": "mini-zoo",
+      "normalizedInputLine": 7986,
+      "title": ""
+    },
+    {
+      "id": 111,
+      "kind": "mini-zoo",
+      "normalizedInputLine": 7993,
+      "title": "🎅 venison.eat()"
+    },
+    {
+      "id": 112,
+      "kind": "mini-zoo",
+      "normalizedInputLine": 8022,
+      "title": "👩‍🦰 ⌾ Eat"
+    },
+    {
+      "id": 113,
+      "kind": "mini-zoo",
+      "normalizedInputLine": 8029,
+      "title": "🧔 Venison"
+    },
+    {
+      "id": 114,
+      "kind": "mini-zoo",
+      "normalizedInputLine": 8037,
+      "title": "👩‍🦰 / 🧔 Venison + ⌾ Eat"
+    },
+    {
+      "id": 115,
+      "kind": "mini-zoo",
+      "normalizedInputLine": 8046,
+      "title": "🎅 venison.eat()"
+    },
+    {
+      "id": 116,
+      "kind": "mini-zoo",
+      "normalizedInputLine": 8093,
+      "title": "Vec<u8> Vec<char>"
+    },
+    {
+      "id": 117,
+      "kind": "mini-zoo",
+      "normalizedInputLine": 8118,
+      "title": "Vec<>"
+    },
+    {
+      "id": 118,
+      "kind": "mini-zoo",
+      "normalizedInputLine": 8138,
+      "title": "Vec<T> [T; 128] &T &mut T S<T>"
+    },
+    {
+      "id": 119,
+      "kind": "mini-zoo",
+      "normalizedInputLine": 8184,
+      "title": "[T; n] S<const N>"
+    },
+    {
+      "id": 120,
+      "kind": "mini-zoo",
+      "normalizedInputLine": 8226,
+      "title": "🧔 Num<T> → 🎅 Num<u8> Num<f32> Num<Cmplx> u8 ⌾ Absolute ⌾ Dim ⌾ Mul Port ⌾ Clone ⌾ ShowHe"
+    },
+    {
+      "id": 121,
+      "kind": "mini-zoo",
+      "normalizedInputLine": 8312,
+      "title": "u8 ⌾ Absolute ⌾ Dim ⌾ Mul f32 ⌾ Absolute ⌾ Mul char Cmplx ⌾ Absolute ⌾ Dim ⌾ Mul ⌾ DirName"
+    },
+    {
+      "id": 122,
+      "kind": "mini-zoo",
+      "normalizedInputLine": 8471,
+      "title": "Port ⌾ From<u8> ⌾ From<u16> Port ⌾ Deref type u8;"
+    },
+    {
+      "id": 123,
+      "kind": "mini-zoo",
+      "normalizedInputLine": 8585,
+      "title": "👩‍🦰 ⌾ A<I>"
+    },
+    {
+      "id": 124,
+      "kind": "mini-zoo",
+      "normalizedInputLine": 8592,
+      "title": "🧔 Car"
+    },
+    {
+      "id": 125,
+      "kind": "mini-zoo",
+      "normalizedInputLine": 8600,
+      "title": "👩‍🦰 / 🧔 Car ⌾ A<I>"
+    },
+    {
+      "id": 126,
+      "kind": "mini-zoo",
+      "normalizedInputLine": 8608,
+      "title": "🎅 car.a(0_u8) car.a(0_f32)"
+    },
+    {
+      "id": 127,
+      "kind": "mini-zoo",
+      "normalizedInputLine": 8618,
+      "title": "👩‍🦰 ⌾ B type O;"
+    },
+    {
+      "id": 128,
+      "kind": "mini-zoo",
+      "normalizedInputLine": 8626,
+      "title": "🧔 Car"
+    },
+    {
+      "id": 129,
+      "kind": "mini-zoo",
+      "normalizedInputLine": 8634,
+      "title": "👩‍🦰 / 🧔 Car ⌾ B T = u8;"
+    },
+    {
+      "id": 130,
+      "kind": "mini-zoo",
+      "normalizedInputLine": 8643,
+      "title": "🎅 car.b(0_u8) car.b(0_f32)"
+    },
+    {
+      "id": 131,
+      "kind": "mini-zoo",
+      "normalizedInputLine": 8708,
+      "title": "⌾ Query"
+    },
+    {
+      "id": 132,
+      "kind": "mini-zoo",
+      "normalizedInputLine": 8714,
+      "title": "vs."
+    },
+    {
+      "id": 133,
+      "kind": "mini-zoo",
+      "normalizedInputLine": 8720,
+      "title": "⌾ Query<I>"
+    },
+    {
+      "id": 134,
+      "kind": "mini-zoo",
+      "normalizedInputLine": 8726,
+      "title": "vs."
+    },
+    {
+      "id": 135,
+      "kind": "mini-zoo",
+      "normalizedInputLine": 8732,
+      "title": "⌾ Query type O;"
+    },
+    {
+      "id": 136,
+      "kind": "mini-zoo",
+      "normalizedInputLine": 8739,
+      "title": "vs."
+    },
+    {
+      "id": 137,
+      "kind": "mini-zoo",
+      "normalizedInputLine": 8745,
+      "title": "⌾ Query<I> type O;"
+    },
+    {
+      "id": 138,
+      "kind": "mini-zoo",
+      "normalizedInputLine": 8767,
+      "title": "👩‍🦰 ⌾ Query"
+    },
+    {
+      "id": 139,
+      "kind": "mini-zoo",
+      "normalizedInputLine": 8774,
+      "title": "→"
+    },
+    {
+      "id": 140,
+      "kind": "mini-zoo",
+      "normalizedInputLine": 8780,
+      "title": "🧔 PostgreSQL ⌾ Query"
+    },
+    {
+      "id": 141,
+      "kind": "mini-zoo",
+      "normalizedInputLine": 8788,
+      "title": "Sled ⌾ Query"
+    },
+    {
+      "id": 142,
+      "kind": "mini-zoo",
+      "normalizedInputLine": 8812,
+      "title": "👩‍🦰 ⌾ Query<I>"
+    },
+    {
+      "id": 143,
+      "kind": "mini-zoo",
+      "normalizedInputLine": 8819,
+      "title": "→"
+    },
+    {
+      "id": 144,
+      "kind": "mini-zoo",
+      "normalizedInputLine": 8825,
+      "title": "🧔 PostgreSQL ⌾ Query<&str> ⌾ Query<String>"
+    },
+    {
+      "id": 145,
+      "kind": "mini-zoo",
+      "normalizedInputLine": 8834,
+      "title": "Sled ⌾ Query<T> ↲ where T is ToU8Slice."
+    },
+    {
+      "id": 146,
+      "kind": "mini-zoo",
+      "normalizedInputLine": 8863,
+      "title": "👩‍🦰 ⌾ Query type O;"
+    },
+    {
+      "id": 147,
+      "kind": "mini-zoo",
+      "normalizedInputLine": 8871,
+      "title": "→"
+    },
+    {
+      "id": 148,
+      "kind": "mini-zoo",
+      "normalizedInputLine": 8877,
+      "title": "🧔 PostgreSQL ⌾ Query O = String;"
+    },
+    {
+      "id": 149,
+      "kind": "mini-zoo",
+      "normalizedInputLine": 8886,
+      "title": "Sled ⌾ Query O = Vec<u8>;"
+    },
+    {
+      "id": 150,
+      "kind": "mini-zoo",
+      "normalizedInputLine": 8915,
+      "title": "👩‍🦰 ⌾ Query<I> type O;"
+    },
+    {
+      "id": 151,
+      "kind": "mini-zoo",
+      "normalizedInputLine": 8923,
+      "title": "→"
+    },
+    {
+      "id": 152,
+      "kind": "mini-zoo",
+      "normalizedInputLine": 8929,
+      "title": "🧔 PostgreSQL ⌾ Query<&str> O = String; ⌾ Query<CString> O = CString;"
+    },
+    {
+      "id": 153,
+      "kind": "mini-zoo",
+      "normalizedInputLine": 8940,
+      "title": "Sled ⌾ Query<T> O = Vec<u8>; ↲ where T is ToU8Slice."
+    },
+    {
+      "id": 154,
+      "kind": "mini-zoo",
+      "normalizedInputLine": 8969,
+      "title": "MostTypes ⌾ Sized Normal types."
+    },
+    {
+      "id": 155,
+      "kind": "mini-zoo",
+      "normalizedInputLine": 8977,
+      "title": "vs."
+    },
+    {
+      "id": 156,
+      "kind": "mini-zoo",
+      "normalizedInputLine": 8983,
+      "title": "Z ⌾ Sized Zero sized."
+    },
+    {
+      "id": 157,
+      "kind": "mini-zoo",
+      "normalizedInputLine": 8992,
+      "title": "vs."
+    },
+    {
+      "id": 158,
+      "kind": "mini-zoo",
+      "normalizedInputLine": 8998,
+      "title": "str ⌾ Sized Dynamically sized."
+    },
+    {
+      "id": 159,
+      "kind": "mini-zoo",
+      "normalizedInputLine": 9006,
+      "title": "[u8] ⌾ Sized"
+    },
+    {
+      "id": 160,
+      "kind": "mini-zoo",
+      "normalizedInputLine": 9013,
+      "title": "dyn Trait ⌾ Sized"
+    },
+    {
+      "id": 161,
+      "kind": "mini-zoo",
+      "normalizedInputLine": 9020,
+      "title": "… ⌾ Sized"
+    },
+    {
+      "id": 162,
+      "kind": "mini-zoo",
+      "normalizedInputLine": 9059,
+      "title": "S<T> → S<u8> S<char> S<str>"
+    },
+    {
+      "id": 163,
+      "kind": "mini-zoo",
+      "normalizedInputLine": 9083,
+      "title": "S<T> → S<u8> S<char> S<str>"
+    },
+    {
+      "id": 164,
+      "kind": "mini-zoo",
+      "normalizedInputLine": 9114,
+      "title": "S<'a> &'a f32 &'a mut u8"
+    },
+    {
+      "id": 165,
+      "kind": "mini-zoo",
+      "normalizedInputLine": 9132,
+      "title": "S<'a> → S<'auto> S<'static>"
+    },
+    {
+      "id": 166,
+      "kind": "region",
+      "normalizedInputLine": 9207,
+      "title": "u8 u16 f32 bool char Primitive Types File String Builder Composite Types Vec<T> Vec<T> Vec"
+    },
+    {
+      "id": 167,
+      "kind": "region",
+      "normalizedInputLine": 9338,
+      "title": "⌾ Serialize ⌾ Transport ⌾ ShowHex Device ⌾ From<u8> Foreign trait impl. for local type. St"
+    }
+  ],
+  "sourceHeadings": [
+    {
+      "level": 2,
+      "title": "Hello, Rust!"
+    },
+    {
+      "level": 3,
+      "title": "Data Structures"
+    },
+    {
+      "level": 3,
+      "title": "References & Pointers"
+    },
+    {
+      "level": 3,
+      "title": "Functions & Behavior"
+    },
+    {
+      "level": 3,
+      "title": "Control Flow"
+    },
+    {
+      "level": 3,
+      "title": "Organizing Code"
+    },
+    {
+      "level": 3,
+      "title": "Type Aliases and Casts"
+    },
+    {
+      "level": 3,
+      "title": "Macros & Attributes"
+    },
+    {
+      "level": 3,
+      "title": "Pattern Matching"
+    },
+    {
+      "level": 3,
+      "title": "Generics & Constraints"
+    },
+    {
+      "level": 3,
+      "title": "Higher-Ranked Items {{ esoteric() }} {#higher-ranked-items}"
+    },
+    {
+      "level": 3,
+      "title": "Strings & Chars"
+    },
+    {
+      "level": 3,
+      "title": "Documentation"
+    },
+    {
+      "level": 3,
+      "title": "Miscellaneous"
+    },
+    {
+      "level": 3,
+      "title": "Common Operators"
+    },
+    {
+      "level": 1,
+      "title": "Behind the Scenes"
+    },
+    {
+      "level": 2,
+      "title": "The Abstract Machine"
+    },
+    {
+      "level": 2,
+      "title": "Language Sugar"
+    },
+    {
+      "level": 2,
+      "title": "Memory & Lifetimes"
+    },
+    {
+      "level": 1,
+      "title": "Memory Layout"
+    },
+    {
+      "level": 2,
+      "title": "Basic Types"
+    },
+    {
+      "level": 4,
+      "title": "Boolean {{ ref(page=\"types/boolean.html\") }} and Numeric Types {{ ref(page=\"types/numeric.html\") }}"
+    },
+    {
+      "level": 4,
+      "title": "Textual Types {{ ref(page=\"types/textual.html\") }}"
+    },
+    {
+      "level": 2,
+      "title": "Custom Types"
+    },
+    {
+      "level": 2,
+      "title": "References & Pointers {#references-pointers-ui}"
+    },
+    {
+      "level": 3,
+      "title": "Pointer Meta {#pointer-meta}"
+    },
+    {
+      "level": 2,
+      "title": "Closures {#closures-data}"
+    },
+    {
+      "level": 2,
+      "title": "Standard Library Types"
+    },
+    {
+      "level": 4,
+      "title": "Cells"
+    },
+    {
+      "level": 4,
+      "title": "Order-Preserving Collections"
+    },
+    {
+      "level": 4,
+      "title": "Other Collections"
+    },
+    {
+      "level": 4,
+      "title": "Owned Strings"
+    },
+    {
+      "level": 4,
+      "title": "Shared Ownership"
+    },
+    {
+      "level": 1,
+      "title": "Standard Library"
+    },
+    {
+      "level": 2,
+      "title": "One-Liners"
+    },
+    {
+      "level": 2,
+      "title": "Thread Safety {#thread-safety}"
+    },
+    {
+      "level": 2,
+      "title": "Atomics & Cache {{ esoteric() }}"
+    },
+    {
+      "level": 2,
+      "title": "Iterators {#iterators}"
+    },
+    {
+      "level": 2,
+      "title": "Number Conversions"
+    },
+    {
+      "level": 2,
+      "title": "String Conversions"
+    },
+    {
+      "level": 2,
+      "title": "String Output"
+    },
+    {
+      "level": 1,
+      "title": "Tooling"
+    },
+    {
+      "level": 2,
+      "title": "Project Anatomy"
+    },
+    {
+      "level": 2,
+      "title": "Cargo"
+    },
+    {
+      "level": 2,
+      "title": "Cross Compilation"
+    },
+    {
+      "level": 2,
+      "title": "Tooling Directives"
+    },
+    {
+      "level": 1,
+      "title": "Working with Types"
+    },
+    {
+      "level": 2,
+      "title": "Types, Traits, Generics"
+    },
+    {
+      "level": 2,
+      "title": "Foreign Types and Traits"
+    },
+    {
+      "level": 2,
+      "title": "Type Conversions"
+    },
+    {
+      "level": 1,
+      "title": "Coding Guides"
+    },
+    {
+      "level": 2,
+      "title": "Idiomatic Rust"
+    },
+    {
+      "level": 2,
+      "title": "Performance Tips {#performance-tips}"
+    },
+    {
+      "level": 2,
+      "title": "Async-Await 101"
+    },
+    {
+      "level": 2,
+      "title": "Closures in APIs"
+    },
+    {
+      "level": 2,
+      "title": "Unsafe, Unsound, Undefined"
+    },
+    {
+      "level": 2,
+      "title": "Adversarial Code {{ esoteric() }}"
+    },
+    {
+      "level": 2,
+      "title": "API Stability"
+    },
+    {
+      "level": 1,
+      "title": "Misc"
+    },
+    {
+      "level": 2,
+      "title": "Links & Services"
+    }
+  ],
+  "code": {
+    "sourceFences": 69,
+    "preservedFences": 69,
+    "omittedCommentOrChromeFences": 0,
+    "sourceInlineSpans": 2662
+  },
+  "sourceTabs": 80,
+  "sourceBytes": 408177,
+  "outputBytes": 273016,
+  "outputLines": 6874,
+  "approximateTokensAtFourCharacters": 67695,
+  "tokenizer": "gpt-tokenizer@4.1.0",
+  "tokens": {
+    "o200k_base": 81844,
+    "cl100k_base": 81938
+  },
+  "outputHeadings": 160,
+  "topicFiles": 32
+}
