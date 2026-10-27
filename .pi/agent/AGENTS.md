@@ -58,6 +58,28 @@ read-only allowlist by the `source-control-policy` extension — load the
 `source-control` skill for the allowed command list and the PR-comment
 surfaces before running them.
 
+## Atomic tool execution — Nomad only
+- Run Atomic container tools on Nomad, never through local Docker or Podman.
+  Build and publish development images through the existing Nomad-backed CI
+  workflow, not a local container daemon. Use published tool images at the exact
+  version resolved by `a-gents image`; do not rebuild them ad hoc to obtain fixes.
+- Compose the company-managed skills: `atomic-running-tools` for image selection,
+  the tool's own skill for arguments and resource requirements, and
+  `atomic-batch-compute` for staging, jobspecs, submission, logs, and results.
+  This Nomad-only policy takes precedence over their local-execution examples.
+- Do not edit company-managed `atomic-*` skills or their harness symlinks.
+  Leave updates to a-gents; put compatibility work in user-owned instructions,
+  launcher configuration, or explicit remote-execution helpers.
+- Stage inputs and retrieve results only through explicitly approved,
+  project-scoped share directories or S3 locations. Do not bypass Nomad by
+  SSH-ing to compute nodes, and preserve all existing privacy boundaries.
+- If remote execution, authentication, networking, or staging is unavailable,
+  stop and report the blocker. Ask for an approved configuration change; never
+  fall back to local containers, enable Docker socket access, escape the jail,
+  or broaden filesystem, network, or credential access as a workaround.
+- Nomad jobs do not inherit the local ai-jail policy. Respect cluster access
+  controls and the batch-compute conventions independently.
+
 ## Python
 If using Python, sandbox your scripts and environment into a `uv` project, even if temporary.
 
