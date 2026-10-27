@@ -1,0 +1,14 @@
+# ai-jail sandbox configuration
+# https://github.com/akitaonrails/ai-jail
+# Edit freely. Regenerate with: ai-jail --clean --init
+
+trust_project_config = ["~/git/crab-rave", "~/git/atomic-bench"]
+command = ["pi"]
+ro_maps = [
+  "~/.nvm/versions/node/v25.0.0",
+  "~/git/dotfiles/.pi/agent",
+  "~/.a-gents/skills",
+]
+
+[commands.pi]
+env_pass = ["NOMAD_ADDR", "NOMAD_TOKEN", "CONTEXT7_API_KEY"]
