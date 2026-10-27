@@ -169,3 +169,42 @@ export PATH="$HOME/.cargo/bin:$PATH"
 # Meridian
 export MERIDIAN_PASSTHROUGH=1
 export MERIDIAN_NO_FILE_CHANGES=1
+
+# Install a repo-specific ai-jail config into the current worktree.
+function ai-jail-install() {
+  if (( $# < 1 || $# > 2 )); then
+    printf 'Usage: ai-jail-install <template> [worktree]\n' >&2
+    return 2
+  fi
+
+  local template_name="$1"
+  local target_dir="${2:-$PWD}"
+  local config_root="${XDG_CONFIG_HOME:-$HOME/.config}/ai-jail"
+  local template_file="$config_root/$template_name.toml"
+
+  if [[ ! -f "$template_file" ]]; then
+    printf 'No ai-jail template found: %s\n' "$template_file" >&2
+    return 1
+  fi
+  if [[ ! -d "$target_dir" ]]; then
+    printf 'Worktree directory does not exist: %s\n' "$target_dir" >&2
+    return 1
+  fi
+
+  target_dir="$(cd "$target_dir" && pwd -P)" || return 1
+  if [[ "$template_name" == atomic-bench && ( ! -f "$target_dir/dvc.yaml" || ! -f "$target_dir/params.yaml" ) ]]; then
+    printf 'Not an atomic-bench worktree: %s\n' "$target_dir" >&2
+    return 1
+  fi
+
+  local destination="$target_dir/.ai-jail"
+  if [[ -e "$destination" || -L "$destination" ]]; then
+    printf 'Refusing to overwrite existing config: %s\n' "$destination" >&2
+    return 1
+  fi
+
+  cp "$template_file" "$destination" || return 1
+  chmod 600 "$destination" || { rm -f "$destination"; return 1; }
+  printf 'Installed %s ai-jail config in %s\n' "$template_name" "$target_dir"
+}
+alias ai-jail-atomic-bench='ai-jail-install atomic-bench'

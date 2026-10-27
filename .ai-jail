@@ -4,8 +4,9 @@
 
 trust_project_config = ["~/git/crab-rave", "~/git/atomic-bench"]
 command = ["pi"]
+no_save_config = true
 ro_maps = [
-  "~/.nvm/versions/node/v25.0.0",
+  "~/.nvm/versions/node",
   "~/git/dotfiles/.pi/agent",
   "~/.a-gents/skills",
 ]
