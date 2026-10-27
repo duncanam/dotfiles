@@ -11,4 +11,9 @@ ro_maps = [
 ]
 
 [commands.pi]
-env_pass = ["NOMAD_ADDR", "NOMAD_TOKEN", "CONTEXT7_API_KEY"]
+allow_hosts = ["context7.com", "mcp.linear.app"]
+env_pass = [
+  "NOMAD_ADDR",
+  "NOMAD_TOKEN",
+  "CONTEXT7_API_KEY",
+]
