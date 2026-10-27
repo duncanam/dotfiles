@@ -10,7 +10,7 @@
     "unit": "Sum of raw UTF-8 file-text token counts; the same file ID counted once per scenario",
     "excludes": [
       "tool/chat framing",
-      "agent/system instructions outside these three SKILL.md files",
+      "agent/system instructions outside these four SKILL.md files",
       "conversation and task code",
       "reasoning/output reserve",
       "other skill activations"
@@ -20,21 +20,23 @@
       "Default file lists implement the measured SKILL.md policies; review this script when those policies change.",
       "Task-specific source rules are additional required reads for the selected scope; a router or checklist is not the guidance itself.",
       "The Microsoft agent export is optional; its availability and cost are reported separately, never included in the default baseline.",
+      "Performance optimization work additionally requires benchmarking/general tips, plus profiling for runtime/memory investigations; focused explanatory questions do not.",
       "Tokenizer counts are not universal provider counts, token prices, or exact Pi prompt measurements."
     ]
   },
   "sourceVersions": {
-    "pragmatic": "2026.6"
+    "pragmatic": "2026.6",
+    "perfBook": "a05dd0f15595e98aef45e5a15072c2a71dbe37ba"
   },
   "tooling": {
-    "scripts/context-budget.mjs": "a98a5733ed5be0b04fb730db3f40b9b3db897c2a41a8211ab2761de658b6b052",
+    "scripts/context-budget.mjs": "de2614a1515215d9e61f33f1c466581e892b7380ecddfaf475fa083677ce7bf1",
     "scripts/tokens.mjs": "bcfcd13a8c3d11b75ed5a787cad13c00553babcab1bca7747a5b94ed1039461c",
-    "package-lock.json": "1de4a76a6b27936b872e354454e0123d17244282d559301653a15c9fe7edd172"
+    "package-lock.json": "bd172be8097f1e6371f205e4ed04eeea658f74dcd7e11ca6d512dec934f5db3c"
   },
   "availability": {
     "frontmatterTextProxy": {
-      "o200k_base": 423,
-      "cl100k_base": 428
+      "o200k_base": 587,
+      "cl100k_base": 594
     },
     "note": "Only names/descriptions/paths are advertised before activation. This raw-frontmatter proxy excludes actual Pi formatting and paths; it is not the full baseline."
   },
@@ -46,16 +48,16 @@
         "api/src/checklist.md"
       ],
       "tokens": {
-        "o200k_base": 3955,
-        "cl100k_base": 3906
+        "o200k_base": 4017,
+        "cl100k_base": 3969
       },
       "percentOfContext": {
-        "o200k_base": 1.98,
-        "cl100k_base": 1.95
+        "o200k_base": 2.01,
+        "cl100k_base": 1.98
       },
       "remainingBeforeOtherCosts": {
-        "o200k_base": 196045,
-        "cl100k_base": 196094
+        "o200k_base": 195983,
+        "cl100k_base": 196031
       }
     },
     "pragmatic": {
@@ -65,16 +67,16 @@
         "pragmatic/src/guidelines/README.md"
       ],
       "tokens": {
-        "o200k_base": 2978,
-        "cl100k_base": 2980
+        "o200k_base": 3043,
+        "cl100k_base": 3047
       },
       "percentOfContext": {
-        "o200k_base": 1.49,
-        "cl100k_base": 1.49
+        "o200k_base": 1.52,
+        "cl100k_base": 1.52
       },
       "remainingBeforeOtherCosts": {
-        "o200k_base": 197022,
-        "cl100k_base": 197020
+        "o200k_base": 196957,
+        "cl100k_base": 196953
       }
     },
     "cheats": {
@@ -84,16 +86,35 @@
         "cheats/references/index.md"
       ],
       "tokens": {
-        "o200k_base": 1673,
-        "cl100k_base": 1674
+        "o200k_base": 1734,
+        "cl100k_base": 1734
       },
       "percentOfContext": {
-        "o200k_base": 0.84,
-        "cl100k_base": 0.84
+        "o200k_base": 0.87,
+        "cl100k_base": 0.87
       },
       "remainingBeforeOtherCosts": {
-        "o200k_base": 198327,
-        "cl100k_base": 198326
+        "o200k_base": 198266,
+        "cl100k_base": 198266
+      }
+    },
+    "performance": {
+      "files": [
+        "skills/rust-perf-book/SKILL.md",
+        "skills/rust-perf-book/references/index.md",
+        "perf/src/introduction.md"
+      ],
+      "tokens": {
+        "o200k_base": 2109,
+        "cl100k_base": 2114
+      },
+      "percentOfContext": {
+        "o200k_base": 1.05,
+        "cl100k_base": 1.06
+      },
+      "remainingBeforeOtherCosts": {
+        "o200k_base": 197891,
+        "cl100k_base": 197886
       }
     }
   },
@@ -1292,6 +1313,82 @@
       }
     }
   ],
+  "performance": {
+    "optimizationMethodology": {
+      "files": [
+        "perf/src/benchmarking.md",
+        "perf/src/general-tips.md"
+      ],
+      "tokens": {
+        "o200k_base": 1879,
+        "cl100k_base": 1888
+      },
+      "percentOfContext": {
+        "o200k_base": 0.94,
+        "cl100k_base": 0.94
+      },
+      "remainingBeforeOtherCosts": {
+        "o200k_base": 198121,
+        "cl100k_base": 198112
+      }
+    },
+    "runtimeMethodology": {
+      "files": [
+        "perf/src/benchmarking.md",
+        "perf/src/general-tips.md",
+        "perf/src/profiling.md"
+      ],
+      "tokens": {
+        "o200k_base": 3537,
+        "cl100k_base": 3533
+      },
+      "percentOfContext": {
+        "o200k_base": 1.77,
+        "cl100k_base": 1.77
+      },
+      "remainingBeforeOtherCosts": {
+        "o200k_base": 196463,
+        "cl100k_base": 196467
+      }
+    },
+    "fullBook": {
+      "files": [
+        "perf/src/SUMMARY.md",
+        "perf/src/benchmarking.md",
+        "perf/src/bounds-checks.md",
+        "perf/src/build-configuration.md",
+        "perf/src/compile-times.md",
+        "perf/src/general-tips.md",
+        "perf/src/hashing.md",
+        "perf/src/heap-allocations.md",
+        "perf/src/inlining.md",
+        "perf/src/introduction.md",
+        "perf/src/io.md",
+        "perf/src/iterators.md",
+        "perf/src/linting.md",
+        "perf/src/logging-and-debugging.md",
+        "perf/src/machine-code.md",
+        "perf/src/parallelism.md",
+        "perf/src/profiling.md",
+        "perf/src/standard-library-types.md",
+        "perf/src/title-page.md",
+        "perf/src/type-sizes.md",
+        "perf/src/wrapper-types.md"
+      ],
+      "tokens": {
+        "o200k_base": 26498,
+        "cl100k_base": 26469
+      },
+      "percentOfContext": {
+        "o200k_base": 13.25,
+        "cl100k_base": 13.23
+      },
+      "remainingBeforeOtherCosts": {
+        "o200k_base": 173502,
+        "cl100k_base": 173531
+      }
+    }
+  },
   "optionalAgentExport": {
     "available": true,
     "files": [
@@ -1523,37 +1620,47 @@
         "max": 3642,
         "sum": 5055
       }
+    },
+    "performanceChapters": {
+      "files": [
+        "perf/src/benchmarking.md",
+        "perf/src/bounds-checks.md",
+        "perf/src/build-configuration.md",
+        "perf/src/compile-times.md",
+        "perf/src/general-tips.md",
+        "perf/src/hashing.md",
+        "perf/src/heap-allocations.md",
+        "perf/src/inlining.md",
+        "perf/src/io.md",
+        "perf/src/iterators.md",
+        "perf/src/linting.md",
+        "perf/src/logging-and-debugging.md",
+        "perf/src/machine-code.md",
+        "perf/src/parallelism.md",
+        "perf/src/profiling.md",
+        "perf/src/standard-library-types.md",
+        "perf/src/type-sizes.md",
+        "perf/src/wrapper-types.md"
+      ],
+      "o200k_base": {
+        "count": 18,
+        "min": 163,
+        "median": 1208,
+        "max": 5713,
+        "sum": 25914
+      },
+      "cl100k_base": {
+        "count": 18,
+        "min": 164,
+        "median": 1206.5,
+        "max": 5707,
+        "sum": 25884
+      }
     }
   },
   "scenarios": [
     {
-      "name": "All three baselines, before cheat topics or source lookup",
-      "files": [
-        "skills/rust-api-guidelines/SKILL.md",
-        "api/src/about.md",
-        "api/src/checklist.md",
-        "skills/rust-pragmatic-guidelines/SKILL.md",
-        "skills/rust-pragmatic-guidelines/references/index.md",
-        "pragmatic/src/guidelines/README.md",
-        "skills/rust-cheats/SKILL.md",
-        "cheats/references/common.md",
-        "cheats/references/index.md"
-      ],
-      "tokens": {
-        "o200k_base": 8606,
-        "cl100k_base": 8560
-      },
-      "percentOfContext": {
-        "o200k_base": 4.3,
-        "cl100k_base": 4.28
-      },
-      "remainingBeforeOtherCosts": {
-        "o200k_base": 191394,
-        "cl100k_base": 191440
-      }
-    },
-    {
-      "name": "All three + conversions topic",
+      "name": "All four baselines, before chapters/topics or source lookup",
       "files": [
         "skills/rust-api-guidelines/SKILL.md",
         "api/src/about.md",
@@ -1564,23 +1671,55 @@
         "skills/rust-cheats/SKILL.md",
         "cheats/references/common.md",
         "cheats/references/index.md",
+        "skills/rust-perf-book/SKILL.md",
+        "skills/rust-perf-book/references/index.md",
+        "perf/src/introduction.md"
+      ],
+      "tokens": {
+        "o200k_base": 10903,
+        "cl100k_base": 10864
+      },
+      "percentOfContext": {
+        "o200k_base": 5.45,
+        "cl100k_base": 5.43
+      },
+      "remainingBeforeOtherCosts": {
+        "o200k_base": 189097,
+        "cl100k_base": 189136
+      }
+    },
+    {
+      "name": "All four + conversions topic",
+      "files": [
+        "skills/rust-api-guidelines/SKILL.md",
+        "api/src/about.md",
+        "api/src/checklist.md",
+        "skills/rust-pragmatic-guidelines/SKILL.md",
+        "skills/rust-pragmatic-guidelines/references/index.md",
+        "pragmatic/src/guidelines/README.md",
+        "skills/rust-cheats/SKILL.md",
+        "cheats/references/common.md",
+        "cheats/references/index.md",
+        "skills/rust-perf-book/SKILL.md",
+        "skills/rust-perf-book/references/index.md",
+        "perf/src/introduction.md",
         "cheats/references/topics/conversions.md"
       ],
       "tokens": {
-        "o200k_base": 11440,
-        "cl100k_base": 11401
+        "o200k_base": 13737,
+        "cl100k_base": 13705
       },
       "percentOfContext": {
-        "o200k_base": 5.72,
-        "cl100k_base": 5.7
+        "o200k_base": 6.87,
+        "cl100k_base": 6.85
       },
       "remainingBeforeOtherCosts": {
-        "o200k_base": 188560,
-        "cl100k_base": 188599
+        "o200k_base": 186263,
+        "cl100k_base": 186295
       }
     },
     {
-      "name": "All three + projects/Cargo topic",
+      "name": "All four + projects/Cargo topic",
       "files": [
         "skills/rust-api-guidelines/SKILL.md",
         "api/src/about.md",
@@ -1591,23 +1730,26 @@
         "skills/rust-cheats/SKILL.md",
         "cheats/references/common.md",
         "cheats/references/index.md",
+        "skills/rust-perf-book/SKILL.md",
+        "skills/rust-perf-book/references/index.md",
+        "perf/src/introduction.md",
         "cheats/references/topics/projects-cargo.md"
       ],
       "tokens": {
-        "o200k_base": 11892,
-        "cl100k_base": 11854
+        "o200k_base": 14189,
+        "cl100k_base": 14158
       },
       "percentOfContext": {
-        "o200k_base": 5.95,
-        "cl100k_base": 5.93
+        "o200k_base": 7.09,
+        "cl100k_base": 7.08
       },
       "remainingBeforeOtherCosts": {
-        "o200k_base": 188108,
-        "cl100k_base": 188146
+        "o200k_base": 185811,
+        "cl100k_base": 185842
       }
     },
     {
-      "name": "All three + advanced traits and prerequisites",
+      "name": "All four + advanced traits and prerequisites",
       "files": [
         "skills/rust-api-guidelines/SKILL.md",
         "api/src/about.md",
@@ -1618,25 +1760,28 @@
         "skills/rust-cheats/SKILL.md",
         "cheats/references/common.md",
         "cheats/references/index.md",
+        "skills/rust-perf-book/SKILL.md",
+        "skills/rust-perf-book/references/index.md",
+        "perf/src/introduction.md",
         "cheats/references/topics/types-traits.md",
         "cheats/references/topics/generics.md",
         "cheats/references/topics/advanced-traits.md"
       ],
       "tokens": {
-        "o200k_base": 16683,
-        "cl100k_base": 16646
+        "o200k_base": 18980,
+        "cl100k_base": 18950
       },
       "percentOfContext": {
-        "o200k_base": 8.34,
-        "cl100k_base": 8.32
+        "o200k_base": 9.49,
+        "cl100k_base": 9.48
       },
       "remainingBeforeOtherCosts": {
-        "o200k_base": 183317,
-        "cl100k_base": 183354
+        "o200k_base": 181020,
+        "cl100k_base": 181050
       }
     },
     {
-      "name": "All three + function lifetimes and prerequisites",
+      "name": "All four + function lifetimes and prerequisites",
       "files": [
         "skills/rust-api-guidelines/SKILL.md",
         "api/src/about.md",
@@ -1647,25 +1792,28 @@
         "skills/rust-cheats/SKILL.md",
         "cheats/references/common.md",
         "cheats/references/index.md",
+        "skills/rust-perf-book/SKILL.md",
+        "skills/rust-perf-book/references/index.md",
+        "perf/src/introduction.md",
         "cheats/references/topics/moves-and-stack.md",
         "cheats/references/topics/borrowing.md",
         "cheats/references/topics/function-lifetimes.md"
       ],
       "tokens": {
-        "o200k_base": 19152,
-        "cl100k_base": 19165
+        "o200k_base": 21449,
+        "cl100k_base": 21469
       },
       "percentOfContext": {
-        "o200k_base": 9.58,
-        "cl100k_base": 9.58
+        "o200k_base": 10.72,
+        "cl100k_base": 10.73
       },
       "remainingBeforeOtherCosts": {
-        "o200k_base": 180848,
-        "cl100k_base": 180835
+        "o200k_base": 178551,
+        "cl100k_base": 178531
       }
     },
     {
-      "name": "All three baselines + explicit full cheat archive instead of topics",
+      "name": "All four + allocation investigation (methodology + heap allocations)",
       "files": [
         "skills/rust-api-guidelines/SKILL.md",
         "api/src/about.md",
@@ -1676,23 +1824,141 @@
         "skills/rust-cheats/SKILL.md",
         "cheats/references/common.md",
         "cheats/references/index.md",
+        "skills/rust-perf-book/SKILL.md",
+        "skills/rust-perf-book/references/index.md",
+        "perf/src/introduction.md",
+        "perf/src/benchmarking.md",
+        "perf/src/general-tips.md",
+        "perf/src/profiling.md",
+        "perf/src/heap-allocations.md"
+      ],
+      "tokens": {
+        "o200k_base": 20153,
+        "cl100k_base": 20104
+      },
+      "percentOfContext": {
+        "o200k_base": 10.08,
+        "cl100k_base": 10.05
+      },
+      "remainingBeforeOtherCosts": {
+        "o200k_base": 179847,
+        "cl100k_base": 179896
+      }
+    },
+    {
+      "name": "All four + build-time optimization (methodology + compile times/build configuration)",
+      "files": [
+        "skills/rust-api-guidelines/SKILL.md",
+        "api/src/about.md",
+        "api/src/checklist.md",
+        "skills/rust-pragmatic-guidelines/SKILL.md",
+        "skills/rust-pragmatic-guidelines/references/index.md",
+        "pragmatic/src/guidelines/README.md",
+        "skills/rust-cheats/SKILL.md",
+        "cheats/references/common.md",
+        "cheats/references/index.md",
+        "skills/rust-perf-book/SKILL.md",
+        "skills/rust-perf-book/references/index.md",
+        "perf/src/introduction.md",
+        "perf/src/benchmarking.md",
+        "perf/src/general-tips.md",
+        "perf/src/compile-times.md",
+        "perf/src/build-configuration.md"
+      ],
+      "tokens": {
+        "o200k_base": 19061,
+        "cl100k_base": 19021
+      },
+      "percentOfContext": {
+        "o200k_base": 9.53,
+        "cl100k_base": 9.51
+      },
+      "remainingBeforeOtherCosts": {
+        "o200k_base": 180939,
+        "cl100k_base": 180979
+      }
+    },
+    {
+      "name": "All four baselines + explicitly requested full performance book",
+      "files": [
+        "skills/rust-api-guidelines/SKILL.md",
+        "api/src/about.md",
+        "api/src/checklist.md",
+        "skills/rust-pragmatic-guidelines/SKILL.md",
+        "skills/rust-pragmatic-guidelines/references/index.md",
+        "pragmatic/src/guidelines/README.md",
+        "skills/rust-cheats/SKILL.md",
+        "cheats/references/common.md",
+        "cheats/references/index.md",
+        "skills/rust-perf-book/SKILL.md",
+        "skills/rust-perf-book/references/index.md",
+        "perf/src/introduction.md",
+        "perf/src/SUMMARY.md",
+        "perf/src/benchmarking.md",
+        "perf/src/bounds-checks.md",
+        "perf/src/build-configuration.md",
+        "perf/src/compile-times.md",
+        "perf/src/general-tips.md",
+        "perf/src/hashing.md",
+        "perf/src/heap-allocations.md",
+        "perf/src/inlining.md",
+        "perf/src/io.md",
+        "perf/src/iterators.md",
+        "perf/src/linting.md",
+        "perf/src/logging-and-debugging.md",
+        "perf/src/machine-code.md",
+        "perf/src/parallelism.md",
+        "perf/src/profiling.md",
+        "perf/src/standard-library-types.md",
+        "perf/src/title-page.md",
+        "perf/src/type-sizes.md",
+        "perf/src/wrapper-types.md"
+      ],
+      "tokens": {
+        "o200k_base": 37089,
+        "cl100k_base": 37021
+      },
+      "percentOfContext": {
+        "o200k_base": 18.54,
+        "cl100k_base": 18.51
+      },
+      "remainingBeforeOtherCosts": {
+        "o200k_base": 162911,
+        "cl100k_base": 162979
+      }
+    },
+    {
+      "name": "All four baselines + explicit full cheat archive instead of topics",
+      "files": [
+        "skills/rust-api-guidelines/SKILL.md",
+        "api/src/about.md",
+        "api/src/checklist.md",
+        "skills/rust-pragmatic-guidelines/SKILL.md",
+        "skills/rust-pragmatic-guidelines/references/index.md",
+        "pragmatic/src/guidelines/README.md",
+        "skills/rust-cheats/SKILL.md",
+        "cheats/references/common.md",
+        "cheats/references/index.md",
+        "skills/rust-perf-book/SKILL.md",
+        "skills/rust-perf-book/references/index.md",
+        "perf/src/introduction.md",
         "cheats/references/all.md"
       ],
       "tokens": {
-        "o200k_base": 90450,
-        "cl100k_base": 90498
+        "o200k_base": 92747,
+        "cl100k_base": 92802
       },
       "percentOfContext": {
-        "o200k_base": 45.23,
-        "cl100k_base": 45.25
+        "o200k_base": 46.37,
+        "cl100k_base": 46.4
       },
       "remainingBeforeOtherCosts": {
-        "o200k_base": 109550,
-        "cl100k_base": 109502
+        "o200k_base": 107253,
+        "cl100k_base": 107198
       }
     },
     {
-      "name": "All three baselines + explicitly requested full Microsoft briefing",
+      "name": "All four baselines + explicitly requested full Microsoft briefing",
       "files": [
         "skills/rust-api-guidelines/SKILL.md",
         "api/src/about.md",
@@ -1703,20 +1969,23 @@
         "skills/rust-cheats/SKILL.md",
         "cheats/references/common.md",
         "cheats/references/index.md",
+        "skills/rust-perf-book/SKILL.md",
+        "skills/rust-perf-book/references/index.md",
+        "perf/src/introduction.md",
         "pragmatic/src/agents/README.md",
         "pragmatic/src/agents/all.txt"
       ],
       "tokens": {
-        "o200k_base": 41543,
-        "cl100k_base": 41550
+        "o200k_base": 43840,
+        "cl100k_base": 43854
       },
       "percentOfContext": {
-        "o200k_base": 20.77,
-        "cl100k_base": 20.78
+        "o200k_base": 21.92,
+        "cl100k_base": 21.93
       },
       "remainingBeforeOtherCosts": {
-        "o200k_base": 158457,
-        "cl100k_base": 158450
+        "o200k_base": 156160,
+        "cl100k_base": 156146
       }
     }
   ],
@@ -2169,6 +2438,195 @@
       "tokens": {
         "o200k_base": 2520,
         "cl100k_base": 2525
+      }
+    },
+    {
+      "id": "perf/src/SUMMARY.md",
+      "bytes": 688,
+      "sha256": "0dea41133844c83a296622c59bcdbb69da7f30b0779fd9192248632c61076aaa",
+      "tokens": {
+        "o200k_base": 192,
+        "cl100k_base": 192
+      }
+    },
+    {
+      "id": "perf/src/benchmarking.md",
+      "bytes": 3094,
+      "sha256": "ade47afe39debd038fa7343dc280497b2adf9b0fe0980b2525dfe55d7a5899ed",
+      "tokens": {
+        "o200k_base": 690,
+        "cl100k_base": 702
+      }
+    },
+    {
+      "id": "perf/src/bounds-checks.md",
+      "bytes": 1249,
+      "sha256": "cc873a34841da6c4053b873c162e0e02534126810b56bf48d450d7a99d316640",
+      "tokens": {
+        "o200k_base": 309,
+        "cl100k_base": 307
+      }
+    },
+    {
+      "id": "perf/src/build-configuration.md",
+      "bytes": 20230,
+      "sha256": "fde14fab2ec5189e2bd68bba90b490cf87290179dacc486f82dd140a8b10afa5",
+      "tokens": {
+        "o200k_base": 4955,
+        "cl100k_base": 4946
+      }
+    },
+    {
+      "id": "perf/src/compile-times.md",
+      "bytes": 5297,
+      "sha256": "4a249d4aee2da6a458a67bb7cf54d7c85b42db8764876d55e8b601bb58ee94ba",
+      "tokens": {
+        "o200k_base": 1324,
+        "cl100k_base": 1323
+      }
+    },
+    {
+      "id": "perf/src/general-tips.md",
+      "bytes": 4059,
+      "sha256": "d8081b12259c03251287de0593dc7c0b373f1ce7612a9c89bf8c1a28d3acf03f",
+      "tokens": {
+        "o200k_base": 1189,
+        "cl100k_base": 1186
+      }
+    },
+    {
+      "id": "perf/src/hashing.md",
+      "bytes": 4037,
+      "sha256": "bf284cb365b89f6fe2cb1e9d9c1ab928129fd97b7f0294a1becc98037dba94e3",
+      "tokens": {
+        "o200k_base": 1070,
+        "cl100k_base": 1057
+      }
+    },
+    {
+      "id": "perf/src/heap-allocations.md",
+      "bytes": 20816,
+      "sha256": "ab826a6a9f1917a4250d9f85279571f94605fdfde5afa5ec283b19ec52d233f2",
+      "tokens": {
+        "o200k_base": 5713,
+        "cl100k_base": 5707
+      }
+    },
+    {
+      "id": "perf/src/inlining.md",
+      "bytes": 4538,
+      "sha256": "8d6e3354ac72d61c8279a113bf85f8abfb50dacf690169ccc3ff9020d792f817",
+      "tokens": {
+        "o200k_base": 1264,
+        "cl100k_base": 1265
+      }
+    },
+    {
+      "id": "perf/src/introduction.md",
+      "bytes": 1607,
+      "sha256": "c283e6362fc11e289bd4e5ffd4820bd60a88b4438bd3afde444c4e006761fbbd",
+      "tokens": {
+        "o200k_base": 312,
+        "cl100k_base": 312
+      }
+    },
+    {
+      "id": "perf/src/io.md",
+      "bytes": 4576,
+      "sha256": "967a5b6df59a7210096ebca2399000fb9fc3cfc2cce3317eb10e4c1556f3d276",
+      "tokens": {
+        "o200k_base": 1227,
+        "cl100k_base": 1227
+      }
+    },
+    {
+      "id": "perf/src/iterators.md",
+      "bytes": 5077,
+      "sha256": "7a465f197cbd67a2e461d3f1b2199f06311a9ecc11598e11ce458e617e0d7277",
+      "tokens": {
+        "o200k_base": 1351,
+        "cl100k_base": 1349
+      }
+    },
+    {
+      "id": "perf/src/linting.md",
+      "bytes": 2274,
+      "sha256": "e5c697b6bc3609f33b252140e58f9b4e3bac195eed979d4dd34e3bcc024a54d5",
+      "tokens": {
+        "o200k_base": 528,
+        "cl100k_base": 529
+      }
+    },
+    {
+      "id": "perf/src/logging-and-debugging.md",
+      "bytes": 1237,
+      "sha256": "a3af0d478858aa542bb0b610f99a61f801b0fc8692ce2c46cbdd61ff0c2674a7",
+      "tokens": {
+        "o200k_base": 403,
+        "cl100k_base": 405
+      }
+    },
+    {
+      "id": "perf/src/machine-code.md",
+      "bytes": 696,
+      "sha256": "5d88569850b6a31fa9c94bf3321b579d81037cdef82db1c882cf8160ed3336a6",
+      "tokens": {
+        "o200k_base": 163,
+        "cl100k_base": 164
+      }
+    },
+    {
+      "id": "perf/src/parallelism.md",
+      "bytes": 932,
+      "sha256": "748094cbd16ed5c8701a67bf8c8afe50d72fa8aae2b0b3457f86ab9bfdedcae0",
+      "tokens": {
+        "o200k_base": 237,
+        "cl100k_base": 241
+      }
+    },
+    {
+      "id": "perf/src/profiling.md",
+      "bytes": 6472,
+      "sha256": "a4a3286b94bf55368b1a494c9895bd5b7773ea9b8bf82b9d323063bc6b565510",
+      "tokens": {
+        "o200k_base": 1658,
+        "cl100k_base": 1645
+      }
+    },
+    {
+      "id": "perf/src/standard-library-types.md",
+      "bytes": 5053,
+      "sha256": "9aa3ba701734354f5a0526e88b69b714eda2a832c4d3175a7ce1364a92faab1d",
+      "tokens": {
+        "o200k_base": 1426,
+        "cl100k_base": 1425
+      }
+    },
+    {
+      "id": "perf/src/title-page.md",
+      "bytes": 281,
+      "sha256": "f0d395e981c79575686b606973f83a622b276e5a6143695fbc27f4c007eced93",
+      "tokens": {
+        "o200k_base": 80,
+        "cl100k_base": 81
+      }
+    },
+    {
+      "id": "perf/src/type-sizes.md",
+      "bytes": 7586,
+      "sha256": "1f9e4a832c99c806e3b5e2e781dfbd8ccff19e370360240b3df96d79dca376d5",
+      "tokens": {
+        "o200k_base": 2146,
+        "cl100k_base": 2145
+      }
+    },
+    {
+      "id": "perf/src/wrapper-types.md",
+      "bytes": 906,
+      "sha256": "5b1e258aa0d54fdc83129468e713858cc2fd6f6383fee357f37871598e6134b9",
+      "tokens": {
+        "o200k_base": 261,
+        "cl100k_base": 261
       }
     },
     {
@@ -3154,29 +3612,47 @@
     },
     {
       "id": "skills/rust-api-guidelines/SKILL.md",
-      "bytes": 6361,
-      "sha256": "aac289bec0d87fb03032311b0c25f5a11934d47047af07e4426aa058ec5982fa",
+      "bytes": 6694,
+      "sha256": "326b76e5803d8467c88e692895517cfb13d3c7781d78cf39230d7261095e7001",
       "tokens": {
-        "o200k_base": 1648,
-        "cl100k_base": 1650
+        "o200k_base": 1710,
+        "cl100k_base": 1713
       }
     },
     {
       "id": "skills/rust-cheats/SKILL.md",
-      "bytes": 3980,
-      "sha256": "c49d8f8437c8a861814ee5edd0f5e068984dc17c5f9fdebd75c843ed231fc20c",
+      "bytes": 4269,
+      "sha256": "ea68c1e36b9b35778917ebe91ed37828d45a61a1b958940e14673127611fe905",
       "tokens": {
-        "o200k_base": 840,
-        "cl100k_base": 843
+        "o200k_base": 901,
+        "cl100k_base": 903
+      }
+    },
+    {
+      "id": "skills/rust-perf-book/SKILL.md",
+      "bytes": 5073,
+      "sha256": "19ab62e0bdb4b359a83e645cb0159549a1c5b567e02386eb2e776f7024d5bced",
+      "tokens": {
+        "o200k_base": 1059,
+        "cl100k_base": 1066
+      }
+    },
+    {
+      "id": "skills/rust-perf-book/references/index.md",
+      "bytes": 3267,
+      "sha256": "c01b5eac6cb553b020ecf9dbc7f930aee3c775beff11351c08f3829ca8fd3b24",
+      "tokens": {
+        "o200k_base": 738,
+        "cl100k_base": 736
       }
     },
     {
       "id": "skills/rust-pragmatic-guidelines/SKILL.md",
-      "bytes": 5386,
-      "sha256": "9e2eb938586e09962aab80467687848194a3f6dc81b5a58325e0bdc4ebc6d6b1",
+      "bytes": 5730,
+      "sha256": "8c545b7920b86e91804c1961d959a779d2eb249d1aa655871c488f06384caaf8",
       "tokens": {
-        "o200k_base": 1257,
-        "cl100k_base": 1259
+        "o200k_base": 1322,
+        "cl100k_base": 1326
       }
     },
     {

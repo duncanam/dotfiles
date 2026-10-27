@@ -6,15 +6,16 @@ Budget: **200,000 tokens per agent**. Counts use gpt-tokenizer@4.1.0; the tables
 
 ## Availability is not activation
 
-Pi advertises skill names, descriptions and paths; it does not load every skill body or reference at startup. The three frontmatters together are 423 tokens as a rough advertisement-text proxy (actual formatting/path overhead differs). The larger costs below occur when the skills are invoked.
+Pi advertises skill names, descriptions and paths; it does not load every skill body or reference at startup. The four frontmatters together are 587 tokens as a rough advertisement-text proxy (actual formatting/path overhead differs). The larger costs below occur when the skills are invoked.
 
 ## Default activation costs
 
 | Skill | o200k tokens | cl100k tokens | % of context | Included |
 | --- | ---: | ---: | ---: | --- |
-| Rust API Guidelines | 3,955 | 3,906 | 1.98% | SKILL.md + about.md + checklist.md |
-| Microsoft Pragmatic Guidelines | 2,978 | 2,980 | 1.49% | SKILL.md + task router + guidelines README; source rules extra |
-| Rust cheats: routing baseline | 1,673 | 1,674 | 0.84% | SKILL.md + common caveats + compact router; topics extra |
+| Rust API Guidelines | 4,017 | 3,969 | 2.01% | SKILL.md + about.md + checklist.md |
+| Microsoft Pragmatic Guidelines | 3,043 | 3,047 | 1.52% | SKILL.md + task router + guidelines README; source rules extra |
+| Rust cheats: routing baseline | 1,734 | 1,734 | 0.87% | SKILL.md + common caveats + compact router; topics extra |
+| Rust Performance Book | 2,109 | 2,114 | 1.05% | SKILL.md + introduction + task router; methodology/chapters extra |
 
 Microsoft's `src/agents/all.txt` is **not loaded by default**; that file alone would add **32,720 tokens**. The optional briefing and its README are available. Normal routing does not depend on it. The API skill does **not** load its entire book: its about/checklist baseline is 2,307 tokens before the skill wrapper. No extra API agent export exists in the inspected checkout; a future/custom export would add cost.
 
@@ -24,19 +25,26 @@ The 32 generated topic files (including their headers) range from **828–4,798 
 
 The full cheat archive is **81,844 tokens** and is no longer a default read. Do not read it as well as the topic copies.
 
+## Performance chapters
+
+Actual optimization work adds complete Benchmarking and General Tips chapters (**1,879 tokens**), plus Profiling for runtime/memory investigations (**3,537 tokens** for all three). Then add the selected technique chapters. Focused explanatory questions need only their relevant chapters. These are conditional required reads, not part of the baseline. The whole book, including its TOC/title page, is **26,498 tokens** and is opt-in. Licenses and maintenance files are not default reads.
+
 ## Combined scenarios
 
-These totals include all three skill baselines and the named cheat topics/prerequisites or explicitly requested exports, but **exclude task-specific API chapters and Microsoft source rules**. The full-archive example conservatively includes the already-read common preamble again inside the archive.
+These totals include all four skill baselines and the named chapters/topics/prerequisites or explicitly requested exports, but **exclude task-specific API chapters and Microsoft source rules**. Performance methodology is included in the named optimization scenarios, not unrelated language questions. The full-archive example conservatively includes the already-read common preamble again inside the archive.
 
 | Loaded material | Tokens | % of context | Remainder before other costs |
 | --- | ---: | ---: | ---: |
-| All three baselines, before cheat topics or source lookup | 8,606 | 4.3% | 191,394 |
-| All three + conversions topic | 11,440 | 5.72% | 188,560 |
-| All three + projects/Cargo topic | 11,892 | 5.95% | 188,108 |
-| All three + advanced traits and prerequisites | 16,683 | 8.34% | 183,317 |
-| All three + function lifetimes and prerequisites | 19,152 | 9.58% | 180,848 |
-| All three baselines + explicit full cheat archive instead of topics | 90,450 | 45.23% | 109,550 |
-| All three baselines + explicitly requested full Microsoft briefing | 41,543 | 20.77% | 158,457 |
+| All four baselines, before chapters/topics or source lookup | 10,903 | 5.45% | 189,097 |
+| All four + conversions topic | 13,737 | 6.87% | 186,263 |
+| All four + projects/Cargo topic | 14,189 | 7.09% | 185,811 |
+| All four + advanced traits and prerequisites | 18,980 | 9.49% | 181,020 |
+| All four + function lifetimes and prerequisites | 21,449 | 10.72% | 178,551 |
+| All four + allocation investigation (methodology + heap allocations) | 20,153 | 10.08% | 179,847 |
+| All four + build-time optimization (methodology + compile times/build configuration) | 19,061 | 9.53% | 180,939 |
+| All four baselines + explicitly requested full performance book | 37,089 | 18.54% | 162,911 |
+| All four baselines + explicit full cheat archive instead of topics | 92,747 | 46.37% | 107,253 |
+| All four baselines + explicitly requested full Microsoft briefing | 43,840 | 21.92% | 156,160 |
 
 The remainder is **not** all free working space: agent/system prompts, tools, conversation, code, other skills, and reasoning/output reserve still need to fit. These are per-agent budgets; several agents do not share one 200k window.
 
@@ -49,19 +57,21 @@ Full relevant source reads remain required by the guideline skills: the task rou
 | API chapters (excluding baseline, TOC and external links) | 11 | 1,845 | 4,054 | 20,749 |
 | Microsoft M-* source rules | 90 | 309.5 | 1,034 | 33,897 |
 | Microsoft category/checklist READMEs | 16 | 96 | 3,685 | 5,107 |
+| Performance chapters (excluding introduction, title page and TOC) | 18 | 1,208 | 5,713 | 25,914 |
 
 ## Practical choice for 200k agents
 
 - Keep the small API baseline and topic-based cheats. Complete relevant files retain their warnings and exceptions without the full encyclopedia cost.
 - Microsoft now uses its small overview and task router, then complete relevant source files. The full agent briefing is opt-in. This trades broad always-present coverage for deliberate scope selection; consider cross-cutting safety, API, testing and build concerns before narrowing.
 - Broad Microsoft reviews additionally load the upstream checklist and all applicable source rules. Add those lookup costs to the examples above; the smaller baseline is not a claim that a thorough review is free.
+- Performance guidance is chapter-routed; preserve its measurement-first methodology for optimization tasks. A small baseline does not justify skipping benchmarking or profiling.
 - Reuse complete reads already in active context. Do not reread the same prerequisites or append both a topic set and its full archive. A compacted summary is not a complete source read.
 - Prompt caching may reduce billing or latency, but does not reclaim context capacity. Dollar cost depends on provider/model and cache pricing, which this report does not assume.
 
 ## Snapshot and reproduction
 
-Microsoft source version: **2026.6**. Exact measured file sizes, SHA-256 hashes, both tokenizer counts, prerequisite closures and baseline file lists are in [context-budget.json](context-budget.json). No machine-specific absolute paths or timestamps are recorded.
+Microsoft source version: **2026.6**. Performance-book revision: `a05dd0f15595e98aef45e5a15072c2a71dbe37ba`. Exact measured file sizes, SHA-256 hashes, both tokenizer counts, prerequisite closures and baseline file lists are in [context-budget.json](context-budget.json). No machine-specific absolute paths or timestamps are recorded.
 
-After `npm ci --ignore-scripts`, run `npm run budget` to inspect current JSON, `npm run budget -- --write` to refresh this report, or `npm run budget -- --check` to verify it. The two guideline skills must be siblings of this one; configure their absolute repository roots with `RUST_API_GUIDELINES_REPO` and `RUST_PRAGMATIC_GUIDELINES_REPO`, or use their documented defaults. Empty, missing, unreadable or invalid required inputs fail rather than falling back. Optional agent-export availability is reported without blocking the normal baseline measurement. Use `--context 200000` to change the modeled window explicitly.
+After `npm ci --ignore-scripts`, run `npm run budget` to inspect current JSON, `npm run budget -- --write` to refresh this report, or `npm run budget -- --check` to verify it. The two guideline skills and the bundled performance-book skill must be siblings of this one; configure the guideline skills' absolute repository roots with `RUST_API_GUIDELINES_REPO` and `RUST_PRAGMATIC_GUIDELINES_REPO`, or use their documented defaults. Empty, missing, unreadable or invalid required inputs fail rather than falling back. Optional agent-export availability is reported without blocking the normal baseline measurement. Use `--context 200000` to change the modeled window explicitly.
 
 The budget command is optional maintenance, never a skill-load step. Ordinary cheat generation/checks do not require either guideline checkout. Counts are sums of file text without read-tool envelopes, repeated truncation notices or chat framing. Different provider tokenizers can differ; neither encoding is asserted to be Claude's tokenizer.

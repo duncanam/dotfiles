@@ -45,7 +45,7 @@
       "scripts/topics.mjs": "1bee2a244a2306338ecb50ec470995f80bb61592908ed968dd20e476d30c4189",
       "scripts/tokens.mjs": "bcfcd13a8c3d11b75ed5a787cad13c00553babcab1bca7747a5b94ed1039461c",
       "topic-plan.json": "26ede0591504a4ab06bac71698f8faae4647bd5a7c318d7eea86b3c17116b331",
-      "package-lock.json": "1de4a76a6b27936b872e354454e0123d17244282d559301653a15c9fe7edd172"
+      "package-lock.json": "bd172be8097f1e6371f205e4ed04eeea658f74dcd7e11ca6d512dec934f5db3c"
     },
     "policy": "CONVERSION.md",
     "generatedFrom": "Markdown source, not rendered website HTML",

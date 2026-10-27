@@ -1,0 +1,15 @@
+{
+  "repository": "https://github.com/rust-lang/api-guidelines",
+  "commit": "97a0969cb07fe4cabb0eed8a56234053f47d83dc",
+  "modifications": "None to these license files.",
+  "files": {
+    "LICENSE-MIT": {
+      "bytes": 1071,
+      "sha256": "29662666b44dff84977b46e05642cdef910bc3a93a17b5fd86e632bafa59cf21"
+    },
+    "LICENSE-APACHE": {
+      "bytes": 10847,
+      "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+    }
+  }
+}

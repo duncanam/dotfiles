@@ -1,6 +1,7 @@
 {
   "name": "local-rust-cheats-skill",
   "private": true,
+  "license": "SEE LICENSE IN NOTICE.md",
   "type": "module",
   "engines": { "node": ">=22" },
   "scripts": {

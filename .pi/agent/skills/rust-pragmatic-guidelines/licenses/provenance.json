@@ -1,0 +1,11 @@
+{
+  "repository": "https://github.com/microsoft/rust-guidelines",
+  "commit": "19723b30aadf1854fef6a56c2da2395dc03255c1",
+  "modifications": "None to these license files.",
+  "files": {
+    "LICENSE.md": {
+      "bytes": 1141,
+      "sha256": "c2cfccb812fe482101a8f04597dfc5a9991a6b2748266c47ac91b6a5aae15383"
+    }
+  }
+}

@@ -1,5 +1,6 @@
 ---
 name: rust-api-guidelines
+license: MIT
 description: Authoritative Rust API design guidance from the official Rust API Guidelines (rust-lang/api-guidelines). Load this whenever the user is designing, reviewing, refactoring, or critiquing a Rust crate's public API — including questions about naming conventions (C-CASE, C-CONV, C-GETTER, C-ITER), trait implementations, error handling, documentation, predictability, flexibility, type safety, dependability, debuggability, future-proofing, macros, interoperability, or the API review checklist. Loads the official overview and checklist by default, plus any upstream agent briefing provided by the checkout, and supplies a topic→file map for detailed source lookup.
 ---
 
@@ -104,3 +105,10 @@ rg -n --glob '*.md' '^## .*C-[A-Z-]+' "$GUIDELINES_DIR"
 ```
 
 This is useful when doing a full-crate review and you want the model to walk every applicable guideline.
+
+## Attribution and redistribution
+
+See `NOTICE.md` and `licenses/` for upstream attribution and complete license
+texts covering source-derived navigation. Original skill instructions are MIT
+licensed under `LICENSE`; the upstream book remains external. No unrelated
+repository files are licensed by this skill's grant.

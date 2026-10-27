@@ -34,6 +34,23 @@ test('generated output hashes/sizes match provenance', async () => {
   assert.ok((await readFile(join(root, 'NOTICE.md'), 'utf8')).includes(provenance.upstream.commit), 'Review and update NOTICE on repin');
 });
 
+test('MIT tooling license does not mislabel the conditional upstream reference', async () => {
+  const license = await readFile(join(root, 'LICENSE'), 'utf8');
+  const notice = await readFile(join(root, 'NOTICE.md'), 'utf8');
+  const skill = await readFile(join(root, 'SKILL.md'), 'utf8');
+  const pkg = JSON.parse(await readFile(join(root, 'package.json'), 'utf8'));
+  const lock = JSON.parse(await readFile(join(root, 'package-lock.json'), 'utf8'));
+  assert.ok(license.startsWith('MIT License\n'));
+  assert.ok(license.includes('Copyright (c) 2026 Duncan McGough and contributors'));
+  assert.ok(license.includes('THE SOFTWARE IS PROVIDED "AS IS"'));
+  assert.ok(notice.includes('MIT grant does not relicense `references/`'));
+  for (const term of ['CC-BY', 'CC-0', 'good standing', 'never licensed', 'no warranty']) assert.ok(notice.includes(term), term);
+  assert.ok(skill.includes('MIT (original code); see NOTICE.md for reference content'));
+  assert.equal(pkg.private, true);
+  assert.equal(pkg.license, 'SEE LICENSE IN NOTICE.md');
+  assert.equal(lock.packages[''].license, pkg.license);
+});
+
 test('cleaned reference parses without raw HTML or template expressions outside code', () => {
   assert.deepEqual(flat.filter(token => ['html_inline', 'html_block'].includes(token.type)).map(token => token.content), []);
   assert.deepEqual(flat.filter(token => token.type === 'text' && /\{\{\s*\w+\s*\(/.test(token.content)).map(token => token.content), []);

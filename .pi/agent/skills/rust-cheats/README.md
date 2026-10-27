@@ -4,6 +4,10 @@ The skill reads committed Markdown; users do not need a source checkout, Node,
 or Zola. The converter operates on upstream `content/_index.md` and its embedded
 shortcodes/HTML, **not** a rendered web page. See [CONVERSION.md](CONVERSION.md)
 for transformations and limitations, and [NOTICE.md](NOTICE.md) for terms.
+Original skill/tooling code is MIT licensed under [LICENSE](LICENSE). That grant
+does **not** relicense `references/`: its conditional upstream terms remain in
+force. Package metadata points to `NOTICE.md` rather than advertising MIT-only
+licensing; the private/publication guard remains in place.
 
 ## Files
 
@@ -20,7 +24,7 @@ for transformations and limitations, and [NOTICE.md](NOTICE.md) for terms.
 - `scripts/convert.mjs`: Markdown/code protection and explicit markup conversion.
 - `scripts/generate.mjs`: pinned input acquisition, validation, artifact generation.
 - `scripts/topics.mjs`: lossless partitioning and routing/index generation.
-- `scripts/context-budget.mjs`: optional context-cost measurement across all three Rust skills.
+- `scripts/context-budget.mjs`: optional context-cost measurement across all four Rust skills.
 - `CONTEXT-BUDGET.md` and `context-budget.json`: measured context budgets and input hashes.
 - `scripts/*.test.mjs`: regression and generated-artifact checks.
 
@@ -131,12 +135,15 @@ is correct or every example should compile.
 ## Context-budget measurement
 
 `npm run budget` prints a JSON measurement for the current local API/Pragmatic
-checkouts and the generated cheat topics. It never fetches or changes a checkout.
-The other two skills must be present as siblings; their existing
+checkouts, generated cheat topics and bundled performance-book chapters. It never
+fetches or changes a checkout. The other three skills must be present as siblings;
+the two guideline skills' existing
 `RUST_API_GUIDELINES_REPO` and `RUST_PRAGMATIC_GUIDELINES_REPO` overrides work as
 usual (absolute repository roots; explicitly empty/invalid values fail). The
 Pragmatic baseline is its task router plus upstream overview and skill wrapper;
 its agent export is optional and reported separately, not a default prerequisite.
+The performance baseline is its wrapper, introduction and task router; required
+optimization methodology and selected chapters are additional measured costs.
 
 ```bash
 npm run budget

@@ -23,8 +23,13 @@ test('budget counts real baseline files, deduplicates prerequisites and records 
   const skillRoot = join(temp, 'skills/rust-cheats');
   async function put(path, text) { await mkdir(join(path, '..'), {recursive:true}); await writeFile(path, text); }
   try {
-    for (const name of ['rust-api-guidelines','rust-pragmatic-guidelines','rust-cheats']) await put(join(temp, 'skills', name, 'SKILL.md'), `---\nname: ${name}\ndescription: fixture\n---\nInstructions.\n`);
+    for (const name of ['rust-api-guidelines','rust-pragmatic-guidelines','rust-cheats','rust-perf-book']) await put(join(temp, 'skills', name, 'SKILL.md'), `---\nname: ${name}\ndescription: fixture\n---\nInstructions.\n`);
     await put(join(temp,'skills/rust-pragmatic-guidelines/references/index.md'),'Task router: read complete applicable source rules.\n');
+    const perfRoot = join(temp, 'skills/rust-perf-book');
+    await put(join(perfRoot,'references/index.md'),'Performance chapter router.\n');
+    const perfFiles = ['introduction.md','benchmarking.md','general-tips.md','profiling.md','heap-allocations.md','compile-times.md','build-configuration.md','title-page.md','SUMMARY.md'];
+    await put(join(perfRoot,'provenance.json'),JSON.stringify({commit:'a'.repeat(40),files:Object.fromEntries(perfFiles.map(file=>[`src/${file}`,{}]))}));
+    for (const file of perfFiles) await put(join(perfRoot,'references/book/src',file),`# ${file}\nPerformance guidance.\n`);
     const api = join(home, 'git/api-guidelines');
     const pragmatic = join(home, 'git/rust-guidelines');
     for (const file of ['about.md','checklist.md','naming.md']) await put(join(api, 'src', file), `# ${file}\nAPI guidance.\n`);
@@ -50,6 +55,16 @@ test('budget counts real baseline files, deduplicates prerequisites and records 
     assert.ok(!result.baselines.pragmatic.files.some(id => id.includes('/agents/')));
     assert.equal(result.optionalAgentExport.available, true);
     assert.equal(result.baselines.cheats.files.length, 3);
+    assert.equal(result.baselines.performance.files.length, 3);
+    assert.equal(result.sourceVersions.perfBook, 'a'.repeat(40));
+    assert.equal(result.performance.optimizationMethodology.files.length, 2);
+    assert.equal(result.performance.runtimeMethodology.files.length, 3);
+    assert.equal(result.performance.fullBook.files.length, 9);
+    assert.equal(result.optionalLookups.performanceChapters.o200k_base.count, 6);
+    const allocation = result.scenarios.find(s => s.name.includes('allocation investigation'));
+    assert.ok(allocation.files.includes('perf/src/profiling.md'));
+    assert.ok(allocation.files.includes('perf/src/heap-allocations.md'));
+    assert.ok(!result.baselines.performance.files.includes('perf/src/heap-allocations.md'));
     const functionTopic = result.topics.find(t => t.id === 'function-lifetimes');
     assert.equal(functionTopic.withPrerequisites.files.length, 3, 'A transitive prerequisite is read once');
     assert.equal(result.optionalLookups.apiChapters.o200k_base.count, 1);
@@ -78,6 +93,10 @@ test('budget counts real baseline files, deduplicates prerequisites and records 
     assert.ok(emptyExport.optionalAgentExport.unavailable.some(r => r.reason === 'empty'));
     await unlink(join(pragmatic,'src/agents/README.md'));
     assert.equal((await measureBudget(inputs)).optionalAgentExport.unavailable.length, 2);
+    const perfChapter = join(perfRoot,'references/book/src/heap-allocations.md');
+    await unlink(perfChapter);
+    await assert.rejects(measureBudget(inputs), /Cannot measure perf\/src\/heap-allocations.md/);
+    await put(perfChapter,'Restored fixture chapter.\n');
     await writeFile(join(pragmatic,'src/guidelines/README.md'),'');
     await assert.rejects(measureBudget(inputs), /empty resource/);
   } finally { await rm(temp, {recursive:true,force:true}); }

@@ -82,7 +82,7 @@ export async function measureBudget({ skillRoot = ROOT, env = process.env, home 
       remainingBeforeOtherCosts: Object.fromEntries(encodings.map(e => [e, contextWindow - tokens[e]])) };
   }
   const wrappers = {};
-  for (const skill of ['rust-api-guidelines', 'rust-pragmatic-guidelines', 'rust-cheats']) {
+  for (const skill of ['rust-api-guidelines', 'rust-pragmatic-guidelines', 'rust-cheats', 'rust-perf-book']) {
     wrappers[skill] = await add(`skills/${skill}/SKILL.md`, join(dirname(skillRoot), skill, 'SKILL.md'));
   }
   const apiFiles = [];
@@ -98,10 +98,18 @@ export async function measureBudget({ skillRoot = ROOT, env = process.env, home 
   for (const file of ['references/common.md', 'references/index.md', 'references/all.md', ...topicManifest.topics.map(t => t.file)]) {
     await add(`cheats/${file}`, join(skillRoot, file));
   }
+  const perfRoot = join(dirname(skillRoot), 'rust-perf-book');
+  const perfManifest = JSON.parse(await readFile(join(perfRoot, 'provenance.json'), 'utf8'));
+  const perfFiles = Object.keys(perfManifest.files).filter(file => /^src\/[^/]+\.md$/.test(file)).sort();
+  for (const file of perfFiles) await add(`perf/${file}`, join(perfRoot, 'references/book', file));
+  const perfRouter = await add('skills/rust-perf-book/references/index.md', join(perfRoot, 'references/index.md'));
+  const optimizationMethodology = ['perf/src/benchmarking.md', 'perf/src/general-tips.md'];
+  const runtimeMethodology = [...optimizationMethodology, 'perf/src/profiling.md'];
   const baselines = {
     api: total([wrappers['rust-api-guidelines'], 'api/src/about.md', 'api/src/checklist.md']),
     pragmatic: total([wrappers['rust-pragmatic-guidelines'], pragmaticRouter, 'pragmatic/src/guidelines/README.md']),
     cheats: total([wrappers['rust-cheats'], 'cheats/references/common.md', 'cheats/references/index.md']),
+    performance: total([wrappers['rust-perf-book'], perfRouter, 'perf/src/introduction.md']),
   };
   const baseFiles = Object.values(baselines).flatMap(b => b.files);
   const byId = new Map(topicManifest.topics.map(topic => [topic.id, topic]));
@@ -113,36 +121,43 @@ export async function measureBudget({ skillRoot = ROOT, env = process.env, home 
   const pragmaticIndexes = pragmaticFiles.filter(id => id.endsWith('/README.md') && id !== 'pragmatic/src/guidelines/README.md');
   const lookupStats = files => ({ files, ...Object.fromEntries(encodings.map(e => [e, distribution(files.map(id => resources.get(id).tokens[e]))])) });
   const scenarios = [
-    { name: 'All three baselines, before cheat topics or source lookup', ...total(baseFiles) },
-    { name: 'All three + conversions topic', ...total([...baseFiles, ...topicFiles(['conversions'])]) },
-    { name: 'All three + projects/Cargo topic', ...total([...baseFiles, ...topicFiles(['projects-cargo'])]) },
-    { name: 'All three + advanced traits and prerequisites', ...total([...baseFiles, ...topicFiles(['advanced-traits'])]) },
-    { name: 'All three + function lifetimes and prerequisites', ...total([...baseFiles, ...topicFiles(['function-lifetimes'])]) },
-    { name: 'All three baselines + explicit full cheat archive instead of topics', ...total([...baseFiles, 'cheats/references/all.md']) },
+    { name: 'All four baselines, before chapters/topics or source lookup', ...total(baseFiles) },
+    { name: 'All four + conversions topic', ...total([...baseFiles, ...topicFiles(['conversions'])]) },
+    { name: 'All four + projects/Cargo topic', ...total([...baseFiles, ...topicFiles(['projects-cargo'])]) },
+    { name: 'All four + advanced traits and prerequisites', ...total([...baseFiles, ...topicFiles(['advanced-traits'])]) },
+    { name: 'All four + function lifetimes and prerequisites', ...total([...baseFiles, ...topicFiles(['function-lifetimes'])]) },
+    { name: 'All four + allocation investigation (methodology + heap allocations)', ...total([...baseFiles, ...runtimeMethodology, 'perf/src/heap-allocations.md']) },
+    { name: 'All four + build-time optimization (methodology + compile times/build configuration)', ...total([...baseFiles, ...optimizationMethodology, 'perf/src/compile-times.md', 'perf/src/build-configuration.md']) },
+    { name: 'All four baselines + explicitly requested full performance book', ...total([...baseFiles, ...perfFiles.map(file => `perf/${file}`)]) },
+    { name: 'All four baselines + explicit full cheat archive instead of topics', ...total([...baseFiles, 'cheats/references/all.md']) },
   ];
-  if (exportAvailable) scenarios.push({ name: 'All three baselines + explicitly requested full Microsoft briefing', ...total([...baseFiles, ...agentExportFiles]) });
+  if (exportAvailable) scenarios.push({ name: 'All four baselines + explicitly requested full Microsoft briefing', ...total([...baseFiles, ...agentExportFiles]) });
   const frontmatter = Object.values(wrappers).map(id => /^---\r?\n[\s\S]*?\r?\n---/.exec(contents.get(id))?.[0] ?? '').join('\n');
   const tooling = {};
   for (const path of ['scripts/context-budget.mjs', 'scripts/tokens.mjs', 'package-lock.json']) tooling[path] = hash(await readFile(join(ROOT, path)));
   return {
     formatVersion: 1, contextWindow,
     method: { tokenizer: TOKENIZER, encodings, unit: 'Sum of raw UTF-8 file-text token counts; the same file ID counted once per scenario',
-      excludes: ['tool/chat framing', 'agent/system instructions outside these three SKILL.md files', 'conversation and task code', 'reasoning/output reserve', 'other skill activations'],
+      excludes: ['tool/chat framing', 'agent/system instructions outside these four SKILL.md files', 'conversation and task code', 'reasoning/output reserve', 'other skill activations'],
       assumptions: ['API baseline has no additional agent export in the inspected checkout; any future/custom briefing must be added explicitly.',
         'Default file lists implement the measured SKILL.md policies; review this script when those policies change.',
         'Task-specific source rules are additional required reads for the selected scope; a router or checklist is not the guidance itself.',
         'The Microsoft agent export is optional; its availability and cost are reported separately, never included in the default baseline.',
+        'Performance optimization work additionally requires benchmarking/general tips, plus profiling for runtime/memory investigations; focused explanatory questions do not.',
         'Tokenizer counts are not universal provider counts, token prices, or exact Pi prompt measurements.'] },
-    sourceVersions: { pragmatic: /^Version:\s*(.+)$/m.exec(contents.get('pragmatic/src/guidelines/README.md'))?.[1] ?? 'unspecified; see input hashes' },
+    sourceVersions: { pragmatic: /^Version:\s*(.+)$/m.exec(contents.get('pragmatic/src/guidelines/README.md'))?.[1] ?? 'unspecified; see input hashes', perfBook: perfManifest.commit },
     tooling,
     availability: { frontmatterTextProxy: tokenCounts(frontmatter), note: 'Only names/descriptions/paths are advertised before activation. This raw-frontmatter proxy excludes actual Pi formatting and paths; it is not the full baseline.' },
     baselines, topics,
+    performance: { optimizationMethodology: total(optimizationMethodology), runtimeMethodology: total(runtimeMethodology),
+      fullBook: total(perfFiles.map(file => `perf/${file}`)) },
     optionalAgentExport: { available: exportAvailable, files: agentExportFiles, unavailable, increment: exportAvailable ? total(agentExportFiles) : null },
     topicDistribution: {
       direct: Object.fromEntries(encodings.map(e => [e, distribution(topics.map(t => t.direct.tokens[e]))])),
       withPrerequisites: Object.fromEntries(encodings.map(e => [e, distribution(topics.map(t => t.withPrerequisites.tokens[e]))])),
     },
-    optionalLookups: { apiChapters: lookupStats(apiChapters), pragmaticRules: lookupStats(pragmaticRules), pragmaticIndexes: lookupStats(pragmaticIndexes) },
+    optionalLookups: { apiChapters: lookupStats(apiChapters), pragmaticRules: lookupStats(pragmaticRules), pragmaticIndexes: lookupStats(pragmaticIndexes),
+      performanceChapters: lookupStats(perfFiles.filter(file => !['src/introduction.md','src/title-page.md','src/SUMMARY.md'].includes(file)).map(file => `perf/${file}`)) },
     scenarios,
     resources: [...resources.values()].sort((a, b) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0),
   };
@@ -158,21 +173,23 @@ export function renderBudget(report) {
   let text = '# Rust skill context budget\n\nGenerated by `npm run budget -- --write`; do not hand-edit the numeric report.\n\n' +
     `Budget: **${n(report.contextWindow)} tokens per agent**. Counts use ${report.method.tokenizer}; the tables use \`o200k_base\`, with \`cl100k_base\` alongside where useful. These are raw file-text input counts, not billed dollars or exact provider prompt usage.\n\n` +
     '## Availability is not activation\n\nPi advertises skill names, descriptions and paths; it does not load every skill body or reference at startup. ' +
-    `The three frontmatters together are ${n(report.availability.frontmatterTextProxy.o200k_base)} tokens as a rough advertisement-text proxy (actual formatting/path overhead differs). The larger costs below occur when the skills are invoked.\n\n` +
+    `The four frontmatters together are ${n(report.availability.frontmatterTextProxy.o200k_base)} tokens as a rough advertisement-text proxy (actual formatting/path overhead differs). The larger costs below occur when the skills are invoked.\n\n` +
     '## Default activation costs\n\n| Skill | o200k tokens | cl100k tokens | % of context | Included |\n| --- | ---: | ---: | ---: | --- |\n';
-  const descriptions = { api: ['Rust API Guidelines', 'SKILL.md + about.md + checklist.md'], pragmatic: ['Microsoft Pragmatic Guidelines', 'SKILL.md + task router + guidelines README; source rules extra'], cheats: ['Rust cheats: routing baseline', 'SKILL.md + common caveats + compact router; topics extra'] };
+  const descriptions = { api: ['Rust API Guidelines', 'SKILL.md + about.md + checklist.md'], pragmatic: ['Microsoft Pragmatic Guidelines', 'SKILL.md + task router + guidelines README; source rules extra'], cheats: ['Rust cheats: routing baseline', 'SKILL.md + common caveats + compact router; topics extra'], performance: ['Rust Performance Book', 'SKILL.md + introduction + task router; methodology/chapters extra'] };
   for (const [id, baseline] of Object.entries(report.baselines)) text += `| ${descriptions[id][0]} | ${n(baseline.tokens.o200k_base)} | ${n(baseline.tokens.cl100k_base)} | ${baseline.percentOfContext.o200k_base}% | ${descriptions[id][1]} |\n`;
   text += `\nMicrosoft's \`src/agents/all.txt\` is **not loaded by default**${exportCost === undefined ? '' : `; that file alone would add **${n(exportCost)} tokens**`}. ${exportStatus} Normal routing does not depend on it. The API skill does **not** load its entire book: its about/checklist baseline is ${n(resource('api/src/about.md') + resource('api/src/checklist.md'))} tokens before the skill wrapper. No extra API agent export exists in the inspected checkout; a future/custom export would add cost.\n\n` +
     '## Cheat topics\n\n' +
     `The ${topic.count} generated topic files (including their headers) range from **${n(topic.min)}–${n(topic.max)} tokens**, median **${n(topic.median)}**. After recursively including prerequisites once, the per-selection increment ranges from **${n(prerequisites.min)}–${n(prerequisites.max)}**, median **${n(prerequisites.median)}**. Add the routing baseline above. These increments describe one selected topic; multi-topic questions need the union of their file sets.\n\n` +
     `The full cheat archive is **${n(resource('cheats/references/all.md'))} tokens** and is no longer a default read. Do not read it as well as the topic copies.\n\n` +
-    '## Combined scenarios\n\nThese totals include all three skill baselines and the named cheat topics/prerequisites or explicitly requested exports, but **exclude task-specific API chapters and Microsoft source rules**. The full-archive example conservatively includes the already-read common preamble again inside the archive.\n\n' +
+    '## Performance chapters\n\n' +
+    `Actual optimization work adds complete Benchmarking and General Tips chapters (**${n(report.performance.optimizationMethodology.tokens.o200k_base)} tokens**), plus Profiling for runtime/memory investigations (**${n(report.performance.runtimeMethodology.tokens.o200k_base)} tokens** for all three). Then add the selected technique chapters. Focused explanatory questions need only their relevant chapters. These are conditional required reads, not part of the baseline. The whole book, including its TOC/title page, is **${n(report.performance.fullBook.tokens.o200k_base)} tokens** and is opt-in. Licenses and maintenance files are not default reads.\n\n` +
+    '## Combined scenarios\n\nThese totals include all four skill baselines and the named chapters/topics/prerequisites or explicitly requested exports, but **exclude task-specific API chapters and Microsoft source rules**. Performance methodology is included in the named optimization scenarios, not unrelated language questions. The full-archive example conservatively includes the already-read common preamble again inside the archive.\n\n' +
     '| Loaded material | Tokens | % of context | Remainder before other costs |\n| --- | ---: | ---: | ---: |\n';
   for (const scenario of report.scenarios) text += `| ${scenario.name} | ${n(scenario.tokens.o200k_base)} | ${scenario.percentOfContext.o200k_base}% | ${n(scenario.remainingBeforeOtherCosts.o200k_base)} |\n`;
   text += '\nThe remainder is **not** all free working space: agent/system prompts, tools, conversation, code, other skills, and reasoning/output reserve still need to fit. These are per-agent budgets; several agents do not share one 200k window.\n\n' +
     '## Additional source lookup costs\n\nFull relevant source reads remain required by the guideline skills: the task router and checklist are not substitutes. Even an explicitly requested export does not make separately read source rules free. Files below are **not all loaded by default**, but selected applicable rules are mandatory.\n\n' +
     '| Task-specific lookup collection | Files | Median per file | Largest file | All files combined |\n| --- | ---: | ---: | ---: | ---: |\n';
-  for (const [id, label] of [['apiChapters','API chapters (excluding baseline, TOC and external links)'],['pragmaticRules','Microsoft M-* source rules'],['pragmaticIndexes','Microsoft category/checklist READMEs']]) {
+  for (const [id, label] of [['apiChapters','API chapters (excluding baseline, TOC and external links)'],['pragmaticRules','Microsoft M-* source rules'],['pragmaticIndexes','Microsoft category/checklist READMEs'],['performanceChapters','Performance chapters (excluding introduction, title page and TOC)']]) {
     const stats = report.optionalLookups[id].o200k_base;
     text += `| ${label} | ${stats.count} | ${n(stats.median)} | ${n(stats.max)} | ${n(stats.sum)} |\n`;
   }
@@ -180,11 +197,12 @@ export function renderBudget(report) {
     '- Keep the small API baseline and topic-based cheats. Complete relevant files retain their warnings and exceptions without the full encyclopedia cost.\n' +
     '- Microsoft now uses its small overview and task router, then complete relevant source files. The full agent briefing is opt-in. This trades broad always-present coverage for deliberate scope selection; consider cross-cutting safety, API, testing and build concerns before narrowing.\n' +
     '- Broad Microsoft reviews additionally load the upstream checklist and all applicable source rules. Add those lookup costs to the examples above; the smaller baseline is not a claim that a thorough review is free.\n' +
+    '- Performance guidance is chapter-routed; preserve its measurement-first methodology for optimization tasks. A small baseline does not justify skipping benchmarking or profiling.\n' +
     '- Reuse complete reads already in active context. Do not reread the same prerequisites or append both a topic set and its full archive. A compacted summary is not a complete source read.\n' +
     '- Prompt caching may reduce billing or latency, but does not reclaim context capacity. Dollar cost depends on provider/model and cache pricing, which this report does not assume.\n\n' +
     '## Snapshot and reproduction\n\n' +
-    `Microsoft source version: **${report.sourceVersions.pragmatic}**. Exact measured file sizes, SHA-256 hashes, both tokenizer counts, prerequisite closures and baseline file lists are in [context-budget.json](context-budget.json). No machine-specific absolute paths or timestamps are recorded.\n\n` +
-    'After `npm ci --ignore-scripts`, run `npm run budget` to inspect current JSON, `npm run budget -- --write` to refresh this report, or `npm run budget -- --check` to verify it. The two guideline skills must be siblings of this one; configure their absolute repository roots with `RUST_API_GUIDELINES_REPO` and `RUST_PRAGMATIC_GUIDELINES_REPO`, or use their documented defaults. Empty, missing, unreadable or invalid required inputs fail rather than falling back. Optional agent-export availability is reported without blocking the normal baseline measurement. Use `--context 200000` to change the modeled window explicitly.\n\n' +
+    `Microsoft source version: **${report.sourceVersions.pragmatic}**. Performance-book revision: \`${report.sourceVersions.perfBook}\`. Exact measured file sizes, SHA-256 hashes, both tokenizer counts, prerequisite closures and baseline file lists are in [context-budget.json](context-budget.json). No machine-specific absolute paths or timestamps are recorded.\n\n` +
+    'After `npm ci --ignore-scripts`, run `npm run budget` to inspect current JSON, `npm run budget -- --write` to refresh this report, or `npm run budget -- --check` to verify it. The two guideline skills and the bundled performance-book skill must be siblings of this one; configure the guideline skills\' absolute repository roots with `RUST_API_GUIDELINES_REPO` and `RUST_PRAGMATIC_GUIDELINES_REPO`, or use their documented defaults. Empty, missing, unreadable or invalid required inputs fail rather than falling back. Optional agent-export availability is reported without blocking the normal baseline measurement. Use `--context 200000` to change the modeled window explicitly.\n\n' +
     'The budget command is optional maintenance, never a skill-load step. Ordinary cheat generation/checks do not require either guideline checkout. Counts are sums of file text without read-tool envelopes, repeated truncation notices or chat framing. Different provider tokenizers can differ; neither encoding is asserted to be Claude\'s tokenizer.\n';
   return text;
 }

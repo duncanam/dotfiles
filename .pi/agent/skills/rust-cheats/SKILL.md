@@ -1,5 +1,6 @@
 ---
 name: rust-cheats
+license: "MIT (original code); see NOTICE.md for reference content"
 description: >
   Rust language, standard-library, and tooling reference from cheats.rs. Use
   for unfamiliar syntax, ownership and lifetimes, types and traits, generics
@@ -63,9 +64,12 @@ Cite the topic heading and the pinned upstream source linked in its header.
 Normal use needs no checkout, installation, network access or generation step.
 `README.md` documents regeneration; `provenance.json` pins the source;
 `references/topics.json` records sizes and prerequisites. `CONTEXT-BUDGET.md`
-estimates the three Rust skills' costs against a 200k context.
+estimates the four Rust skills' costs against a 200k context.
 
 `RUST_CHEATS_REPO` is an optional absolute repository-root override for
 **regeneration only**; invalid or mismatched overrides fail without fallback.
 Read `NOTICE.md` before redistribution: upstream's stated CC-BY terms have
-additional conditions/exclusions. This adaptation does not imply endorsement.
+additional conditions/exclusions and no specified CC version. Publication needs
+review; do not relabel the reference as unconditional CC/MIT. This adaptation
+does not imply endorsement. Original skill/tooling code is MIT licensed under
+`LICENSE`; that grant does not relicense the bundled reference.

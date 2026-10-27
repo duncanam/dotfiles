@@ -1,5 +1,6 @@
 ---
 name: rust-pragmatic-guidelines
+license: MIT
 description: >
   Source-backed Rust engineering guidance from Microsoft's Pragmatic Rust
   Guidelines. Use when writing, reviewing or refactoring Rust applications and
@@ -99,3 +100,10 @@ Use `rust-api-guidelines` for public API design/review and `C-*` rules, and
 `rust-cheats` for language semantics. Microsoft's `M-UPSTREAM-GUIDELINES`
 complements the API Guidelines; neither collection is a language specification.
 No package installation or agent export is needed for ordinary skill use.
+
+## Attribution and redistribution
+
+See `NOTICE.md` and `licenses/` for Microsoft's attribution and complete MIT
+notice covering source-derived navigation. Original skill instructions and tools
+are MIT licensed under `LICENSE`; the full guidelines remain external. No
+unrelated repository files are licensed by this skill's grant.
