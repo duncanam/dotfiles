@@ -1,0 +1,114 @@
+{
+  "formatVersion": 1,
+  "repository": "https://github.com/nnethercote/perf-book",
+  "commit": "a05dd0f15595e98aef45e5a15072c2a71dbe37ba",
+  "attribution": "The Rust Performance Book, written by Nicholas Nethercote and others",
+  "license": {
+    "upstream": "MIT OR Apache-2.0",
+    "redistributionOption": "MIT",
+    "notice": "NOTICE.md"
+  },
+  "modifications": "None to bundled upstream files; independent skill instructions and router live outside references/book.",
+  "files": {
+    "LICENSE-APACHE": {
+      "bytes": 9723,
+      "sha256": "62c7a1e35f56406896d7aa7ca52d0cc0d272ac022b5d2796e7d6905db8a3636a"
+    },
+    "LICENSE-MIT": {
+      "bytes": 1023,
+      "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+    },
+    "README.md": {
+      "bytes": 2208,
+      "sha256": "1658dcee79c4cf980f65e229b52f423443ec9f52bc4d7345195d38003aa728c4"
+    },
+    "book.toml": {
+      "bytes": 642,
+      "sha256": "bb2324fbb76bc477ec16269ea2f8ac1c28d3053d5820426110401a2f7433329b"
+    },
+    "src/SUMMARY.md": {
+      "bytes": 688,
+      "sha256": "0dea41133844c83a296622c59bcdbb69da7f30b0779fd9192248632c61076aaa"
+    },
+    "src/benchmarking.md": {
+      "bytes": 3094,
+      "sha256": "ade47afe39debd038fa7343dc280497b2adf9b0fe0980b2525dfe55d7a5899ed"
+    },
+    "src/bounds-checks.md": {
+      "bytes": 1249,
+      "sha256": "cc873a34841da6c4053b873c162e0e02534126810b56bf48d450d7a99d316640"
+    },
+    "src/build-configuration.md": {
+      "bytes": 20230,
+      "sha256": "fde14fab2ec5189e2bd68bba90b490cf87290179dacc486f82dd140a8b10afa5"
+    },
+    "src/compile-times.md": {
+      "bytes": 5297,
+      "sha256": "4a249d4aee2da6a458a67bb7cf54d7c85b42db8764876d55e8b601bb58ee94ba"
+    },
+    "src/general-tips.md": {
+      "bytes": 4059,
+      "sha256": "d8081b12259c03251287de0593dc7c0b373f1ce7612a9c89bf8c1a28d3acf03f"
+    },
+    "src/hashing.md": {
+      "bytes": 4037,
+      "sha256": "bf284cb365b89f6fe2cb1e9d9c1ab928129fd97b7f0294a1becc98037dba94e3"
+    },
+    "src/heap-allocations.md": {
+      "bytes": 20816,
+      "sha256": "ab826a6a9f1917a4250d9f85279571f94605fdfde5afa5ec283b19ec52d233f2"
+    },
+    "src/inlining.md": {
+      "bytes": 4538,
+      "sha256": "8d6e3354ac72d61c8279a113bf85f8abfb50dacf690169ccc3ff9020d792f817"
+    },
+    "src/introduction.md": {
+      "bytes": 1607,
+      "sha256": "c283e6362fc11e289bd4e5ffd4820bd60a88b4438bd3afde444c4e006761fbbd"
+    },
+    "src/io.md": {
+      "bytes": 4576,
+      "sha256": "967a5b6df59a7210096ebca2399000fb9fc3cfc2cce3317eb10e4c1556f3d276"
+    },
+    "src/iterators.md": {
+      "bytes": 5077,
+      "sha256": "7a465f197cbd67a2e461d3f1b2199f06311a9ecc11598e11ce458e617e0d7277"
+    },
+    "src/linting.md": {
+      "bytes": 2274,
+      "sha256": "e5c697b6bc3609f33b252140e58f9b4e3bac195eed979d4dd34e3bcc024a54d5"
+    },
+    "src/logging-and-debugging.md": {
+      "bytes": 1237,
+      "sha256": "a3af0d478858aa542bb0b610f99a61f801b0fc8692ce2c46cbdd61ff0c2674a7"
+    },
+    "src/machine-code.md": {
+      "bytes": 696,
+      "sha256": "5d88569850b6a31fa9c94bf3321b579d81037cdef82db1c882cf8160ed3336a6"
+    },
+    "src/parallelism.md": {
+      "bytes": 932,
+      "sha256": "748094cbd16ed5c8701a67bf8c8afe50d72fa8aae2b0b3457f86ab9bfdedcae0"
+    },
+    "src/profiling.md": {
+      "bytes": 6472,
+      "sha256": "a4a3286b94bf55368b1a494c9895bd5b7773ea9b8bf82b9d323063bc6b565510"
+    },
+    "src/standard-library-types.md": {
+      "bytes": 5053,
+      "sha256": "9aa3ba701734354f5a0526e88b69b714eda2a832c4d3175a7ce1364a92faab1d"
+    },
+    "src/title-page.md": {
+      "bytes": 281,
+      "sha256": "f0d395e981c79575686b606973f83a622b276e5a6143695fbc27f4c007eced93"
+    },
+    "src/type-sizes.md": {
+      "bytes": 7586,
+      "sha256": "1f9e4a832c99c806e3b5e2e781dfbd8ccff19e370360240b3df96d79dca376d5"
+    },
+    "src/wrapper-types.md": {
+      "bytes": 906,
+      "sha256": "5b1e258aa0d54fdc83129468e713858cc2fd6f6383fee357f37871598e6134b9"
+    }
+  }
+}

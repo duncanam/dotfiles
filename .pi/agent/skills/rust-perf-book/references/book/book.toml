@@ -1,0 +1,25 @@
+[book]
+title = "The Rust Performance Book"
+authors = ["Nicholas Nethercote"]
+src = "src"
+language = "en"
+
+[build]
+create-missing = false
+
+[rust]
+edition = "2018"
+
+[output.html]
+smart-punctuation = true
+default-theme = "rust"
+git-repository-url = "https://github.com/nnethercote/perf-book"
+edit-url-template = "https://github.com/nnethercote/perf-book/edit/master/{path}"
+site-url = "https://nnethercote.github.io/perf-book/"
+
+# EPUB
+# Currently disabled due to
+# https://github.com/nnethercote/perf-book/actions/runs/6358429874/job/17270643057
+#[output.epub]
+#optional = true  # So epub generation is skipped if mdbook-epub isn't installed.
+
